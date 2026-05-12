@@ -16,9 +16,33 @@ export function saveSelection(userKey, selection) {
   })
 }
 
-export function sendChat(message, userKey) {
+export function listConversations(userKey) {
+  return request(`/conversations?user_key=${encodeURIComponent(userKey)}`)
+}
+
+export function createConversation(userKey, title = '新对话') {
+  return request('/conversations', {
+    method: 'POST',
+    body: JSON.stringify({ user_key: userKey, title }),
+  })
+}
+
+export function updateConversation(conversationId, userKey, payload) {
+  return request(`/conversations/${encodeURIComponent(conversationId)}?user_key=${encodeURIComponent(userKey)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function listConversationMessages(conversationId, userKey) {
+  return request(
+    `/conversations/${encodeURIComponent(conversationId)}/messages?user_key=${encodeURIComponent(userKey)}`,
+  )
+}
+
+export function sendChat(message, userKey, conversationId = null) {
   return request('/chat', {
     method: 'POST',
-    body: JSON.stringify({ message, user_key: userKey }),
+    body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId }),
   })
 }

@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from langchain_core.messages import HumanMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.repositories import UserSelectionRepository
+from app.db.repositories import ConversationMessageRepository, ConversationRepository, UserSelectionRepository
 from app.db.session import get_db
 from app.graph.builder import build_chat_graph
 from app.plugins.registry import resolve_resources_by_name
@@ -13,6 +13,24 @@ router = APIRouter()
 
 @router.post("")
 async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> dict:
+    conversation_repo = ConversationRepository(db)
+    message_repo = ConversationMessageRepository(db)
+
+    if payload.conversation_id is None:
+        conversation = await conversation_repo.create(
+            user_key=payload.user_key,
+            title=payload.message[:24] or "新对话",
+        )
+    else:
+        conversation = await conversation_repo.get(payload.conversation_id, user_key=payload.user_key)
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
+        messages = await message_repo.list(conversation.id)
+        if not messages and conversation.title == "新对话":
+            conversation = await conversation_repo.update(conversation, title=payload.message[:24] or "新对话")
+
+    await message_repo.create(conversation.id, role="user", content=payload.message)
+
     selection_item = await UserSelectionRepository(db).get(payload.user_key)
     selection = (
         selection_item.to_dict()
@@ -33,8 +51,21 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> dict
             "subagents": resources["subagents"],
         }
     )
+    answer = result["messages"][-1].content
+    await message_repo.create(
+        conversation.id,
+        role="assistant",
+        content=answer,
+        metadata={"resources": resources},
+    )
+    messages = await message_repo.list(conversation.id)
+    conversation = await conversation_repo.get(conversation.id, user_key=payload.user_key)
+
     return {
-        "answer": result["messages"][-1].content,
+        "answer": answer,
+        "conversation_id": conversation.id,
+        "conversation": conversation.to_dict(),
+        "messages": [message.to_dict() for message in messages],
         "selection": selection,
         "resources": resources,
     }

@@ -1,24 +1,35 @@
 <script setup>
 import { onMounted } from 'vue'
 import ChatBox from '../components/ChatBox.vue'
+import ConversationSidebar from '../components/ConversationSidebar.vue'
 import ResourceSelector from '../components/ResourceSelector.vue'
+import { loadConversations } from '../stores/conversationStore'
 import { loadWorkspace, persistSelection, selectionStore } from '../stores/selectionStore'
 
-onMounted(loadWorkspace)
+onMounted(async () => {
+  await Promise.all([
+    loadWorkspace(),
+    loadConversations(selectionStore.userKey),
+  ])
+})
 </script>
 
 <template>
   <main class="page">
-    <aside class="sidebar">
-      <h1>miniBOT</h1>
-      <p>FastAPI + LangChain + LangGraph + Vue 的插件化雏形。</p>
-      <button class="primary" :disabled="selectionStore.loading" @click="persistSelection">
-        保存选择
-      </button>
-      <p v-if="selectionStore.error" class="error">{{ selectionStore.error }}</p>
-    </aside>
+    <ConversationSidebar />
 
     <section class="workspace">
+      <header class="workspace-header">
+        <div>
+          <h1>miniBOT</h1>
+          <p>选择资源后，可以在当前对话中运行测试。</p>
+        </div>
+        <button class="primary" :disabled="selectionStore.loading" @click="persistSelection">
+          保存选择
+        </button>
+      </header>
+      <p v-if="selectionStore.error" class="error">{{ selectionStore.error }}</p>
+
       <div class="grid">
         <ResourceSelector
           title="MCP"
