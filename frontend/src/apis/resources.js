@@ -20,17 +20,16 @@ export function listConversations(userKey) {
   return request(`/conversations?user_key=${encodeURIComponent(userKey)}`)
 }
 
-export function createConversation(userKey, title = '新对话') {
-  return request('/conversations', {
-    method: 'POST',
-    body: JSON.stringify({ user_key: userKey, title }),
-  })
-}
-
 export function updateConversation(conversationId, userKey, payload) {
   return request(`/conversations/${encodeURIComponent(conversationId)}?user_key=${encodeURIComponent(userKey)}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
+  })
+}
+
+export function deleteConversation(conversationId, userKey) {
+  return request(`/conversations/${encodeURIComponent(conversationId)}?user_key=${encodeURIComponent(userKey)}`, {
+    method: 'DELETE',
   })
 }
 

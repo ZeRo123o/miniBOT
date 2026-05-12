@@ -2,6 +2,8 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.graph.prompt import DEFAULT_SYSTEM_PROMPT
+
 
 class Settings(BaseSettings):
     app_name: str = "miniBOT"
@@ -16,7 +18,7 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     openai_temperature: float = 0.2
-    default_system_prompt: str = "You are miniBOT, a modular assistant."
+    default_system_prompt: str = DEFAULT_SYSTEM_PROMPT
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="MINIBOT_", extra="ignore")
 

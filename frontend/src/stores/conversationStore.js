@@ -1,8 +1,9 @@
 import { computed, reactive } from 'vue'
 import {
-  createConversation,
+  deleteConversation,
   listConversationMessages,
   listConversations,
+  updateConversation,
 } from '../apis/resources'
 
 export const conversationStore = reactive({
@@ -32,6 +33,11 @@ function upsertConversation(conversation) {
   conversationStore.conversations.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
 }
 
+function removeLocalConversation(conversationId) {
+  conversationStore.conversations = conversationStore.conversations.filter((item) => item.id !== conversationId)
+  delete conversationStore.messagesByConversationId[conversationId]
+}
+
 export async function loadConversations(userKey) {
   conversationStore.loading = true
   conversationStore.error = ''
@@ -50,19 +56,9 @@ export async function loadConversations(userKey) {
   }
 }
 
-export async function newConversation(userKey) {
-  conversationStore.loading = true
+export function newConversation() {
+  conversationStore.activeId = null
   conversationStore.error = ''
-  try {
-    const conversation = await createConversation(userKey)
-    upsertConversation(conversation)
-    conversationStore.activeId = conversation.id
-    conversationStore.messagesByConversationId[conversation.id] = []
-  } catch (error) {
-    conversationStore.error = error.message
-  } finally {
-    conversationStore.loading = false
-  }
 }
 
 export async function selectConversation(id, userKey) {
@@ -78,6 +74,39 @@ export async function loadMessages(conversationId, userKey) {
       conversationId,
       userKey,
     )
+  } catch (error) {
+    conversationStore.error = error.message
+  } finally {
+    conversationStore.loading = false
+  }
+}
+
+export async function renameConversation(conversationId, userKey, title) {
+  const nextTitle = title.trim()
+  if (!nextTitle) return
+
+  conversationStore.loading = true
+  conversationStore.error = ''
+  try {
+    const conversation = await updateConversation(conversationId, userKey, { title: nextTitle })
+    upsertConversation(conversation)
+  } catch (error) {
+    conversationStore.error = error.message
+  } finally {
+    conversationStore.loading = false
+  }
+}
+
+export async function removeConversation(conversationId, userKey) {
+  conversationStore.loading = true
+  conversationStore.error = ''
+  try {
+    await deleteConversation(conversationId, userKey)
+    const wasActive = conversationStore.activeId === conversationId
+    removeLocalConversation(conversationId)
+    if (wasActive) {
+      conversationStore.activeId = null
+    }
   } catch (error) {
     conversationStore.error = error.message
   } finally {

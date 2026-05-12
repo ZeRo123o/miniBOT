@@ -1,10 +1,13 @@
 <script setup>
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import ChatBox from '../components/ChatBox.vue'
 import ConversationSidebar from '../components/ConversationSidebar.vue'
-import ResourceSelector from '../components/ResourceSelector.vue'
+import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import { loadConversations } from '../stores/conversationStore'
-import { loadWorkspace, persistSelection, selectionStore } from '../stores/selectionStore'
+import { loadWorkspace, selectionStore } from '../stores/selectionStore'
+
+const sidebarCollapsed = ref(false)
+const workspaceCollapsed = ref(false)
 
 onMounted(async () => {
   await Promise.all([
@@ -15,40 +18,25 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="page">
-    <ConversationSidebar />
+  <main
+    class="page"
+    :class="{
+      'sidebar-collapsed': sidebarCollapsed,
+      'workspace-collapsed': workspaceCollapsed,
+    }"
+  >
+    <ConversationSidebar
+      :collapsed="sidebarCollapsed"
+      @toggle="sidebarCollapsed = !sidebarCollapsed"
+    />
 
     <section class="workspace">
-      <header class="workspace-header">
-        <div>
-          <h1>miniBOT</h1>
-          <p>选择资源后，可以在当前对话中运行测试。</p>
-        </div>
-        <button class="primary" :disabled="selectionStore.loading" @click="persistSelection">
-          保存选择
-        </button>
-      </header>
-      <p v-if="selectionStore.error" class="error">{{ selectionStore.error }}</p>
-
-      <div class="grid">
-        <ResourceSelector
-          title="MCP"
-          :items="selectionStore.resources.mcp"
-          v-model="selectionStore.selection.mcps"
-        />
-        <ResourceSelector
-          title="Skill"
-          :items="selectionStore.resources.skill"
-          v-model="selectionStore.selection.skills"
-        />
-        <ResourceSelector
-          title="Subagent"
-          :items="selectionStore.resources.subagent"
-          v-model="selectionStore.selection.subagents"
-        />
-      </div>
-
       <ChatBox />
     </section>
+
+    <WorkspaceSidebar
+      :collapsed="workspaceCollapsed"
+      @toggle="workspaceCollapsed = !workspaceCollapsed"
+    />
   </main>
 </template>

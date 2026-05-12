@@ -1,43 +1,121 @@
 <script setup>
-import { MessageSquarePlus, MessageSquareText } from 'lucide-vue-next'
+import { MoreHorizontal, PanelLeftClose, PanelLeftOpen, SquarePen } from 'lucide-vue-next'
+import { ref } from 'vue'
 import {
   conversationStore,
   newConversation,
+  removeConversation,
+  renameConversation,
   selectConversation,
 } from '../stores/conversationStore'
 import { selectionStore } from '../stores/selectionStore'
+
+defineProps({
+  collapsed: {
+    type: Boolean,
+    default: false,
+  },
+})
+
+defineEmits(['toggle'])
+
+const openMenuId = ref(null)
+const pendingDelete = ref(null)
+
+function toggleMenu(conversationId) {
+  openMenuId.value = openMenuId.value === conversationId ? null : conversationId
+}
+
+async function handleRename(conversation) {
+  openMenuId.value = null
+  const title = window.prompt('重命名对话', conversation.title)
+  if (title === null || title.trim() === conversation.title) return
+  await renameConversation(conversation.id, selectionStore.userKey, title)
+}
+
+function requestDelete(conversation) {
+  openMenuId.value = null
+  pendingDelete.value = conversation
+}
+
+async function confirmDelete() {
+  if (!pendingDelete.value) return
+  const conversationId = pendingDelete.value.id
+  pendingDelete.value = null
+  await removeConversation(conversationId, selectionStore.userKey)
+}
 </script>
 
 <template>
-  <aside class="conversation-sidebar">
-    <button
-      class="new-chat-button"
-      type="button"
-      :disabled="conversationStore.loading"
-      @click="newConversation(selectionStore.userKey)"
-    >
-      <MessageSquarePlus :size="18" />
-      <span>发起新对话</span>
-    </button>
+  <aside class="conversation-sidebar" :class="{ collapsed }">
+    <header class="conversation-sidebar-header">
+      <h1 v-if="!collapsed">MiniBOT</h1>
+      <button
+        class="sidebar-toggle"
+        type="button"
+        :title="collapsed ? '展开侧边栏' : '折叠侧边栏'"
+        @click="$emit('toggle')"
+      >
+        <PanelLeftOpen v-if="collapsed" :size="18" />
+        <PanelLeftClose v-else :size="18" />
+      </button>
+    </header>
 
-    <section class="conversation-section">
-      <h2>对话历史</h2>
-      <p v-if="conversationStore.error" class="conversation-error">
-        {{ conversationStore.error }}
-      </p>
-      <div class="conversation-list">
-        <button
-          v-for="conversation in conversationStore.conversations"
-          :key="conversation.id"
-          class="conversation-item"
-          :class="{ active: conversation.id === conversationStore.activeId }"
-          type="button"
-          @click="selectConversation(conversation.id, selectionStore.userKey)"
-        >
-          <MessageSquareText :size="16" />
-          <span>{{ conversation.title }}</span>
-        </button>
-      </div>
-    </section>
+    <div v-if="!collapsed" class="conversation-sidebar-body">
+      <button
+        class="new-chat-button"
+        type="button"
+        :disabled="conversationStore.loading"
+        @click="newConversation()"
+      >
+        <SquarePen :size="18" />
+        <span>创建新对话</span>
+      </button>
+
+      <section class="conversation-section">
+        <p v-if="conversationStore.error" class="conversation-error">
+          {{ conversationStore.error }}
+        </p>
+        <div class="conversation-list">
+          <div
+            v-for="conversation in conversationStore.conversations"
+            :key="conversation.id"
+            class="conversation-row"
+            :class="{ active: conversation.id === conversationStore.activeId }"
+          >
+            <button
+              class="conversation-item"
+              type="button"
+              @click="selectConversation(conversation.id, selectionStore.userKey)"
+            >
+              <span>{{ conversation.title }}</span>
+            </button>
+            <button
+              class="conversation-more"
+              type="button"
+              title="更多"
+              @click.stop="toggleMenu(conversation.id)"
+            >
+              <MoreHorizontal :size="18" />
+            </button>
+            <div v-if="openMenuId === conversation.id" class="conversation-menu">
+              <button type="button" @click="handleRename(conversation)">重命名</button>
+              <button type="button" class="danger" @click="requestDelete(conversation)">删除</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="pendingDelete" class="modal-backdrop" @click.self="pendingDelete = null">
+      <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+        <h2 id="delete-title">删除对话？</h2>
+        <p>删除后，该对话将从历史列表中移除。</p>
+        <div class="confirm-actions">
+          <button type="button" class="secondary-button" @click="pendingDelete = null">取消</button>
+          <button type="button" class="danger-button" @click="confirmDelete">删除</button>
+        </div>
+      </section>
+    </div>
   </aside>
 </template>
