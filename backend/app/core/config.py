@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+asyncpg://minibot:minibot@localhost:5432/minibot"
 
     default_model: str = "mock"
+    default_model_provider: str = "mock"
+    default_model_name: str = "mock"
+    openai_api_key: str = ""
+    openai_base_url: str = "https://api.openai.com/v1"
+    openai_temperature: float = 0.2
     default_system_prompt: str = "You are miniBOT, a modular assistant."
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="MINIBOT_", extra="ignore")

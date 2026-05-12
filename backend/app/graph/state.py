@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import Any, NotRequired, TypedDict
 
 from langchain_core.messages import BaseMessage
 
@@ -8,3 +8,4 @@ class ChatState(TypedDict):
     mcps: list[dict]
     skills: list[dict]
     subagents: list[dict]
+    runtime: NotRequired[dict[str, Any]]
