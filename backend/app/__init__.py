@@ -1,0 +1,1 @@
+"""miniBOT backend package."""
