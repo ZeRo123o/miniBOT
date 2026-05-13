@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories import UserSelectionRepository
 from app.db.session import get_db
-from app.plugins.registry import resolve_resources_by_name
+from app.plugins.registry import list_enabled_resources, resolve_resources_by_name
 from app.plugins.types import SelectionIn
 
 router = APIRouter()
@@ -40,5 +40,6 @@ async def resolve_selection(user_key: str, db: AsyncSession = Depends(get_db)) -
             "mcps": await resolve_resources_by_name(db, kind="mcp", names=data["mcps"]),
             "skills": await resolve_resources_by_name(db, kind="skill", names=data["skills"]),
             "subagents": await resolve_resources_by_name(db, kind="subagent", names=data["subagents"]),
+            "tools": await list_enabled_resources(db, kind="tool"),
         },
     }

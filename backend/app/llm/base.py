@@ -1,8 +1,3 @@
-from typing import Protocol
+from langchain_core.language_models.chat_models import BaseChatModel
 
-from langchain_core.messages import BaseMessage
-
-
-class ChatModel(Protocol):
-    async def ainvoke(self, messages: list[BaseMessage]) -> BaseMessage:
-        """Return the assistant message for the provided conversation messages."""
+ChatModel = BaseChatModel

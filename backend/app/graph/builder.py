@@ -1,43 +1,29 @@
-from langchain_core.messages import AIMessage, BaseMessage, SystemMessage
-from langgraph.graph import END, START, StateGraph
+from typing import Any
 
-from app.core.config import get_settings
-from app.graph.middleware import RuntimeResourceMiddleware, SkillPromptMiddleware, compose_middlewares
-from app.graph.prompt import build_system_prompt
-from app.graph.state import ChatState
-from app.llm import get_chat_model
+from langchain.agents import create_agent
 
-
-def _build_model_messages(state: ChatState) -> list[BaseMessage]:
-    settings = get_settings()
-    return [
-        SystemMessage(content=build_system_prompt(state, settings.default_system_prompt)),
-        *state.get("messages", []),
-    ]
+from app.agent.context import AgentContext
+from app.graph.middleware import RuntimePromptMiddleware, RuntimeResourceMiddleware, SkillPromptMiddleware
+from app.llm import get_model
+from app.tools import get_runtime_tools
 
 
-async def _assistant_node(state: ChatState) -> ChatState:
-    model = get_chat_model()
-    response = await model.ainvoke(_build_model_messages(state))
-    if not isinstance(response, AIMessage):
-        response = AIMessage(content=str(response.content))
-    return {**state, "messages": [*state.get("messages", []), response]}
-
-
-async def _agent_node(state: ChatState) -> ChatState:
-    handler = compose_middlewares(
-        [
+def build_chat_agent(context: AgentContext | None = None) -> Any:
+    """根据运行时上下文创建 chat agent，并只绑定动态工具路由能力。"""
+    agent_context = context or AgentContext()
+    return create_agent(
+        model=get_model(agent_context.model_use),
+        tools=get_runtime_tools(agent_context),
+        middleware=[
             RuntimeResourceMiddleware(),
             SkillPromptMiddleware(),
+            RuntimePromptMiddleware(),
         ],
-        _assistant_node,
+        context_schema=AgentContext,
+        name="minibot-chat",
     )
-    return await handler(state)
 
 
-def build_chat_graph():
-    graph = StateGraph(ChatState)
-    graph.add_node("agent", _agent_node)
-    graph.add_edge(START, "agent")
-    graph.add_edge("agent", END)
-    return graph.compile()
+def build_chat_graph(context: AgentContext | None = None) -> Any:
+    """保留旧入口名称，内部转发到新的 create_agent 构建函数。"""
+    return build_chat_agent(context)

@@ -2,7 +2,7 @@
 
 本文档存放面向编码 agent 的开发规范。项目结构导航请看 [PROJECT_MAP.md](PROJECT_MAP.md)。
 
-miniBOT 是一个受 YUXI 资源编排思路启发的小型全栈脚手架：前端使用 Vue 3 + Vite，后端使用 FastAPI + SQLAlchemy async + PostgreSQL，并通过 LangGraph 串联 MCP、Skill、Subagent 资源和大模型调用。
+miniBOT 是一个受 YUXI 资源编排思路启发的小型全栈脚手架：前端使用 Vue 3 + Vite，后端使用 FastAPI + SQLAlchemy async + PostgreSQL，并通过 `create_agent + context + middleware` 串联 MCP、Skill、Subagent 资源和大模型调用。
 
 ## 1. 工作原则
 
@@ -29,15 +29,13 @@ miniBOT 是一个受 YUXI 资源编排思路启发的小型全栈脚手架：前
 
 ## 2. 开发与调试流程
 
-### 启动依赖
-
-仓库根目录启动 PostgreSQL：
+启动 PostgreSQL：
 
 ```powershell
 docker compose up -d postgres
 ```
 
-### 启动后端
+启动后端：
 
 ```powershell
 cd backend
@@ -53,17 +51,23 @@ uvicorn app.main:app --reload
 postgresql+asyncpg://minibot:minibot@localhost:5432/minibot
 ```
 
-大模型默认使用 `mock` provider。接入 OpenAI-compatible 服务时配置：
+模型配置支持分用途管理：
 
 ```env
-MINIBOT_DEFAULT_MODEL_PROVIDER=openai
-MINIBOT_DEFAULT_MODEL_NAME=gpt-4o-mini
+MINIBOT_DEFAULT_MODEL_PROVIDER=mock
+MINIBOT_DEFAULT_MODEL_NAME=mock
+MINIBOT_CHAT_MODEL_PROVIDER=openai
+MINIBOT_CHAT_MODEL_NAME=qwen-plus
+MINIBOT_DEEP_RESEARCH_MODEL_PROVIDER=openai
+MINIBOT_DEEP_RESEARCH_MODEL_NAME=qwen-plus
 MINIBOT_OPENAI_API_KEY=your_api_key
-MINIBOT_OPENAI_BASE_URL=https://api.openai.com/v1
+MINIBOT_OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 MINIBOT_OPENAI_TEMPERATURE=0.2
+MINIBOT_TAVILY_API_KEY=your_tavily_api_key
+MINIBOT_RUNTIME_TOOL_CALL_LIMIT=3
 ```
 
-### 启动前端
+启动前端：
 
 ```powershell
 cd frontend
@@ -76,8 +80,6 @@ npm run dev
 ```text
 http://localhost:5173
 ```
-
-前端 API 基础路径由 `VITE_API_BASE` 控制，默认是 `/api`。
 
 ## 3. 前端开发规范
 
@@ -93,30 +95,33 @@ http://localhost:5173
 ## 4. 后端开发规范
 
 - 路由层保持轻量，主要负责参数接收、依赖注入和响应组织。
+- 一次 Agent 对话运行的编排逻辑放在 `backend/app/agent/runtime.py`。
+- 运行时上下文放在 `backend/app/agent/context.py`，不要把资源、用户、模型用途散落到 state dict 中。
+- `backend/app/graph/builder.py` 使用 LangChain `create_agent` 构建 agent，不手写 node/edge 编排。
+- `backend/app/graph/middleware` 只放 `AgentMiddleware`，新增上下文裁剪、记忆、工具权限等能力时优先新增独立 middleware 文件。
+- 提示词组装放在 `backend/app/graph/prompt.py`，middleware 负责决定何时注入，不要在 provider 中拼 prompt。
+- 大模型接入放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 `graph/builder.py`。
+- 运行时工具放在 `backend/app/tools`，agent 初始只绑定工具路由能力，具体工具由 `dynamic_tool_call` 按名称加载执行。
+- 模型用途通过 `model_use` 区分，当前支持 `chat_model`，预留 `deep_research_model`。
 - 数据库访问放在 `backend/app/db/repositories.py`。
 - SQLAlchemy 模型放在 `backend/app/db/models.py`。
 - 请求/响应 schema 放在 `backend/app/schemas.py` 或对应资源类型模块中。
 - 资源注册、种子数据和名称解析放在 `backend/app/plugins/registry.py`。
-- LangGraph 相关逻辑放在 `backend/app/graph`，添加运行时能力时优先沿用 middleware 模式。
-- 大模型 provider 放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 `graph/builder.py`。
-- `backend/app/graph/middleware` 是中间件目录；新增上下文裁剪、记忆、工具权限等能力时优先新增独立 middleware 文件。
-- 资源 `kind` 当前只允许 `mcp`、`skill`、`subagent`；新增类型时必须同步更新模型、schema、校验、种子数据、API 和前端选择器。
+- 资源 `kind` 当前允许 `mcp`、`skill`、`subagent`、`tool`；新增类型时必须同步更新模型、schema、校验、种子数据、API 和前端选择器。
 - `PluginResource.name` 是稳定运行时 key，`display_name` 只用于 UI 展示。
 - 当前没有迁移系统，数据库表由 `Base.metadata.create_all` 在应用启动时创建；结构变更要注意已有数据库兼容性。
 
+## 5. 需求沟通规范
 
+需求不明确时，需要主动挖掘需求细节，对齐验收标准，明确优先级和范围，避免模糊需求导致过度设计和不必要工作。
 
-### 需求沟通规范
-
-在沟通需求的时候，当需求不明确的时候，需要主动挖掘需求细节，对齐需求的验收标准，明确需求的优先级和范围，避免模糊需求导致的过度设计和不必要的工作。
-
-## 5. API 契约规范
+## 6. API 契约规范
 
 所有业务路由挂载在 `/api` 下。
 
 当前主要接口：
 
-- `GET /api/resources?kind=mcp|skill|subagent`
+- `GET /api/resources?kind=mcp|skill|subagent|tool`
 - `POST /api/resources`
 - `GET /api/selections/{user_key}`
 - `PUT /api/selections/{user_key}`
@@ -135,15 +140,18 @@ http://localhost:5173
 2. 保存用户消息。
 3. 读取用户资源选择。
 4. 解析 MCP、Skill、Subagent 资源。
-5. 调用 LangGraph。
-6. 保存 assistant 回复。
-7. 返回 `conversation_id`、会话信息、消息列表、资源和回答。
+5. 读取启用的运行时工具资源。
+6. 构建 `AgentContext`。
+7. 调用 `create_agent` 生成的 agent。
+8. 保存 assistant 回复和工具调用事件。
+9. 返回 `conversation_id`、会话信息、消息列表、资源和回答。
 
-## 6. 数据库规范
+## 7. 数据库规范
 
 当前核心表：
 
 - `plugin_resources`：MCP、Skill、Subagent 元数据。
+- `plugin_resources(kind=tool)`：运行时工具元数据，例如 `tavily_search`。
 - `user_selections`：用户选择的资源名称列表。
 - `conversations`：对话会话元信息。
 - `conversation_messages`：对话消息明细。
@@ -155,13 +163,13 @@ http://localhost:5173
 - 消息 `role` 只使用 `user`、`assistant`、`system`、`tool`。
 - 消息扩展信息放在 JSONB `metadata` 中，不要把运行时上下文硬编码进文本字段。
 
-## 7. 文档维护规范
+## 8. 文档维护规范
 
 - 改动项目结构、启动方式、API 契约或核心数据流时，同步更新 [PROJECT_MAP.md](PROJECT_MAP.md)。
 - 改动开发流程、验证命令、约定或 agent 行为要求时，同步更新本文件。
 - 非必要不新增零散文档；新增文档时要在 `PROJECT_MAP.md` 中挂入口。
 
-## 8. 提交规范
+## 9. 提交规范
 
 - 提交信息建议使用中文，标题简洁说明变更目的。
 - 可以参考 Conventional Commits，例如：
@@ -170,10 +178,9 @@ http://localhost:5173
   - `docs: 更新项目导航地图`
 - 提交前检查 `git diff`，确认没有混入无关格式化或临时调试代码。
 
-## 9. 当前已知限制
+## 10. 当前已知限制
 
 - 项目还没有正式测试套件。
 - 项目还没有数据库迁移系统。
 - 当前没有认证系统，`user_key` 仍是客户端传入的简单标识。
-- `backend/app/graph/builder.py` 已接入统一模型 provider；真实模型能力取决于运行时配置。
-- 当前默认模型仍是 `mock`，需要配置 OpenAI-compatible provider 才会调用真实大模型。
+- 当前真实模型能力取决于运行时配置；默认模型仍可使用 `mock`。

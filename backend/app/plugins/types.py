@@ -8,6 +8,7 @@ class ResourceKind(StrEnum):
     mcp = "mcp"
     skill = "skill"
     subagent = "subagent"
+    tool = "tool"
 
 
 class PluginResourceIn(BaseModel):
