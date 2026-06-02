@@ -28,6 +28,11 @@ class Settings(BaseSettings):
     tavily_search_depth: str = "basic"
     runtime_tool_call_limit: int = 3
     runtime_timezone: str = "Asia/Shanghai"
+    summary_context_window_tokens: int = 128000
+    summary_trigger_ratio: float = 0.7
+    summary_trigger_tokens: int = 90000
+    summary_keep_messages: int = 8
+    summary_max_chars: int = 3000
     default_system_prompt: str = DEFAULT_SYSTEM_PROMPT
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="MINIBOT_", extra="ignore")

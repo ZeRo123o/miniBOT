@@ -18,4 +18,10 @@ class AgentContext:
     active_tool_names: list[str] = field(default_factory=list)
     tool_events: list[dict] = field(default_factory=list)
     max_tool_calls: int = 3
+    summary: str = ""
+    summary_context_window_tokens: int = 128000
+    summary_trigger_ratio: float = 0.7
+    summary_trigger_tokens: int = 90000
+    summary_keep_messages: int = 8
+    summary_max_chars: int = 3000
     skill_prompt: str = ""

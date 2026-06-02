@@ -1,4 +1,4 @@
-import { request } from './base'
+import { API_BASE, request } from './base'
 
 export function listResources(kind) {
   const query = kind ? `?kind=${encodeURIComponent(kind)}` : ''
@@ -44,4 +44,55 @@ export function sendChat(message, userKey, conversationId = null) {
     method: 'POST',
     body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId }),
   })
+}
+
+export async function sendChatStream(message, userKey, conversationId = null, handlers = {}) {
+  const response = await fetch(`${API_BASE}/chat/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId }),
+  })
+
+  if (!response.ok || !response.body) {
+    const text = await response.text()
+    throw new Error(text || `Request failed: ${response.status}`)
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+    const events = buffer.split('\n\n')
+    buffer = events.pop() || ''
+
+    for (const rawEvent of events) {
+      const event = parseStreamEvent(rawEvent)
+      if (!event) continue
+      if (event.type === 'error') {
+        throw new Error(event.detail || 'Stream failed.')
+      }
+      handlers[event.type]?.(event)
+    }
+  }
+
+  if (buffer.trim()) {
+    const event = parseStreamEvent(buffer)
+    if (event) handlers[event.type]?.(event)
+  }
+}
+
+function parseStreamEvent(rawEvent) {
+  const data = rawEvent
+    .split('\n')
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart())
+    .join('\n')
+
+  if (!data) return null
+  return JSON.parse(data)
 }

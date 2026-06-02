@@ -17,4 +17,4 @@ async function request(path, options = {}) {
   return response.json()
 }
 
-export { request }
+export { API_BASE, request }

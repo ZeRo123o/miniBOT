@@ -1,13 +1,22 @@
 <script setup>
 import { SendHorizontal } from 'lucide-vue-next'
 import { nextTick, ref } from 'vue'
-import { sendChat } from '../apis/resources'
-import { activeMessages, applyChatResponse, conversationStore } from '../stores/conversationStore'
+import { sendChatStream } from '../apis/resources'
+import {
+  activeMessages,
+  addPendingChatMessage,
+  appendPendingAssistantContent,
+  applyChatResponse,
+  applyStreamConversation,
+  conversationStore,
+  removePendingAssistantMessage,
+} from '../stores/conversationStore'
 import { selectionStore } from '../stores/selectionStore'
 import MarkdownMessage from './MarkdownMessage.vue'
 
 const input = ref('')
 const inputEl = ref(null)
+const messagesEl = ref(null)
 const sending = ref(false)
 const errorMessage = ref('')
 
@@ -18,6 +27,12 @@ async function resizeInput() {
   inputEl.value.style.height = `${Math.min(inputEl.value.scrollHeight, 180)}px`
 }
 
+async function scrollToBottom() {
+  await nextTick()
+  if (!messagesEl.value) return
+  messagesEl.value.scrollTop = messagesEl.value.scrollHeight
+}
+
 async function submit() {
   const text = input.value.trim()
   if (!text || sending.value) return
@@ -25,11 +40,29 @@ async function submit() {
   input.value = ''
   sending.value = true
   errorMessage.value = ''
+  const conversationId = conversationStore.activeId
+  const optimisticConversationId = addPendingChatMessage(text)
+  let streamConversationId = optimisticConversationId
+  scrollToBottom()
 
   try {
-    const response = await sendChat(text, selectionStore.userKey, conversationStore.activeId)
-    applyChatResponse(response)
+    await sendChatStream(text, selectionStore.userKey, conversationId, {
+      conversation(event) {
+        applyStreamConversation(event, optimisticConversationId)
+        streamConversationId = event.conversation_id
+        scrollToBottom()
+      },
+      token(event) {
+        appendPendingAssistantContent(streamConversationId, event.content || '')
+        scrollToBottom()
+      },
+      done(event) {
+        applyChatResponse(event, optimisticConversationId)
+        scrollToBottom()
+      },
+    })
   } catch (error) {
+    removePendingAssistantMessage(streamConversationId)
     errorMessage.value = error.message
   } finally {
     sending.value = false
@@ -40,7 +73,7 @@ async function submit() {
 
 <template>
   <section class="chat-panel" :class="{ empty: !activeMessages.length }">
-    <div class="messages">
+    <div ref="messagesEl" class="messages">
       <div v-if="!activeMessages.length" class="chat-empty-state">
         <h2>你好，我是 MiniBOT</h2>
         <p>输入第一条消息后，系统会创建新对话并保存到左侧历史列表。</p>
@@ -48,7 +81,12 @@ async function submit() {
 
       <article v-for="message in activeMessages" :key="message.id" :class="['message', message.role]">
         <b v-if="message.role === 'assistant'">MiniBOT</b>
-        <MarkdownMessage :content="message.content" />
+        <div v-if="message.metadata?.loading" class="typing-indicator" aria-label="MiniBOT 正在生成回答">
+          <span />
+          <span />
+          <span />
+        </div>
+        <MarkdownMessage v-else :content="message.content" />
       </article>
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
     </div>

@@ -23,6 +23,10 @@ export const activeMessages = computed(() => {
   return conversationStore.messagesByConversationId[conversationStore.activeId] || []
 })
 
+function createTemporaryId(prefix) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 function upsertConversation(conversation) {
   const index = conversationStore.conversations.findIndex((item) => item.id === conversation.id)
   if (index === -1) {
@@ -114,12 +118,79 @@ export async function removeConversation(conversationId, userKey) {
   }
 }
 
-export function applyChatResponse(response) {
+export function addPendingChatMessage(content) {
+  const conversationId = conversationStore.activeId || createTemporaryId('pending-conversation')
+  const now = new Date().toISOString()
+
+  conversationStore.activeId = conversationId
+  conversationStore.messagesByConversationId[conversationId] = [
+    ...(conversationStore.messagesByConversationId[conversationId] || []),
+    {
+      id: createTemporaryId('pending-user'),
+      role: 'user',
+      content,
+      created_at: now,
+      metadata: { pending: true },
+    },
+    {
+      id: createTemporaryId('pending-assistant'),
+      role: 'assistant',
+      content: '',
+      created_at: now,
+      metadata: { pending: true, loading: true },
+    },
+  ]
+
+  return conversationId
+}
+
+export function removePendingAssistantMessage(conversationId) {
+  const messages = conversationStore.messagesByConversationId[conversationId]
+  if (!messages) return
+
+  conversationStore.messagesByConversationId[conversationId] = messages.filter(
+    (message) => !message.metadata?.loading,
+  )
+}
+
+export function applyStreamConversation(event, optimisticConversationId = null) {
+  if (event.conversation) {
+    upsertConversation(event.conversation)
+  }
+  if (!event.conversation_id) return
+
+  const currentMessages = conversationStore.messagesByConversationId[optimisticConversationId] || []
+  conversationStore.activeId = event.conversation_id
+  if (optimisticConversationId && optimisticConversationId !== event.conversation_id) {
+    conversationStore.messagesByConversationId[event.conversation_id] = currentMessages
+    delete conversationStore.messagesByConversationId[optimisticConversationId]
+  }
+}
+
+export function appendPendingAssistantContent(conversationId, content) {
+  const messages = conversationStore.messagesByConversationId[conversationId]
+  if (!messages) return
+
+  const loadingMessage = messages.find((message) => message.metadata?.loading || message.metadata?.streaming)
+  if (!loadingMessage) return
+
+  loadingMessage.content += content
+  loadingMessage.metadata = {
+    ...loadingMessage.metadata,
+    loading: false,
+    streaming: true,
+  }
+}
+
+export function applyChatResponse(response, optimisticConversationId = null) {
   if (response.conversation) {
     upsertConversation(response.conversation)
   }
   if (response.conversation_id) {
     conversationStore.activeId = response.conversation_id
     conversationStore.messagesByConversationId[response.conversation_id] = response.messages || []
+    if (optimisticConversationId && optimisticConversationId !== response.conversation_id) {
+      delete conversationStore.messagesByConversationId[optimisticConversationId]
+    }
   }
 }

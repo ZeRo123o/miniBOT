@@ -95,10 +95,12 @@ http://localhost:5173
 ## 4. 后端开发规范
 
 - 路由层保持轻量，主要负责参数接收、依赖注入和响应组织。
-- 一次 Agent 对话运行的编排逻辑放在 `backend/app/agent/runtime.py`。
+- 业务流程放在 `backend/app/services`，包括会话、用户选择和资源解析；不要把业务流程堆进 API route。
+- 一次 Agent 对话运行的编排逻辑放在 `backend/app/agent/runtime.py`，runtime 只负责串联 service、构建 context 和调用 agent。
 - 运行时上下文放在 `backend/app/agent/context.py`，不要把资源、用户、模型用途散落到 state dict 中。
 - `backend/app/graph/builder.py` 使用 LangChain `create_agent` 构建 agent，不手写 node/edge 编排。
 - `backend/app/graph/middleware` 只放 `AgentMiddleware`，新增上下文裁剪、记忆、工具权限等能力时优先新增独立 middleware 文件。
+- 上下文压缩放在 `backend/app/graph/middleware/summary.py`；默认按估算 token 达到 90K 触发，约等于 128K context window 的 70%，只做本轮请求内压缩，不持久化摘要。
 - 提示词组装放在 `backend/app/graph/prompt.py`，middleware 负责决定何时注入，不要在 provider 中拼 prompt。
 - 大模型接入放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 `graph/builder.py`。
 - 运行时工具放在 `backend/app/tools`，agent 初始只绑定工具路由能力，具体工具由 `dynamic_tool_call` 按名称加载执行。

@@ -3,7 +3,12 @@ from typing import Any
 from langchain.agents import create_agent
 
 from app.agent.context import AgentContext
-from app.graph.middleware import RuntimePromptMiddleware, RuntimeResourceMiddleware, SkillPromptMiddleware
+from app.graph.middleware import (
+    RuntimePromptMiddleware,
+    RuntimeResourceMiddleware,
+    SkillPromptMiddleware,
+    SummaryMiddleware,
+)
 from app.llm import get_model
 from app.tools import get_runtime_tools
 
@@ -17,6 +22,7 @@ def build_chat_agent(context: AgentContext | None = None) -> Any:
         middleware=[
             RuntimeResourceMiddleware(),
             SkillPromptMiddleware(),
+            SummaryMiddleware(),
             RuntimePromptMiddleware(),
         ],
         context_schema=AgentContext,

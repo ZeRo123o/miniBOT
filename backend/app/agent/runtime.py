@@ -1,38 +1,42 @@
+import asyncio
+from collections.abc import AsyncIterator
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.context import AgentContext
 from app.core.config import get_settings
-from app.db.models import Conversation, ConversationMessage
-from app.db.repositories import ConversationMessageRepository, ConversationRepository, UserSelectionRepository
 from app.graph.builder import build_chat_agent
 from app.llm.factory import CHAT_MODEL
-from app.plugins.registry import list_enabled_resources, resolve_resources_by_name
+from app.services import ConversationService, ResourceService, SelectionService
 
 
 class AgentRuntime:
+    MISSING_OPENAI_API_KEY_ERROR = "MINIBOT_OPENAI_API_KEY is required for OpenAI-compatible provider."
+    MISSING_OPENAI_API_KEY_REPLY = (
+        "当前未配置模型 API Key，暂时无法调用真实大模型。\n\n"
+        "请在后端 .env 中配置 MINIBOT_OPENAI_API_KEY，或将模型 provider 切换为 mock 后重试。"
+    )
+
     def __init__(self, db: AsyncSession):
-        """初始化一次请求内复用的仓储对象。"""
-        self.db = db
-        self.conversation_repo = ConversationRepository(db)
-        self.message_repo = ConversationMessageRepository(db)
-        self.selection_repo = UserSelectionRepository(db)
+        """初始化一次请求内复用的业务服务。"""
+        self.conversation_service = ConversationService(db)
+        self.selection_service = SelectionService(db)
+        self.resource_service = ResourceService(db)
 
     async def run(self, *, user_key: str, message: str, conversation_id: int | None = None) -> dict:
-        """执行完整聊天流程：保存用户消息、构建上下文、调用 agent 并保存回复。"""
-        conversation = await self._prepare_conversation(
+        """执行完整聊天流程，并把具体业务操作委托给 service 层。"""
+        conversation = await self.conversation_service.prepare_conversation(
             user_key=user_key,
             message=message,
             conversation_id=conversation_id,
         )
-        await self.message_repo.create(conversation.id, role="user", content=message)
+        await self.conversation_service.save_user_message(conversation.id, message)
 
-        graph_messages = await self._load_graph_messages(conversation.id)
-        selection = await self._load_selection(user_key)
-        resources = await self._resolve_resources(selection)
+        graph_messages = await self.conversation_service.load_langchain_messages(conversation.id)
+        selection = await self.selection_service.get_or_default(user_key)
+        resources = await self.resource_service.resolve_for_selection(selection)
         context = self._build_context(
             user_key=user_key,
             conversation_id=conversation.id,
@@ -40,25 +44,101 @@ class AgentRuntime:
         )
 
         agent = build_chat_agent(context)
-        result = await agent.ainvoke(
-            {"messages": graph_messages},
-            context=context,
-        )
-
-        answer = result["messages"][-1].content
-        await self.message_repo.create(
-            conversation.id,
-            role="assistant",
+        try:
+            result = await agent.ainvoke(
+                {"messages": graph_messages},
+                context=context,
+            )
+            answer = result["messages"][-1].content
+            assistant_metadata = {"resources": resources, "tool_events": context.tool_events}
+        except ValueError as error:
+            if str(error) != self.MISSING_OPENAI_API_KEY_ERROR:
+                raise
+            answer = self.MISSING_OPENAI_API_KEY_REPLY
+            assistant_metadata = {
+                "resources": resources,
+                "tool_events": context.tool_events,
+                "error": "missing_openai_api_key",
+            }
+        await self.conversation_service.save_assistant_message(
+            conversation_id=conversation.id,
             content=answer,
-            metadata={"resources": resources, "tool_events": context.tool_events},
+            metadata=assistant_metadata,
         )
-        return await self._build_response(
+        return await self.conversation_service.build_chat_response(
             conversation_id=conversation.id,
             user_key=user_key,
             answer=answer,
             selection=selection,
             resources=resources,
         )
+
+    async def run_stream(
+        self,
+        *,
+        user_key: str,
+        message: str,
+        conversation_id: int | None = None,
+    ) -> AsyncIterator[dict]:
+        """Stream chat events for the frontend while preserving persisted conversation history."""
+        conversation = await self.conversation_service.prepare_conversation(
+            user_key=user_key,
+            message=message,
+            conversation_id=conversation_id,
+        )
+        prepared_conversation_id = conversation.id
+        prepared_conversation = conversation.to_dict()
+        await self.conversation_service.save_user_message(prepared_conversation_id, message)
+        yield {
+            "type": "conversation",
+            "conversation_id": prepared_conversation_id,
+            "conversation": prepared_conversation,
+        }
+
+        graph_messages = await self.conversation_service.load_langchain_messages(prepared_conversation_id)
+        selection = await self.selection_service.get_or_default(user_key)
+        resources = await self.resource_service.resolve_for_selection(selection)
+        context = self._build_context(
+            user_key=user_key,
+            conversation_id=prepared_conversation_id,
+            resources=resources,
+        )
+
+        agent = build_chat_agent(context)
+        try:
+            result = await agent.ainvoke(
+                {"messages": graph_messages},
+                context=context,
+            )
+            answer = result["messages"][-1].content
+            assistant_metadata = {"resources": resources, "tool_events": context.tool_events}
+        except ValueError as error:
+            if str(error) != self.MISSING_OPENAI_API_KEY_ERROR:
+                raise
+            answer = self.MISSING_OPENAI_API_KEY_REPLY
+            assistant_metadata = {
+                "resources": resources,
+                "tool_events": context.tool_events,
+                "error": "missing_openai_api_key",
+            }
+
+        for token in self._chunk_answer(answer):
+            yield {"type": "token", "content": token}
+            await asyncio.sleep(0.01)
+
+        await self.conversation_service.save_assistant_message(
+            conversation_id=prepared_conversation_id,
+            content=answer,
+            metadata=assistant_metadata,
+        )
+        response = await self.conversation_service.build_chat_response(
+            conversation_id=prepared_conversation_id,
+            user_key=user_key,
+            answer=answer,
+            selection=selection,
+            resources=resources,
+        )
+        yield {"type": "done", **response}
 
     def _build_context(
         self,
@@ -81,6 +161,11 @@ class AgentRuntime:
             subagents=resources["subagents"],
             tools=resources["tools"],
             max_tool_calls=settings.runtime_tool_call_limit,
+            summary_context_window_tokens=settings.summary_context_window_tokens,
+            summary_trigger_ratio=settings.summary_trigger_ratio,
+            summary_trigger_tokens=settings.summary_trigger_tokens,
+            summary_keep_messages=settings.summary_keep_messages,
+            summary_max_chars=settings.summary_max_chars,
         )
 
     def _current_datetime(self, timezone_name: str) -> str:
@@ -91,83 +176,11 @@ class AgentRuntime:
             current_timezone = timezone_utc8()
         return datetime.now(current_timezone).strftime("%Y-%m-%d %H:%M:%S")
 
-    async def _prepare_conversation(
-        self,
-        *,
-        user_key: str,
-        message: str,
-        conversation_id: int | None,
-    ) -> Conversation:
-        """创建或校验会话，并在空会话首次发送消息时自动命名。"""
-        title = message[:24] or "新对话"
-        if conversation_id is None:
-            return await self.conversation_repo.create(user_key=user_key, title=title)
-
-        conversation = await self.conversation_repo.get(conversation_id, user_key=user_key)
-        if conversation is None:
-            raise ValueError("Conversation not found.")
-
-        existing_messages = await self.message_repo.list(conversation.id)
-        if not existing_messages and conversation.title == "新对话":
-            conversation = await self.conversation_repo.update(conversation, title=title)
-        return conversation
-
-    async def _load_graph_messages(self, conversation_id: int) -> list[BaseMessage]:
-        """读取会话历史消息，并转换为 LangChain 消息格式。"""
-        persisted_messages = await self.message_repo.list(conversation_id)
-        return [
-            converted
-            for message in persisted_messages
-            if (converted := self._to_langchain_message(message)) is not None
-        ]
-
-    def _to_langchain_message(self, message: ConversationMessage) -> BaseMessage | None:
-        """把数据库消息转换成模型可消费的 LangChain message。"""
-        if message.role == "user":
-            return HumanMessage(content=message.content)
-        if message.role == "assistant":
-            return AIMessage(content=message.content)
-        return None
-
-    async def _load_selection(self, user_key: str) -> dict:
-        """读取用户资源选择；未配置时返回空选择。"""
-        selection_item = await self.selection_repo.get(user_key)
-        if selection_item:
-            return selection_item.to_dict()
-        return {"user_key": user_key, "mcps": [], "skills": [], "subagents": []}
-
-    async def _resolve_resources(self, selection: dict) -> dict[str, list[dict]]:
-        """解析 MCP、Skill、Subagent，并读取所有启用的运行时工具。"""
-        return {
-            "mcps": await resolve_resources_by_name(self.db, kind="mcp", names=selection["mcps"]),
-            "skills": await resolve_resources_by_name(self.db, kind="skill", names=selection["skills"]),
-            "subagents": await resolve_resources_by_name(self.db, kind="subagent", names=selection["subagents"]),
-            "tools": await list_enabled_resources(self.db, kind="tool"),
-        }
-
-    async def _build_response(
-        self,
-        *,
-        conversation_id: int,
-        user_key: str,
-        answer: str,
-        selection: dict,
-        resources: dict[str, list[dict]],
-    ) -> dict:
-        """构造返回给前端的聊天响应。"""
-        messages = await self.message_repo.list(conversation_id)
-        conversation = await self.conversation_repo.get(conversation_id, user_key=user_key)
-        if conversation is None:
-            raise ValueError("Conversation not found.")
-
-        return {
-            "answer": answer,
-            "conversation_id": conversation.id,
-            "conversation": conversation.to_dict(),
-            "messages": [message.to_dict() for message in messages],
-            "selection": selection,
-            "resources": resources,
-        }
+    def _chunk_answer(self, answer: str) -> list[str]:
+        """Split a completed answer into small pieces for a stable SSE typing experience."""
+        if not answer:
+            return [""]
+        return [answer[index : index + 4] for index in range(0, len(answer), 4)]
 
 
 def timezone_utc8() -> timezone:

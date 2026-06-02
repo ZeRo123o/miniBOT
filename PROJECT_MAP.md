@@ -56,6 +56,10 @@ backend/app
 |   |-- session.py           async engine、session、create_all
 |   |-- models.py            SQLAlchemy 模型
 |   `-- repositories.py      数据访问层
+|-- services/
+|   |-- conversation_service.py  会话和消息业务服务
+|   |-- selection_service.py     用户资源选择服务
+|   `-- resource_service.py      资源解析服务
 |-- graph/
 |   |-- builder.py           create_agent 构建入口
 |   |-- prompt.py            系统提示词和资源上下文组装
@@ -110,18 +114,23 @@ frontend
   -> 把 ValueError 转成 HTTPException
 ```
 
-`agent/runtime.py` 负责一次完整 Agent 运行：
+`agent/runtime.py` 负责一次完整 Agent 运行编排：
 
 ```text
-准备会话
-保存用户消息
-读取历史消息
-读取用户资源选择
-解析资源
+调用 ConversationService 准备会话和消息
+调用 SelectionService 读取用户资源选择
+调用 ResourceService 解析资源
 构建 AgentContext
 调用 create_agent 生成的 agent
-保存 assistant 回复
-构造响应
+委托 ConversationService 保存 assistant 回复并构造响应
+```
+
+`services/` 负责业务流程：
+
+```text
+ConversationService  会话创建、消息保存、历史消息转换、聊天响应构造
+SelectionService     用户资源选择读取和默认值处理
+ResourceService      MCP / Skill / Subagent / Tool 资源解析
 ```
 
 `graph/builder.py` 只负责 agent 构建：
@@ -147,6 +156,7 @@ tavily_search         Tavily 网页搜索执行器
 ```text
 RuntimeResourceMiddleware  规范化运行时资源
 SkillPromptMiddleware      根据 Skill 动态补充提示词片段
+SummaryMiddleware          估算 token 达到 90K 时压缩历史，只保留摘要和最近消息
 RuntimePromptMiddleware    统一生成最终 system prompt
 ```
 
@@ -190,18 +200,25 @@ DELETE /api/conversations/{conversation_id}?user_key=default
 GET    /api/conversations/{conversation_id}/messages?user_key=default
 POST   /api/conversations/{conversation_id}/messages?user_key=default
 POST   /api/chat
+POST   /api/chat/stream
 ```
 
 ## 7. 常见任务定位
 
 修改聊天运行流程：
 - `backend/app/agent/runtime.py`
+- `backend/app/services/`
 - `backend/app/api/routes/chat.py`
 
 修改 agent 构建和 middleware：
 - `backend/app/graph/builder.py`
 - `backend/app/graph/middleware/`
 - `backend/app/agent/context.py`
+
+修改上下文压缩：
+- `backend/app/graph/middleware/summary.py`
+- `backend/app/agent/context.py`
+- `backend/app/core/config.py`
 
 修改提示词：
 - `backend/app/graph/prompt.py`
