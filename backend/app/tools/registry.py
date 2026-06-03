@@ -1,6 +1,6 @@
 from typing import Any
 
-from app.agent.context import AgentContext
+from app.agents.buildin.chatbot.context import AgentContext
 from app.tools.tavily import tavily_search
 
 

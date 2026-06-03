@@ -2,7 +2,7 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.graph.prompt import DEFAULT_SYSTEM_PROMPT
+from app.agents.buildin.chatbot.prompt import DEFAULT_SYSTEM_PROMPT
 
 
 class Settings(BaseSettings):
@@ -11,6 +11,21 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     database_url: str = "postgresql+asyncpg://minibot:minibot@localhost:5432/minibot"
+    storage_provider: str = "minio"
+    storage_bucket: str = "minibot"
+    minio_endpoint: str = "localhost:9000"
+    minio_access_key: str = "minibot"
+    minio_secret_key: str = "minibot123"
+    minio_secure: bool = False
+    vector_store_provider: str = "milvus"
+    milvus_uri: str = "http://localhost:19530"
+    milvus_token: str = ""
+    milvus_db: str = "minibot"
+    milvus_collection_prefix: str = "kb_"
+    embedding_provider: str = "mock"
+    embedding_model_name: str = "mock"
+    embedding_dimension: int = 384
+    embedding_batch_size: int = 10
 
     default_model: str = "mock"
     default_model_provider: str = "mock"

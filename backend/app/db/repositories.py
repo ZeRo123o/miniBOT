@@ -1,7 +1,16 @@
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.models import Conversation, ConversationMessage, PluginResource, UserSelection
+from app.db.models import (
+    Conversation,
+    ConversationMessage,
+    KnowledgeBase,
+    KnowledgeChunk,
+    KnowledgeDocument,
+    PluginResource,
+    UserSelection,
+)
 
 
 class PluginResourceRepository:
@@ -57,6 +66,129 @@ class UserSelectionRepository:
         await self.db.commit()
         await self.db.refresh(item)
         return item
+
+
+class KnowledgeBaseRepository:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def list(self, user_key: str) -> list[KnowledgeBase]:
+        result = await self.db.execute(
+            select(KnowledgeBase)
+            .where(KnowledgeBase.user_key == user_key)
+            .order_by(KnowledgeBase.updated_at.desc(), KnowledgeBase.id.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get(self, knowledge_base_id: int, user_key: str | None = None) -> KnowledgeBase | None:
+        stmt = select(KnowledgeBase).where(KnowledgeBase.id == knowledge_base_id)
+        if user_key is not None:
+            stmt = stmt.where(KnowledgeBase.user_key == user_key)
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def create(
+        self,
+        *,
+        name: str,
+        description: str = "",
+        user_key: str = "default",
+        metadata: dict | None = None,
+    ) -> KnowledgeBase:
+        item = KnowledgeBase(
+            name=name,
+            description=description,
+            user_key=user_key,
+            metadata_=metadata or {},
+        )
+        self.db.add(item)
+        await self.db.commit()
+        await self.db.refresh(item)
+        return item
+
+
+class KnowledgeDocumentRepository:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def list(self, knowledge_base_id: int) -> list[KnowledgeDocument]:
+        result = await self.db.execute(
+            select(KnowledgeDocument)
+            .where(KnowledgeDocument.knowledge_base_id == knowledge_base_id)
+            .order_by(KnowledgeDocument.updated_at.desc(), KnowledgeDocument.id.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get(self, document_id: int) -> KnowledgeDocument | None:
+        result = await self.db.execute(select(KnowledgeDocument).where(KnowledgeDocument.id == document_id))
+        return result.scalar_one_or_none()
+
+    async def get_by_hash(self, knowledge_base_id: int, file_hash: str) -> KnowledgeDocument | None:
+        result = await self.db.execute(
+            select(KnowledgeDocument).where(
+                KnowledgeDocument.knowledge_base_id == knowledge_base_id,
+                KnowledgeDocument.file_hash == file_hash,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def create(self, data: dict) -> KnowledgeDocument:
+        item = KnowledgeDocument(**data)
+        self.db.add(item)
+        try:
+            await self.db.commit()
+        except IntegrityError:
+            await self.db.rollback()
+            raise
+        await self.db.refresh(item)
+        return item
+
+    async def update_status(
+        self,
+        document: KnowledgeDocument,
+        *,
+        status: str,
+        markdown_object_key: str | None = None,
+        error_message: str = "",
+        metadata: dict | None = None,
+    ) -> KnowledgeDocument:
+        document.status = status
+        document.error_message = error_message
+        if markdown_object_key is not None:
+            document.markdown_object_key = markdown_object_key
+        if metadata is not None:
+            document.metadata_ = metadata
+        await self.db.commit()
+        await self.db.refresh(document)
+        return document
+
+
+class KnowledgeChunkRepository:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def list_by_document(self, document_id: int) -> list[KnowledgeChunk]:
+        result = await self.db.execute(
+            select(KnowledgeChunk)
+            .where(KnowledgeChunk.document_id == document_id)
+            .order_by(KnowledgeChunk.chunk_index, KnowledgeChunk.id)
+        )
+        return list(result.scalars().all())
+
+    async def delete_by_document(self, document_id: int) -> None:
+        await self.db.execute(delete(KnowledgeChunk).where(KnowledgeChunk.document_id == document_id))
+        await self.db.commit()
+
+    async def bulk_create(self, rows: list[dict]) -> list[KnowledgeChunk]:
+        if not rows:
+            return []
+
+        items = [KnowledgeChunk(**row) for row in rows]
+        self.db.add_all(items)
+        await self.db.commit()
+        for item in items:
+            await self.db.refresh(item)
+        return items
 
 
 class ConversationRepository:

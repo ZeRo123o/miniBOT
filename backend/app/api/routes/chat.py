@@ -1,15 +1,18 @@
 import json
+import logging
 from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent import AgentRuntime
+from app.agents.buildin.chat_konwledge.runtime import KnowledgeQaRuntime
+from app.agents.buildin.chatbot.runtime import AgentRuntime
 from app.db.session import get_db
 from app.schemas import ChatRequest
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def sse_event(data: dict) -> str:
@@ -18,27 +21,85 @@ def sse_event(data: dict) -> str:
 
 @router.post("")
 async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> dict:
+    logger.info(
+        "Chat request received: user_key=%s mode=%s conversation_id=%s message_chars=%s",
+        payload.user_key,
+        payload.mode,
+        payload.conversation_id,
+        len(payload.message),
+    )
+    runtime = _runtime_for_mode(payload.mode, db)
     try:
-        return await AgentRuntime(db).run(
+        response = await runtime.run(
             user_key=payload.user_key,
             message=payload.message,
             conversation_id=payload.conversation_id,
         )
+        logger.info(
+            "Chat request completed: user_key=%s mode=%s conversation_id=%s",
+            payload.user_key,
+            payload.mode,
+            response.get("conversation_id"),
+        )
+        return response
     except ValueError as error:
+        logger.warning(
+            "Chat request rejected: user_key=%s mode=%s conversation_id=%s error=%s",
+            payload.user_key,
+            payload.mode,
+            payload.conversation_id,
+            error,
+        )
         raise HTTPException(status_code=404, detail=str(error)) from error
+    except Exception:
+        logger.exception(
+            "Chat request failed: user_key=%s mode=%s conversation_id=%s",
+            payload.user_key,
+            payload.mode,
+            payload.conversation_id,
+        )
+        raise
 
 
 @router.post("/stream")
 async def chat_stream(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> StreamingResponse:
     async def event_generator() -> AsyncIterator[str]:
+        logger.info(
+            "Chat stream opened: user_key=%s mode=%s conversation_id=%s message_chars=%s",
+            payload.user_key,
+            payload.mode,
+            payload.conversation_id,
+            len(payload.message),
+        )
+        runtime = _runtime_for_mode(payload.mode, db)
         try:
-            async for event in AgentRuntime(db).run_stream(
+            async for event in runtime.run_stream(
                 user_key=payload.user_key,
                 message=payload.message,
                 conversation_id=payload.conversation_id,
             ):
                 yield sse_event(event)
+            logger.info(
+                "Chat stream completed: user_key=%s mode=%s",
+                payload.user_key,
+                payload.mode,
+            )
         except ValueError as error:
+            logger.warning(
+                "Chat stream rejected: user_key=%s mode=%s conversation_id=%s error=%s",
+                payload.user_key,
+                payload.mode,
+                payload.conversation_id,
+                error,
+            )
+            yield sse_event({"type": "error", "detail": str(error)})
+        except Exception as error:
+            logger.exception(
+                "Chat stream failed: user_key=%s mode=%s conversation_id=%s",
+                payload.user_key,
+                payload.mode,
+                payload.conversation_id,
+            )
             yield sse_event({"type": "error", "detail": str(error)})
 
     return StreamingResponse(
@@ -46,3 +107,9 @@ async def chat_stream(payload: ChatRequest, db: AsyncSession = Depends(get_db)) 
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+def _runtime_for_mode(mode: str, db: AsyncSession) -> AgentRuntime | KnowledgeQaRuntime:
+    if mode == "knowledge":
+        return KnowledgeQaRuntime(db)
+    return AgentRuntime(db)

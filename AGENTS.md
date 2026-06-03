@@ -25,14 +25,14 @@ miniBOT 是一个受 YUXI 资源编排思路启发的小型全栈脚手架：前
 - 每个任务都要有可执行的验证方式。
 - 前端改动至少运行 `npm run build`。
 - 后端改动至少运行 `python -m compileall app`；涉及运行时导入时，优先使用 `backend/.venv/Scripts/python.exe`。
-- 涉及数据库或 API 行为时，启动 PostgreSQL 后做真实接口验证。
+- 涉及数据库、对象存储或 API 行为时，启动 PostgreSQL 和 MinIO 后做真实接口验证。
 
 ## 2. 开发与调试流程
 
-启动 PostgreSQL：
+启动 PostgreSQL 和 MinIO：
 
 ```powershell
-docker compose up -d postgres
+docker compose up -d postgres minio
 ```
 
 启动后端：
@@ -49,6 +49,17 @@ uvicorn app.main:app --reload
 
 ```text
 postgresql+asyncpg://minibot:minibot@localhost:5432/minibot
+```
+
+默认对象存储：
+
+```env
+MINIBOT_STORAGE_PROVIDER=minio
+MINIBOT_STORAGE_BUCKET=minibot
+MINIBOT_MINIO_ENDPOINT=localhost:9000
+MINIBOT_MINIO_ACCESS_KEY=minibot
+MINIBOT_MINIO_SECRET_KEY=minibot123
+MINIBOT_MINIO_SECURE=false
 ```
 
 模型配置支持分用途管理：
@@ -96,13 +107,18 @@ http://localhost:5173
 
 - 路由层保持轻量，主要负责参数接收、依赖注入和响应组织。
 - 业务流程放在 `backend/app/services`，包括会话、用户选择和资源解析；不要把业务流程堆进 API route。
-- 一次 Agent 对话运行的编排逻辑放在 `backend/app/agent/runtime.py`，runtime 只负责串联 service、构建 context 和调用 agent。
-- 运行时上下文放在 `backend/app/agent/context.py`，不要把资源、用户、模型用途散落到 state dict 中。
-- `backend/app/graph/builder.py` 使用 LangChain `create_agent` 构建 agent，不手写 node/edge 编排。
+- 知识库文档上传、原始文件/Markdown 保存和解析状态更新放在 `backend/app/services/knowledge_service.py`。
+- 文件转 Markdown 的具体解析器放在 `backend/app/document_parsers`，不要把不同文件类型解析逻辑堆进 route。
+- 原始文件和 Markdown 文件通过 `backend/app/storage` 的对象存储抽象保存，业务层不要直接调用 MinIO SDK。
+- 内置 agent 能力放在 `backend/app/agents/buildin`，其中 `chatbot` 对应智能助手，`chat_konwledge` 对应知识问答。
+- 智能助手的一次 Agent 对话运行编排放在 `backend/app/agents/buildin/chatbot/runtime.py`，runtime 只负责串联 service、构建 context 和调用 agent。
+- 智能助手运行时上下文放在 `backend/app/agents/buildin/chatbot/context.py`，不要把资源、用户、模型用途散落到 state dict 中。
+- `backend/app/agents/buildin/chatbot/graph.py` 使用 LangChain `create_agent` 构建 agent，不手写 node/edge 编排。
 - `backend/app/graph/middleware` 只放 `AgentMiddleware`，新增上下文裁剪、记忆、工具权限等能力时优先新增独立 middleware 文件。
 - 上下文压缩放在 `backend/app/graph/middleware/summary.py`；默认按估算 token 达到 90K 触发，约等于 128K context window 的 70%，只做本轮请求内压缩，不持久化摘要。
-- 提示词组装放在 `backend/app/graph/prompt.py`，middleware 负责决定何时注入，不要在 provider 中拼 prompt。
-- 大模型接入放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 `graph/builder.py`。
+- 智能助手提示词组装放在 `backend/app/agents/buildin/chatbot/prompt.py`，middleware 负责决定何时注入，不要在 provider 中拼 prompt。
+- 知识问答提示词和回答组装放在 `backend/app/agents/buildin/chat_konwledge/prompt.py` 和 `graph.py`。
+- 大模型接入放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 agent graph。
 - 运行时工具放在 `backend/app/tools`，agent 初始只绑定工具路由能力，具体工具由 `dynamic_tool_call` 按名称加载执行。
 - 模型用途通过 `model_use` 区分，当前支持 `chat_model`，预留 `deep_research_model`。
 - 数据库访问放在 `backend/app/db/repositories.py`。
@@ -135,6 +151,10 @@ http://localhost:5173
 - `GET /api/conversations/{conversation_id}/messages?user_key=default`
 - `POST /api/conversations/{conversation_id}/messages?user_key=default`
 - `POST /api/chat`
+- `GET /api/knowledge-bases?user_key=default`
+- `POST /api/knowledge-bases`
+- `GET /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default`
+- `POST /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default`
 
 `/api/chat` 负责：
 
@@ -157,6 +177,8 @@ http://localhost:5173
 - `user_selections`：用户选择的资源名称列表。
 - `conversations`：对话会话元信息。
 - `conversation_messages`：对话消息明细。
+- `knowledge_bases`：知识库元信息。
+- `knowledge_documents`：知识库文档元数据、对象存储 key 和解析状态。
 
 约定：
 
@@ -164,6 +186,7 @@ http://localhost:5173
 - 会话删除默认采用归档语义，避免误删历史数据。
 - 消息 `role` 只使用 `user`、`assistant`、`system`、`tool`。
 - 消息扩展信息放在 JSONB `metadata` 中，不要把运行时上下文硬编码进文本字段。
+- 知识库原始文档和 Markdown 副本保存在对象存储中，PostgreSQL 只保存 object key、状态、hash、文件大小等元数据。
 
 ## 8. 文档维护规范
 
@@ -186,3 +209,16 @@ http://localhost:5173
 - 项目还没有数据库迁移系统。
 - 当前没有认证系统，`user_key` 仍是客户端传入的简单标识。
 - 当前真实模型能力取决于运行时配置；默认模型仍可使用 `mock`。
+
+## 11. 知识库分块补充
+
+- 通用 Markdown 分块实现放在 `backend/app/chunking/general.py`，策略仿照 Yuxi general：按分隔符形成 section，再按 token 上限合并，超长 chunk 兜底硬切。
+- 文档上传解析成功后由 `backend/app/services/knowledge_service.py` 串联分块、embedding 和 Milvus 入库。
+- `knowledge_chunks` 只保存 chunk 元数据；chunk 正文和向量保存在 Milvus collection 中。
+- chunk 查询接口为 `GET /api/knowledge-documents/{document_id}/chunks?user_key=default`。
+
+
+
+## 12.代码可阅读性规范
+
+在生成代码函数的过程中，加入必要的注释，方便快速阅读代码

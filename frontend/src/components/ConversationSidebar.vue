@@ -1,5 +1,16 @@
 <script setup>
-import { MoreHorizontal, PanelLeftClose, PanelLeftOpen, SquarePen } from 'lucide-vue-next'
+import {
+  BarChart3,
+  Blocks,
+  BookOpenText,
+  Box,
+  BriefcaseBusiness,
+  ChevronDown,
+  MoreHorizontal,
+  PanelLeftClose,
+  PanelLeftOpen,
+  SquarePen,
+} from 'lucide-vue-next'
 import { ref } from 'vue'
 import {
   conversationStore,
@@ -15,9 +26,13 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  activeView: {
+    type: String,
+    default: 'chat',
+  },
 })
 
-defineEmits(['toggle'])
+const emit = defineEmits(['navigate', 'toggle'])
 
 const openMenuId = ref(null)
 const pendingDelete = ref(null)
@@ -44,6 +59,16 @@ async function confirmDelete() {
   pendingDelete.value = null
   await removeConversation(conversationId, selectionStore.userKey)
 }
+
+function startNewConversation() {
+  newConversation()
+  emit('navigate', 'chat')
+}
+
+async function openConversation(conversationId) {
+  emit('navigate', 'chat')
+  await selectConversation(conversationId, selectionStore.userKey)
+}
 </script>
 
 <template>
@@ -66,13 +91,50 @@ async function confirmDelete() {
         class="new-chat-button"
         type="button"
         :disabled="conversationStore.loading"
-        @click="newConversation()"
+        @click="startNewConversation"
       >
         <SquarePen :size="18" />
         <span>创建新对话</span>
       </button>
 
+      <nav class="sidebar-nav" aria-label="主导航">
+        <button
+          class="sidebar-nav-item"
+          type="button"
+          :class="{ active: activeView === 'chat' }"
+          @click="emit('navigate', 'chat')"
+        >
+          <BriefcaseBusiness :size="18" />
+          <span>工作区</span>
+        </button>
+        <button
+          class="sidebar-nav-item"
+          type="button"
+          :class="{ active: activeView === 'knowledge' }"
+          @click="emit('navigate', 'knowledge')"
+        >
+          <BookOpenText :size="18" />
+          <span>知识库</span>
+        </button>
+        <button class="sidebar-nav-item" type="button">
+          <Blocks :size="18" />
+          <span>扩展管理</span>
+        </button>
+        <button class="sidebar-nav-item" type="button">
+          <Box :size="18" />
+          <span>模型配置</span>
+        </button>
+        <button class="sidebar-nav-item" type="button">
+          <BarChart3 :size="18" />
+          <span>Dashboard</span>
+        </button>
+      </nav>
+
       <section class="conversation-section">
+        <header class="conversation-section-header">
+          <span>对话历史</span>
+          <ChevronDown :size="14" />
+        </header>
         <p v-if="conversationStore.error" class="conversation-error">
           {{ conversationStore.error }}
         </p>
@@ -86,7 +148,7 @@ async function confirmDelete() {
             <button
               class="conversation-item"
               type="button"
-              @click="selectConversation(conversation.id, selectionStore.userKey)"
+              @click="openConversation(conversation.id)"
             >
               <span>{{ conversation.title }}</span>
             </button>

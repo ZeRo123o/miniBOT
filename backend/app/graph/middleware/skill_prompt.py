@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 
-from app.agent.context import AgentContext
+from app.agents.buildin.chatbot.context import AgentContext
 
 
 class SkillPromptMiddleware(AgentMiddleware):

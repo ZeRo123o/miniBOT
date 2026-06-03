@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -9,6 +10,18 @@ from app.db.session import AsyncSessionLocal, init_db
 from app.plugins.registry import seed_builtin_resources
 
 
+def configure_app_logging() -> None:
+    app_logger = logging.getLogger("app")
+    if not app_logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(
+            logging.Formatter("%(levelname)s: %(name)s - %(message)s")
+        )
+        app_logger.addHandler(handler)
+    app_logger.setLevel(logging.INFO)
+    app_logger.propagate = False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
@@ -18,6 +31,7 @@ async def lifespan(app: FastAPI):
 
 
 settings = get_settings()
+configure_app_logging()
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
 app.add_middleware(

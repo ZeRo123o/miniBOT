@@ -1,6 +1,6 @@
 from langchain_core.tools import tool
 
-from app.agent.context import AgentContext
+from app.agents.buildin.chatbot.context import AgentContext
 from app.tools.registry import list_runtime_tool_specs, run_runtime_tool
 
 

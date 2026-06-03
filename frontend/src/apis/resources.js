@@ -39,18 +39,59 @@ export function listConversationMessages(conversationId, userKey) {
   )
 }
 
-export function sendChat(message, userKey, conversationId = null) {
-  return request('/chat', {
+export function listKnowledgeBases(userKey) {
+  return request(`/knowledge-bases?user_key=${encodeURIComponent(userKey)}`)
+}
+
+export function createKnowledgeBase(payload) {
+  return request('/knowledge-bases', {
     method: 'POST',
-    body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId }),
+    body: JSON.stringify(payload),
   })
 }
 
-export async function sendChatStream(message, userKey, conversationId = null, handlers = {}) {
+export function listKnowledgeDocuments(knowledgeBaseId, userKey) {
+  return request(
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/documents?user_key=${encodeURIComponent(userKey)}`,
+  )
+}
+
+export function listKnowledgeChunks(documentId, userKey) {
+  return request(`/knowledge-documents/${encodeURIComponent(documentId)}/chunks?user_key=${encodeURIComponent(userKey)}`)
+}
+
+export async function uploadKnowledgeDocument(knowledgeBaseId, userKey, file) {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const response = await fetch(
+    `${API_BASE}/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/documents?user_key=${encodeURIComponent(userKey)}`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  )
+
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(text || `Request failed: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export function sendChat(message, userKey, conversationId = null, mode = 'assistant') {
+  return request('/chat', {
+    method: 'POST',
+    body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId, mode }),
+  })
+}
+
+export async function sendChatStream(message, userKey, conversationId = null, mode = 'assistant', handlers = {}) {
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId }),
+    body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId, mode }),
   })
 
   if (!response.ok || !response.body) {

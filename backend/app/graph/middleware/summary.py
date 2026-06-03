@@ -3,7 +3,7 @@ from collections.abc import Callable
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 
-from app.agent.context import AgentContext
+from app.agents.buildin.chatbot.context import AgentContext
 from app.llm import get_model
 
 

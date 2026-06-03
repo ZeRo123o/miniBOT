@@ -10,7 +10,7 @@ miniBOT 是一个前后端分离的模块化助手脚手架。
 miniBOT
 |-- backend/              FastAPI 后端
 |-- frontend/             Vue 3 + Vite 前端
-|-- docker-compose.yml    PostgreSQL 开发依赖
+|-- docker-compose.yml    PostgreSQL / MinIO 开发依赖
 |-- README.md             项目说明
 |-- AGENTS.md             agent 开发规范
 `-- PROJECT_MAP.md        项目导航地图
@@ -33,15 +33,51 @@ miniBOT
   -> 前端刷新当前会话
 ```
 
+知识问答链路：
+
+```text
+前端发送消息
+  -> POST /api/chat，mode=knowledge
+  -> KnowledgeQaRuntime
+  -> 保存 user message
+  -> 读取资源选择
+  -> 检索知识库引用
+  -> chat_konwledge/graph.py 组装回答
+  -> 保存 assistant message
+  -> 前端刷新当前会话和引用来源
+```
+
+知识库文档入库链路：
+
+```text
+前端上传文档
+  -> POST /api/knowledge-bases/{kb_id}/documents
+  -> KnowledgeService
+  -> MinIO 保存原始文件
+  -> PostgreSQL 保存 knowledge_documents 元数据，status=uploaded/parsing
+  -> document_parsers 转 Markdown
+  -> MinIO 保存 Markdown 副本
+  -> PostgreSQL 更新 status=parsed 或 failed
+```
+
 ## 2. 后端地图
 
 ```text
 backend/app
 |-- main.py                  FastAPI app、CORS、lifespan、路由挂载
 |-- schemas.py               通用请求/响应 Pydantic schema
-|-- agent/
-|   |-- context.py           AgentContext 运行时上下文
-|   `-- runtime.py           一次 Agent 对话运行的编排入口
+|-- agent/                   旧兼容入口，转发到 agents/buildin
+|-- agents/
+|   `-- buildin/
+|       |-- chatbot/         智能助手
+|       |   |-- context.py   AgentContext 运行时上下文
+|       |   |-- graph.py     create_agent 构建入口
+|       |   |-- prompt.py    系统提示词和资源上下文组装
+|       |   `-- runtime.py   一次智能助手对话运行编排
+|       `-- chat_konwledge/  知识问答
+|           |-- graph.py     知识问答回答组装入口
+|           |-- prompt.py    知识问答提示词模板
+|           `-- runtime.py   一次知识问答运行编排
 |-- core/
 |   `-- config.py            环境变量与默认配置
 |-- api/
@@ -58,11 +94,18 @@ backend/app
 |   `-- repositories.py      数据访问层
 |-- services/
 |   |-- conversation_service.py  会话和消息业务服务
+|   |-- knowledge_service.py     知识库、文档上传和解析编排服务
 |   |-- selection_service.py     用户资源选择服务
 |   `-- resource_service.py      资源解析服务
+|-- storage/
+|   |-- base.py                  对象存储抽象
+|   |-- factory.py               存储服务工厂
+|   `-- minio.py                 MinIO 对象存储实现
+|-- document_parsers/
+|   `-- factory.py               文档转 Markdown 解析入口
 |-- graph/
-|   |-- builder.py           create_agent 构建入口
-|   |-- prompt.py            系统提示词和资源上下文组装
+|   |-- builder.py           旧兼容入口，转发到 agents/buildin/chatbot/graph.py
+|   |-- prompt.py            旧兼容入口，转发到 agents/buildin/chatbot/prompt.py
 |   `-- middleware/          LangChain AgentMiddleware
 |-- llm/
 |   |-- base.py              BaseChatModel 别名
@@ -110,11 +153,11 @@ frontend
 
 ```text
 接收 ChatRequest
-  -> 调用 AgentRuntime.run
+  -> 根据 mode 调用 AgentRuntime.run 或 KnowledgeQaRuntime.run
   -> 把 ValueError 转成 HTTPException
 ```
 
-`agent/runtime.py` 负责一次完整 Agent 运行编排：
+`agents/buildin/chatbot/runtime.py` 负责一次完整智能助手运行编排：
 
 ```text
 调用 ConversationService 准备会话和消息
@@ -133,7 +176,7 @@ SelectionService     用户资源选择读取和默认值处理
 ResourceService      MCP / Skill / Subagent / Tool 资源解析
 ```
 
-`graph/builder.py` 只负责 agent 构建：
+`agents/buildin/chatbot/graph.py` 只负责智能助手 agent 构建：
 
 ```text
 选择模型用途 model_use
@@ -141,6 +184,17 @@ ResourceService      MCP / Skill / Subagent / Tool 资源解析
 挂载 AgentMiddleware
 绑定 list_available_tools / dynamic_tool_call
 返回 compiled agent
+```
+
+`agents/buildin/chat_konwledge/runtime.py` 负责一次完整知识问答运行编排：
+
+```text
+调用 ConversationService 准备会话和消息
+调用 SelectionService 读取用户资源选择
+调用 ResourceService 解析资源
+检索知识库引用片段
+调用 chat_konwledge/graph.py 组装答案
+委托 ConversationService 保存 assistant 回复并构造响应
 ```
 
 `tools/` 负责运行时动态工具：
@@ -180,6 +234,8 @@ plugin_resources
 user_selections
 conversations
 conversation_messages
+knowledge_bases
+knowledge_documents
 ```
 
 当前没有 Alembic 迁移系统，应用启动时通过 `Base.metadata.create_all` 创建缺失表。
@@ -201,27 +257,33 @@ GET    /api/conversations/{conversation_id}/messages?user_key=default
 POST   /api/conversations/{conversation_id}/messages?user_key=default
 POST   /api/chat
 POST   /api/chat/stream
+GET    /api/knowledge-bases?user_key=default
+POST   /api/knowledge-bases
+GET    /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
+POST   /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
 ```
 
 ## 7. 常见任务定位
 
 修改聊天运行流程：
-- `backend/app/agent/runtime.py`
+- `backend/app/agents/buildin/chatbot/runtime.py`
+- `backend/app/agents/buildin/chat_konwledge/runtime.py`
 - `backend/app/services/`
 - `backend/app/api/routes/chat.py`
 
 修改 agent 构建和 middleware：
-- `backend/app/graph/builder.py`
+- `backend/app/agents/buildin/chatbot/graph.py`
 - `backend/app/graph/middleware/`
-- `backend/app/agent/context.py`
+- `backend/app/agents/buildin/chatbot/context.py`
 
 修改上下文压缩：
 - `backend/app/graph/middleware/summary.py`
-- `backend/app/agent/context.py`
+- `backend/app/agents/buildin/chatbot/context.py`
 - `backend/app/core/config.py`
 
 修改提示词：
-- `backend/app/graph/prompt.py`
+- `backend/app/agents/buildin/chatbot/prompt.py`
+- `backend/app/agents/buildin/chat_konwledge/prompt.py`
 - `backend/app/core/config.py`
 
 修改模型接入：
@@ -232,7 +294,7 @@ POST   /api/chat/stream
 修改运行时工具：
 - `backend/app/tools/`
 - `backend/app/plugins/registry.py`
-- `backend/app/graph/prompt.py`
+- `backend/app/agents/buildin/chatbot/prompt.py`
 
 修改左侧历史对话：
 - `frontend/src/components/ConversationSidebar.vue`
@@ -247,6 +309,42 @@ POST   /api/chat/stream
 修改右侧工作区：
 - `frontend/src/components/WorkspaceSidebar.vue`
 - `frontend/src/stores/selectionStore.js`
+
+修改知识库上传和解析：
+- `backend/app/api/routes/knowledge.py`
+- `backend/app/services/knowledge_service.py`
+- `backend/app/chunking/general.py`
+- `backend/app/document_parsers/factory.py`
+- `backend/app/storage/`
+- `backend/app/db/models.py`
+
+## 8. 知识库分块补充
+
+当前知识库上传链路在 Markdown 解析后会执行通用分块：
+
+```text
+Markdown
+  -> backend/app/chunking/general.py
+  -> knowledge_chunks
+  -> embedding
+  -> Milvus 保存 chunk content + embedding
+  -> knowledge_documents.status=indexed
+```
+
+新增数据表：
+
+```text
+knowledge_chunks
+```
+
+`knowledge_chunks` 只保存 chunk 元数据、顺序和字符位置；chunk 正文和向量由 Milvus collection 保存。
+
+新增接口：
+
+```text
+GET /api/knowledge-documents/{document_id}/chunks?user_key=default
+```
+- `backend/app/db/repositories.py`
 
 ## 8. 验证命令
 

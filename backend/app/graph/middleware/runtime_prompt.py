@@ -3,8 +3,8 @@ from collections.abc import Callable
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
 from langchain_core.messages import SystemMessage
 
-from app.agent.context import AgentContext
-from app.graph.prompt import build_system_prompt
+from app.agents.buildin.chatbot.context import AgentContext
+from app.agents.buildin.chatbot.prompt import build_system_prompt
 
 
 class RuntimePromptMiddleware(AgentMiddleware):

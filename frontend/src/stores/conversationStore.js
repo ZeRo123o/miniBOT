@@ -10,6 +10,7 @@ export const conversationStore = reactive({
   conversations: [],
   messagesByConversationId: {},
   activeId: null,
+  activeMode: 'assistant',
   loading: false,
   error: '',
 })
@@ -52,6 +53,9 @@ export async function loadConversations(userKey) {
     }
     if (conversationStore.activeId) {
       await loadMessages(conversationStore.activeId, userKey)
+      conversationStore.activeMode = inferModeFromMessages(
+        conversationStore.messagesByConversationId[conversationStore.activeId],
+      )
     }
   } catch (error) {
     conversationStore.error = error.message
@@ -62,12 +66,14 @@ export async function loadConversations(userKey) {
 
 export function newConversation() {
   conversationStore.activeId = null
+  conversationStore.activeMode = 'assistant'
   conversationStore.error = ''
 }
 
 export async function selectConversation(id, userKey) {
   conversationStore.activeId = id
   await loadMessages(id, userKey)
+  conversationStore.activeMode = inferModeFromMessages(conversationStore.messagesByConversationId[id])
 }
 
 export async function loadMessages(conversationId, userKey) {
@@ -118,7 +124,11 @@ export async function removeConversation(conversationId, userKey) {
   }
 }
 
-export function addPendingChatMessage(content) {
+export function setActiveMode(mode) {
+  conversationStore.activeMode = mode
+}
+
+export function addPendingChatMessage(content, mode = conversationStore.activeMode) {
   const conversationId = conversationStore.activeId || createTemporaryId('pending-conversation')
   const now = new Date().toISOString()
 
@@ -130,14 +140,14 @@ export function addPendingChatMessage(content) {
       role: 'user',
       content,
       created_at: now,
-      metadata: { pending: true },
+      metadata: { pending: true, mode },
     },
     {
       id: createTemporaryId('pending-assistant'),
       role: 'assistant',
       content: '',
       created_at: now,
-      metadata: { pending: true, loading: true },
+      metadata: { pending: true, loading: true, mode },
     },
   ]
 
@@ -154,6 +164,9 @@ export function removePendingAssistantMessage(conversationId) {
 }
 
 export function applyStreamConversation(event, optimisticConversationId = null) {
+  if (event.mode) {
+    conversationStore.activeMode = event.mode
+  }
   if (event.conversation) {
     upsertConversation(event.conversation)
   }
@@ -183,6 +196,9 @@ export function appendPendingAssistantContent(conversationId, content) {
 }
 
 export function applyChatResponse(response, optimisticConversationId = null) {
+  if (response.mode) {
+    conversationStore.activeMode = response.mode
+  }
   if (response.conversation) {
     upsertConversation(response.conversation)
   }
@@ -193,4 +209,12 @@ export function applyChatResponse(response, optimisticConversationId = null) {
       delete conversationStore.messagesByConversationId[optimisticConversationId]
     }
   }
+}
+
+function inferModeFromMessages(messages = []) {
+  const mode = [...messages]
+    .reverse()
+    .map((message) => message.metadata?.mode)
+    .find((item) => item === 'assistant' || item === 'knowledge')
+  return mode || 'assistant'
 }
