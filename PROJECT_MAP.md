@@ -26,25 +26,11 @@ miniBOT
   -> 读取历史消息和资源选择
   -> 解析 MCP / Skill / Subagent
   -> 创建 AgentContext
-  -> create_agent + middleware 动态构建提示词
+  -> create_agent 构建基础 prompt + middleware 增量追加运行时提示词
   -> dynamic_tool_call 按需加载运行时工具
   -> chat_model
   -> 保存 assistant message
   -> 前端刷新当前会话
-```
-
-知识问答链路：
-
-```text
-前端发送消息
-  -> POST /api/chat，mode=knowledge
-  -> KnowledgeQaRuntime
-  -> 保存 user message
-  -> 读取资源选择
-  -> 检索知识库引用
-  -> chat_konwledge/graph.py 组装回答
-  -> 保存 assistant message
-  -> 前端刷新当前会话和引用来源
 ```
 
 知识库文档入库链路：
@@ -68,16 +54,20 @@ backend/app
 |-- schemas.py               通用请求/响应 Pydantic schema
 |-- agent/                   旧兼容入口，转发到 agents/buildin
 |-- agents/
-|   `-- buildin/
-|       |-- chatbot/         智能助手
-|       |   |-- context.py   AgentContext 运行时上下文
-|       |   |-- graph.py     create_agent 构建入口
-|       |   |-- prompt.py    系统提示词和资源上下文组装
-|       |   `-- runtime.py   一次智能助手对话运行编排
-|       `-- chat_konwledge/  知识问答
-|           |-- graph.py     知识问答回答组装入口
-|           |-- prompt.py    知识问答提示词模板
-|           `-- runtime.py   一次知识问答运行编排
+|   |-- buildin/
+|   |   `-- chatbot/         智能助手
+|   |       |-- context.py   AgentContext 运行时上下文
+|   |       |-- graph.py     create_agent 构建入口
+|   |       |-- prompt.py    基础提示词和运行时提示词片段组装
+|   |       `-- runtime.py   一次智能助手对话运行编排
+|   |-- middlewares/
+|   |   |-- knowledge_base.py  知识库工具注入中间件
+|   |   |-- skill_prompt.py    Skill 提示词增量注入
+|   |   |-- runtime_prompt.py  资源和工具策略增量注入
+|   |   |-- summary.py         长上下文压缩
+|   |   `-- system_message.py  system message 追加工具
+|   `-- toolkits/
+|       `-- kbs/             知识库工具集
 |-- core/
 |   `-- config.py            环境变量与默认配置
 |-- api/
@@ -141,7 +131,6 @@ frontend
     |   |-- ChatBox.vue
     |   |-- ConversationSidebar.vue
     |   |-- MarkdownMessage.vue
-    |   |-- ResourceSelector.vue
     |   `-- WorkspaceSidebar.vue
     `-- views/
         `-- HomeView.vue
@@ -153,7 +142,7 @@ frontend
 
 ```text
 接收 ChatRequest
-  -> 根据 mode 调用 AgentRuntime.run 或 KnowledgeQaRuntime.run
+  -> 调用 AgentRuntime.run
   -> 把 ValueError 转成 HTTPException
 ```
 
@@ -167,6 +156,10 @@ frontend
 调用 create_agent 生成的 agent
 委托 ConversationService 保存 assistant 回复并构造响应
 ```
+
+右侧工作区选择知识库后，通过 selections API 将 `knowledge_base_ids` 保存到
+`user_selections`。聊天运行时读取该字段并写入 `AgentContext.knowledge_base_ids`，
+知识库工具只允许查询这个 ID 列表内且属于当前 `user_key` 的知识库。
 
 `services/` 负责业务流程：
 
@@ -186,17 +179,6 @@ ResourceService      MCP / Skill / Subagent / Tool 资源解析
 返回 compiled agent
 ```
 
-`agents/buildin/chat_konwledge/runtime.py` 负责一次完整知识问答运行编排：
-
-```text
-调用 ConversationService 准备会话和消息
-调用 SelectionService 读取用户资源选择
-调用 ResourceService 解析资源
-检索知识库引用片段
-调用 chat_konwledge/graph.py 组装答案
-委托 ConversationService 保存 assistant 回复并构造响应
-```
-
 `tools/` 负责运行时动态工具：
 
 ```text
@@ -205,13 +187,13 @@ dynamic_tool_call     按工具名称加载并执行工具
 tavily_search         Tavily 网页搜索执行器
 ```
 
-`graph/middleware/` 负责运行时能力：
+`agents/middlewares/` 统一负责供 Agent 模型调用使用的中间件：
 
 ```text
-RuntimeResourceMiddleware  规范化运行时资源
-SkillPromptMiddleware      根据 Skill 动态补充提示词片段
+KnowledgeBaseMiddleware    注册 list_kbs / query_kb 知识库工具
+SkillPromptMiddleware      每次模型调用前增量追加 Skill 元数据提示段
 SummaryMiddleware          估算 token 达到 90K 时压缩历史，只保留摘要和最近消息
-RuntimePromptMiddleware    统一生成最终 system prompt
+RuntimePromptMiddleware    每次模型调用前增量追加资源和工具策略
 ```
 
 `llm/` 负责模型管理：
@@ -236,6 +218,7 @@ conversations
 conversation_messages
 knowledge_bases
 knowledge_documents
+user_selections.knowledge_base_ids
 ```
 
 当前没有 Alembic 迁移系统，应用启动时通过 `Base.metadata.create_all` 创建缺失表。
@@ -254,7 +237,6 @@ POST   /api/conversations
 PATCH  /api/conversations/{conversation_id}?user_key=default
 DELETE /api/conversations/{conversation_id}?user_key=default
 GET    /api/conversations/{conversation_id}/messages?user_key=default
-POST   /api/conversations/{conversation_id}/messages?user_key=default
 POST   /api/chat
 POST   /api/chat/stream
 GET    /api/knowledge-bases?user_key=default
@@ -267,23 +249,21 @@ POST   /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
 
 修改聊天运行流程：
 - `backend/app/agents/buildin/chatbot/runtime.py`
-- `backend/app/agents/buildin/chat_konwledge/runtime.py`
 - `backend/app/services/`
 - `backend/app/api/routes/chat.py`
 
 修改 agent 构建和 middleware：
 - `backend/app/agents/buildin/chatbot/graph.py`
-- `backend/app/graph/middleware/`
+- `backend/app/agents/middlewares/`
 - `backend/app/agents/buildin/chatbot/context.py`
 
 修改上下文压缩：
-- `backend/app/graph/middleware/summary.py`
+- `backend/app/agents/middlewares/summary.py`
 - `backend/app/agents/buildin/chatbot/context.py`
 - `backend/app/core/config.py`
 
 修改提示词：
 - `backend/app/agents/buildin/chatbot/prompt.py`
-- `backend/app/agents/buildin/chat_konwledge/prompt.py`
 - `backend/app/core/config.py`
 
 修改模型接入：
@@ -327,7 +307,8 @@ Markdown
   -> backend/app/chunking/general.py
   -> knowledge_chunks
   -> embedding
-  -> Milvus 保存 chunk content + embedding
+  -> Milvus 保存 chunk content + dense embedding
+  -> Milvus BM25 Function 生成 sparse_embedding
   -> knowledge_documents.status=indexed
 ```
 
@@ -338,6 +319,52 @@ knowledge_chunks
 ```
 
 `knowledge_chunks` 只保存 chunk 元数据、顺序和字符位置；chunk 正文和向量由 Milvus collection 保存。
+
+Milvus collection 的 `content` 字段启用 Chinese analyzer，并通过内置 BM25 Function 自动生成
+`content_sparse`。`embedding` 和 `content_sparse` 分别使用 COSINE vector 索引和 BM25 sparse 索引。
+
+知识库查询链路：
+
+```text
+知识库 middleware 解析本轮启用资源
+  -> AgentContext.knowledge_base_ids
+  -> middleware 注入 list_kbs / query_kb
+  -> Agent ToolRuntime 调用 query_kb
+  -> backend/app/agents/toolkits/kbs/tools.py
+  -> backend/app/services/knowledge_retrieval_service.py
+  -> query embedding
+  -> Milvus vector / keyword / hybrid search
+  -> 返回 chunk、文档名、score 和 citation_id
+```
+
+`query_kb` 默认使用 hybrid 模式，底层通过 `WeightedRanker` 融合 vector 和 BM25 结果。
+Milvus 查询层参考 Yuxi 实现，支持 `search_mode`、`final_top_k`、`recall_top_k`、
+`similarity_threshold`、`bm25_top_k`、`vector_weight`、`bm25_weight`、
+`bm25_drop_ratio_search`、`include_distances` 和文档过滤。
+
+统一检索结果采用 `content + metadata + score` 结构，`metadata` 中包含来源文档、chunk、知识库和
+`citation_id`。后续接入 LightRAG 时在 `KnowledgeRetrievalService` 增加图检索召回并与 Milvus 结果融合，
+不把 LightRAG 逻辑写入 `MilvusVectorStore`。
+
+知识库工具只根据 `ToolRuntime.context` 中的 `user_key` 和 `knowledge_base_ids` 确定访问范围，
+不接受模型传入的用户身份或 collection 名称。
+
+可由 Agent middleware 直接注入的知识库工具位于：
+
+```text
+backend/app/agents/toolkits/kbs/tools.py
+```
+
+当前提供：
+
+```text
+list_kbs   列出当前会话启用且用户有权访问的知识库
+query_kb   按 kb_id、query_text 和可选 file_name 查询知识库
+```
+
+`query_kb` 使用 LangGraph `ToolRuntime` 从 `AgentContext` 获取 `user_key` 和
+`knowledge_base_ids`，不会把用户身份暴露为模型工具参数。`KnowledgeBaseMiddleware`
+通过 `get_kb_tools()` 将工具注册到 agent，访问范围仍由 `AgentContext` 控制。
 
 新增接口：
 

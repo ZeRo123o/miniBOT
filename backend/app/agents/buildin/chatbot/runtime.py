@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -7,9 +8,10 @@ from app.agents.runtime_base import BaseChatRuntime, RuntimeResult
 from app.core.config import get_settings
 from app.llm.factory import CHAT_MODEL
 
+logger = logging.getLogger(__name__)
+
 
 class AgentRuntime(BaseChatRuntime):
-    mode = "assistant"
     MISSING_OPENAI_API_KEY_ERROR = "MINIBOT_OPENAI_API_KEY is required for OpenAI-compatible provider."
     MISSING_OPENAI_API_KEY_REPLY = (
         "当前未配置模型 API Key，暂时无法调用真实大模型。\n\n"
@@ -29,6 +31,7 @@ class AgentRuntime(BaseChatRuntime):
         context = self._build_context(
             user_key=user_key,
             conversation_id=conversation_id,
+            selection=selection,
             resources=resources,
         )
         agent = build_chat_agent(context)
@@ -39,7 +42,6 @@ class AgentRuntime(BaseChatRuntime):
             )
             answer = result["messages"][-1].content
             assistant_metadata = {
-                "mode": "assistant",
                 "workflow": "agent",
                 "resources": resources,
                 "tool_events": context.tool_events,
@@ -51,25 +53,47 @@ class AgentRuntime(BaseChatRuntime):
             assistant_metadata = {
                 "resources": resources,
                 "tool_events": context.tool_events,
-                "mode": "assistant",
                 "workflow": "agent",
                 "error": "missing_openai_api_key",
             }
         return RuntimeResult(
             answer=answer,
             metadata=assistant_metadata,
-            response_extra={"citations": []},
+            response_extra={"citations": self._collect_citations(context.tool_events)},
         )
+
+    def _collect_citations(self, tool_events: list[dict]) -> list[dict]:
+        """Return unique knowledge chunks actually retrieved during this agent run."""
+        citations = []
+        seen = set()
+        for event in tool_events:
+            if event.get("tool_name") != "query_kb":
+                continue
+            for item in event.get("results") or []:
+                citation_id = (item.get("metadata") or {}).get("citation_id")
+                if not citation_id or citation_id in seen:
+                    continue
+                seen.add(citation_id)
+                citations.append(item)
+        return citations
 
     def _build_context(
         self,
         *,
         user_key: str,
         conversation_id: int,
+        selection: dict,
         resources: dict[str, list[dict]],
     ) -> AgentContext:
         """把数据库资源和运行时配置整理成 AgentContext。"""
         settings = get_settings()
+        knowledge_base_ids = selection.get("knowledge_base_ids", []) or []
+        logger.info(
+            "Knowledge bases enabled for agent run: user_key=%s conversation_id=%s knowledge_base_ids=%s",
+            user_key,
+            conversation_id,
+            knowledge_base_ids,
+        )
         return AgentContext(
             user_key=user_key,
             conversation_id=conversation_id,
@@ -81,6 +105,7 @@ class AgentRuntime(BaseChatRuntime):
             skills=resources["skills"],
             subagents=resources["subagents"],
             tools=resources["tools"],
+            knowledge_base_ids=knowledge_base_ids,
             max_tool_calls=settings.runtime_tool_call_limit,
             summary_context_window_tokens=settings.summary_context_window_tokens,
             summary_trigger_ratio=settings.summary_trigger_ratio,

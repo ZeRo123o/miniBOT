@@ -32,6 +32,8 @@ async def list_enabled_resources(db: AsyncSession, *, kind: str) -> list[dict]:
 async def seed_builtin_resources(db: AsyncSession) -> None:
     """写入内置资源种子数据，包括示例 MCP、Skill、Subagent 和 Tool。"""
     repo = PluginResourceRepository(db)
+    # 知识库工具改由 middleware 直接注入，不再注册为 dynamic_tool_call 资源。
+    await repo.delete_by_name("tool", "knowledge_query")
     samples = [
         {
             "kind": "mcp",

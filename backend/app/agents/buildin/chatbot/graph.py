@@ -3,9 +3,10 @@ from typing import Any
 from langchain.agents import create_agent
 
 from app.agents.buildin.chatbot.context import AgentContext
-from app.graph.middleware import (
+from app.agents.buildin.chatbot.prompt import build_system_prompt
+from app.agents.middlewares import (
+    KnowledgeBaseMiddleware,
     RuntimePromptMiddleware,
-    RuntimeResourceMiddleware,
     SkillPromptMiddleware,
     SummaryMiddleware,
 )
@@ -19,8 +20,9 @@ def build_chat_agent(context: AgentContext | None = None) -> Any:
     return create_agent(
         model=get_model(agent_context.model_use),
         tools=get_runtime_tools(agent_context),
+        system_prompt=build_system_prompt(agent_context),
         middleware=[
-            RuntimeResourceMiddleware(),
+            KnowledgeBaseMiddleware(),
             SkillPromptMiddleware(),
             SummaryMiddleware(),
             RuntimePromptMiddleware(),

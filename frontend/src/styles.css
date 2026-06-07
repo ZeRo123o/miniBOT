@@ -415,7 +415,7 @@ textarea {
 
 .resource-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 4px;
   border-radius: 8px;
   background: #f1f3f4;
@@ -489,38 +489,24 @@ textarea {
   background: #eef1f4;
   color: #5f6368;
   padding: 11px 12px;
-  cursor: pointer;
+  cursor: default;
   font-size: 15px;
 }
 
-.workspace-save-button:not(:disabled):hover {
-  background: #e5e9ee;
-  color: #202124;
+.workspace-save-button.pending {
+  border-color: #1677ff;
+  background: #1677ff;
+  color: #fff;
+  cursor: pointer;
 }
 
-.panel {
-  background: #fff;
-  border: 1px solid #d9e0e8;
-  border-radius: 8px;
-  padding: 16px;
+.workspace-save-button.pending:not(:disabled):hover {
+  border-color: #0958d9;
+  background: #0958d9;
 }
 
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.panel-header h2 {
-  margin: 0;
-  font-size: 17px;
-}
-
-.panel-header span {
-  color: #667085;
-  font-size: 13px;
+.workspace-save-button:disabled {
+  opacity: 1;
 }
 
 .resource-list {
@@ -1057,6 +1043,7 @@ textarea {
 }
 
 .chat-panel {
+  position: relative;
   display: grid;
   grid-template-rows: minmax(0, 1fr) auto;
   width: 100%;
@@ -1132,39 +1119,6 @@ textarea {
   border-radius: 0;
   color: #202124;
   line-height: 1.6;
-}
-
-.chat-mode-switch {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 40px;
-}
-
-.chat-mode-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 128px;
-  height: 38px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: #8a949e;
-  padding: 0 12px;
-  cursor: pointer;
-  font-size: 17px;
-}
-
-.chat-mode-option:hover {
-  background: #f6f8fa;
-  color: #3c4043;
-}
-
-.chat-mode-option.active {
-  color: #202124;
-  font-weight: 600;
 }
 
 .message b {

@@ -56,10 +56,6 @@ export function listKnowledgeDocuments(knowledgeBaseId, userKey) {
   )
 }
 
-export function listKnowledgeChunks(documentId, userKey) {
-  return request(`/knowledge-documents/${encodeURIComponent(documentId)}/chunks?user_key=${encodeURIComponent(userKey)}`)
-}
-
 export async function uploadKnowledgeDocument(knowledgeBaseId, userKey, file) {
   const formData = new FormData()
   formData.append('file', file)
@@ -80,18 +76,11 @@ export async function uploadKnowledgeDocument(knowledgeBaseId, userKey, file) {
   return response.json()
 }
 
-export function sendChat(message, userKey, conversationId = null, mode = 'assistant') {
-  return request('/chat', {
-    method: 'POST',
-    body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId, mode }),
-  })
-}
-
-export async function sendChatStream(message, userKey, conversationId = null, mode = 'assistant', handlers = {}) {
+export async function sendChatStream(message, userKey, conversationId = null, handlers = {}) {
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId, mode }),
+    body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId }),
   })
 
   if (!response.ok || !response.body) {

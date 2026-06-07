@@ -110,14 +110,14 @@ http://localhost:5173
 - 知识库文档上传、原始文件/Markdown 保存和解析状态更新放在 `backend/app/services/knowledge_service.py`。
 - 文件转 Markdown 的具体解析器放在 `backend/app/document_parsers`，不要把不同文件类型解析逻辑堆进 route。
 - 原始文件和 Markdown 文件通过 `backend/app/storage` 的对象存储抽象保存，业务层不要直接调用 MinIO SDK。
-- 内置 agent 能力放在 `backend/app/agents/buildin`，其中 `chatbot` 对应智能助手，`chat_konwledge` 对应知识问答。
+- 内置 agent 能力放在 `backend/app/agents/buildin`，其中 `chatbot` 对应智能助手。
 - 智能助手的一次 Agent 对话运行编排放在 `backend/app/agents/buildin/chatbot/runtime.py`，runtime 只负责串联 service、构建 context 和调用 agent。
 - 智能助手运行时上下文放在 `backend/app/agents/buildin/chatbot/context.py`，不要把资源、用户、模型用途散落到 state dict 中。
 - `backend/app/agents/buildin/chatbot/graph.py` 使用 LangChain `create_agent` 构建 agent，不手写 node/edge 编排。
-- `backend/app/graph/middleware` 只放 `AgentMiddleware`，新增上下文裁剪、记忆、工具权限等能力时优先新增独立 middleware 文件。
-- 上下文压缩放在 `backend/app/graph/middleware/summary.py`；默认按估算 token 达到 90K 触发，约等于 128K context window 的 70%，只做本轮请求内压缩，不持久化摘要。
-- 智能助手提示词组装放在 `backend/app/agents/buildin/chatbot/prompt.py`，middleware 负责决定何时注入，不要在 provider 中拼 prompt。
-- 知识问答提示词和回答组装放在 `backend/app/agents/buildin/chat_konwledge/prompt.py` 和 `graph.py`。
+- Agent 业务中间件放在 `backend/app/agents/middlewares`，新增上下文裁剪、记忆、工具权限等能力时优先新增独立 middleware 文件。
+- 知识库工具由 `backend/app/agents/middlewares/knowledge_base.py` 注册，工具实现继续放在 `backend/app/agents/toolkits/kbs`。
+- 上下文压缩放在 `backend/app/agents/middlewares/summary.py`；默认按估算 token 达到 90K 触发，约等于 128K context window 的 70%，只做本轮请求内压缩，不持久化摘要。
+- 智能助手提示词组装放在 `backend/app/agents/buildin/chatbot/prompt.py`；基础 prompt 在 `create_agent` 时构建，资源、Skill 和工具策略由 middleware 在每次模型调用前增量追加，不要在 provider 中拼 prompt。
 - 大模型接入放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 agent graph。
 - 运行时工具放在 `backend/app/tools`，agent 初始只绑定工具路由能力，具体工具由 `dynamic_tool_call` 按名称加载执行。
 - 模型用途通过 `model_use` 区分，当前支持 `chat_model`，预留 `deep_research_model`。
@@ -149,7 +149,6 @@ http://localhost:5173
 - `PATCH /api/conversations/{conversation_id}?user_key=default`
 - `DELETE /api/conversations/{conversation_id}?user_key=default`
 - `GET /api/conversations/{conversation_id}/messages?user_key=default`
-- `POST /api/conversations/{conversation_id}/messages?user_key=default`
 - `POST /api/chat`
 - `GET /api/knowledge-bases?user_key=default`
 - `POST /api/knowledge-bases`
@@ -183,6 +182,7 @@ http://localhost:5173
 约定：
 
 - 继续沿用 `user_key` 作为当前无认证阶段的用户标识。
+- `user_selections.knowledge_base_ids` 保存右侧工作区启用的知识库 ID，写入时必须按 `user_key` 过滤访问范围。
 - 会话删除默认采用归档语义，避免误删历史数据。
 - 消息 `role` 只使用 `user`、`assistant`、`system`、`tool`。
 - 消息扩展信息放在 JSONB `metadata` 中，不要把运行时上下文硬编码进文本字段。

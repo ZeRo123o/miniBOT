@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +34,13 @@ class PluginResourceRepository:
         )
         return result.scalar_one_or_none()
 
+    async def delete_by_name(self, kind: str, name: str) -> None:
+        """删除指定运行时资源，供种子数据清理废弃能力。"""
+        await self.db.execute(
+            delete(PluginResource).where(PluginResource.kind == kind, PluginResource.name == name)
+        )
+        await self.db.commit()
+
     async def upsert(self, data: dict) -> PluginResource:
         item = await self.get_by_name(data["kind"], data["name"])
         if item is None:
@@ -54,15 +63,30 @@ class UserSelectionRepository:
         result = await self.db.execute(select(UserSelection).where(UserSelection.user_key == user_key))
         return result.scalar_one_or_none()
 
-    async def save(self, user_key: str, mcps: list[str], skills: list[str], subagents: list[str]) -> UserSelection:
+    async def save(
+        self,
+        user_key: str,
+        mcps: list[str],
+        skills: list[str],
+        subagents: list[str],
+        knowledge_base_ids: list[int],
+    ) -> UserSelection:
+        """保存用户启用的运行时资源和知识库范围。"""
         item = await self.get(user_key)
         if item is None:
-            item = UserSelection(user_key=user_key, mcps=mcps, skills=skills, subagents=subagents)
+            item = UserSelection(
+                user_key=user_key,
+                mcps=mcps,
+                skills=skills,
+                subagents=subagents,
+                knowledge_base_ids=knowledge_base_ids,
+            )
             self.db.add(item)
         else:
             item.mcps = mcps
             item.skills = skills
             item.subagents = subagents
+            item.knowledge_base_ids = knowledge_base_ids
         await self.db.commit()
         await self.db.refresh(item)
         return item
@@ -122,6 +146,14 @@ class KnowledgeDocumentRepository:
     async def get(self, document_id: int) -> KnowledgeDocument | None:
         result = await self.db.execute(select(KnowledgeDocument).where(KnowledgeDocument.id == document_id))
         return result.scalar_one_or_none()
+
+    async def get_by_ids(self, document_ids: list[int]) -> list[KnowledgeDocument]:
+        if not document_ids:
+            return []
+        result = await self.db.execute(
+            select(KnowledgeDocument).where(KnowledgeDocument.id.in_(document_ids))
+        )
+        return list(result.scalars().all())
 
     async def get_by_hash(self, knowledge_base_id: int, file_hash: str) -> KnowledgeDocument | None:
         result = await self.db.execute(

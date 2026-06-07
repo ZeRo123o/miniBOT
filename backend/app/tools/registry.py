@@ -1,6 +1,7 @@
 from typing import Any
 
 from app.agents.buildin.chatbot.context import AgentContext
+from app.tools.governance import fail_tool_call, finish_tool_call, start_tool_call
 from app.tools.tavily import tavily_search
 
 
@@ -28,15 +29,17 @@ def get_runtime_tool_spec(context: AgentContext, tool_name: str) -> dict[str, An
 
 async def run_runtime_tool(context: AgentContext, tool_name: str, query: str) -> str:
     """校验并执行一个运行时工具，同时记录工具调用事件。"""
-    if len(context.tool_events) >= context.max_tool_calls:
-        return f"工具调用次数已达到上限 {context.max_tool_calls}，本轮不再继续调用工具。"
-
     spec = get_runtime_tool_spec(context, tool_name)
     if spec is None:
         return f"工具 {tool_name} 不存在或当前用户未启用。"
 
-    context.active_tool_names.append(tool_name)
-    context.tool_events.append({"tool_name": tool_name, "query": query, "status": "started"})
+    event, limit_error = start_tool_call(
+        context,
+        tool_name=tool_name,
+        payload={"query": query},
+    )
+    if limit_error:
+        return limit_error
 
     try:
         if tool_name == "tavily_search":
@@ -44,9 +47,8 @@ async def run_runtime_tool(context: AgentContext, tool_name: str, query: str) ->
         else:
             result = f"工具 {tool_name} 已注册，但后端还没有实现执行器。"
     except Exception as error:
-        context.tool_events[-1]["status"] = "failed"
-        context.tool_events[-1]["error"] = str(error)
+        fail_tool_call(event, error)
         return f"工具 {tool_name} 调用失败：{error}"
 
-    context.tool_events[-1]["status"] = "finished"
+    finish_tool_call(event)
     return result

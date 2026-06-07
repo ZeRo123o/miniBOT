@@ -22,8 +22,6 @@ class RuntimeResult:
 class BaseChatRuntime(ABC):
     """Shared conversation lifecycle for built-in chat runtimes."""
 
-    mode: str
-
     def __init__(self, db: AsyncSession):
         self.conversation_service = ConversationService(db)
         self.selection_service = SelectionService(db)
@@ -31,8 +29,7 @@ class BaseChatRuntime(ABC):
 
     async def run(self, *, user_key: str, message: str, conversation_id: int | None = None) -> dict:
         logger.info(
-            "Runtime run started: mode=%s user_key=%s conversation_id=%s message_chars=%s",
-            self.mode,
+            "Runtime run started: user_key=%s conversation_id=%s message_chars=%s",
             user_key,
             conversation_id,
             len(message),
@@ -44,23 +41,20 @@ class BaseChatRuntime(ABC):
         )
         prepared_conversation_id = conversation.id
         logger.info(
-            "Runtime conversation prepared: mode=%s user_key=%s conversation_id=%s",
-            self.mode,
+            "Runtime conversation prepared: user_key=%s conversation_id=%s",
             user_key,
             prepared_conversation_id,
         )
         await self.conversation_service.save_user_message(prepared_conversation_id, message)
         logger.info(
-            "Runtime user message saved: mode=%s conversation_id=%s",
-            self.mode,
+            "Runtime user message saved: conversation_id=%s",
             prepared_conversation_id,
         )
 
         selection = await self.selection_service.get_or_default(user_key)
         resources = await self.resource_service.resolve_for_selection(selection)
         logger.info(
-            "Runtime resources resolved: mode=%s conversation_id=%s mcps=%s skills=%s subagents=%s tools=%s",
-            self.mode,
+            "Runtime resources resolved: conversation_id=%s mcps=%s skills=%s subagents=%s tools=%s",
             prepared_conversation_id,
             len(resources.get("mcps", [])),
             len(resources.get("skills", [])),
@@ -81,8 +75,7 @@ class BaseChatRuntime(ABC):
             metadata=result.metadata,
         )
         logger.info(
-            "Runtime assistant message saved: mode=%s conversation_id=%s answer_chars=%s",
-            self.mode,
+            "Runtime assistant message saved: conversation_id=%s answer_chars=%s",
             prepared_conversation_id,
             len(result.answer),
         )
@@ -93,7 +86,7 @@ class BaseChatRuntime(ABC):
             selection=selection,
             resources=resources,
         )
-        logger.info("Runtime run completed: mode=%s conversation_id=%s", self.mode, prepared_conversation_id)
+        logger.info("Runtime run completed: conversation_id=%s", prepared_conversation_id)
         return self._build_response(response, result)
 
     async def run_stream(
@@ -104,8 +97,7 @@ class BaseChatRuntime(ABC):
         conversation_id: int | None = None,
     ) -> AsyncIterator[dict]:
         logger.info(
-            "Runtime stream started: mode=%s user_key=%s conversation_id=%s message_chars=%s",
-            self.mode,
+            "Runtime stream started: user_key=%s conversation_id=%s message_chars=%s",
             user_key,
             conversation_id,
             len(message),
@@ -118,29 +110,25 @@ class BaseChatRuntime(ABC):
         prepared_conversation_id = conversation.id
         prepared_conversation = conversation.to_dict()
         logger.info(
-            "Runtime stream conversation prepared: mode=%s user_key=%s conversation_id=%s",
-            self.mode,
+            "Runtime stream conversation prepared: user_key=%s conversation_id=%s",
             user_key,
             prepared_conversation_id,
         )
         await self.conversation_service.save_user_message(prepared_conversation_id, message)
         logger.info(
-            "Runtime stream user message saved: mode=%s conversation_id=%s",
-            self.mode,
+            "Runtime stream user message saved: conversation_id=%s",
             prepared_conversation_id,
         )
         yield {
             "type": "conversation",
             "conversation_id": prepared_conversation_id,
             "conversation": prepared_conversation,
-            "mode": self.mode,
         }
 
         selection = await self.selection_service.get_or_default(user_key)
         resources = await self.resource_service.resolve_for_selection(selection)
         logger.info(
-            "Runtime stream resources resolved: mode=%s conversation_id=%s mcps=%s skills=%s subagents=%s tools=%s",
-            self.mode,
+            "Runtime stream resources resolved: conversation_id=%s mcps=%s skills=%s subagents=%s tools=%s",
             prepared_conversation_id,
             len(resources.get("mcps", [])),
             len(resources.get("skills", [])),
@@ -156,7 +144,7 @@ class BaseChatRuntime(ABC):
         )
 
         for token in self._chunk_answer(result.answer):
-            yield {"type": "token", "content": token, "mode": self.mode}
+            yield {"type": "token", "content": token}
             await asyncio.sleep(0.01)
 
         await self.conversation_service.save_assistant_message(
@@ -165,8 +153,7 @@ class BaseChatRuntime(ABC):
             metadata=result.metadata,
         )
         logger.info(
-            "Runtime stream assistant message saved: mode=%s conversation_id=%s answer_chars=%s",
-            self.mode,
+            "Runtime stream assistant message saved: conversation_id=%s answer_chars=%s",
             prepared_conversation_id,
             len(result.answer),
         )
@@ -177,7 +164,7 @@ class BaseChatRuntime(ABC):
             selection=selection,
             resources=resources,
         )
-        logger.info("Runtime stream done event ready: mode=%s conversation_id=%s", self.mode, prepared_conversation_id)
+        logger.info("Runtime stream done event ready: conversation_id=%s", prepared_conversation_id)
         yield {"type": "done", **self._build_response(response, result)}
 
     @abstractmethod
@@ -190,10 +177,9 @@ class BaseChatRuntime(ABC):
         selection: dict,
         resources: dict[str, list[dict]],
     ) -> RuntimeResult:
-        """Generate the mode-specific assistant answer."""
+        """Generate the assistant answer."""
 
     def _build_response(self, response: dict, result: RuntimeResult) -> dict:
-        response["mode"] = self.mode
         response.update(result.response_extra)
         return response
 

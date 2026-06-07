@@ -13,4 +13,10 @@ class SelectionService:
         selection_item = await self.selection_repo.get(user_key)
         if selection_item:
             return selection_item.to_dict()
-        return {"user_key": user_key, "mcps": [], "skills": [], "subagents": []}
+        return {
+            "user_key": user_key,
+            "mcps": [],
+            "skills": [],
+            "subagents": [],
+            "knowledge_base_ids": [],
+        }

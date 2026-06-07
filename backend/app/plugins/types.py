@@ -29,6 +29,7 @@ class SelectionIn(BaseModel):
     mcps: list[str] = Field(default_factory=list)
     skills: list[str] = Field(default_factory=list)
     subagents: list[str] = Field(default_factory=list)
+    knowledge_base_ids: list[int] = Field(default_factory=list)
 
 
 class SelectionOut(SelectionIn):

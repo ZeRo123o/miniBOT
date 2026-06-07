@@ -55,6 +55,7 @@ class UserSelection(Base, TimestampMixin):
     mcps: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     skills: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     subagents: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    knowledge_base_ids: Mapped[list[int]] = mapped_column(JSONB, default=list, nullable=False)
 
     __table_args__ = (UniqueConstraint("user_key", name="uq_user_selections_user_key"),)
 
@@ -64,6 +65,7 @@ class UserSelection(Base, TimestampMixin):
             "mcps": self.mcps or [],
             "skills": self.skills or [],
             "subagents": self.subagents or [],
+            "knowledge_base_ids": self.knowledge_base_ids or [],
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }

@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories import ConversationMessageRepository, ConversationRepository
 from app.db.session import get_db
-from app.schemas import ConversationCreate, ConversationMessageCreate, ConversationUpdate
+from app.schemas import ConversationCreate, ConversationUpdate
 
 router = APIRouter()
 
@@ -63,23 +63,3 @@ async def list_messages(
         raise HTTPException(status_code=404, detail="Conversation not found.")
     items = await ConversationMessageRepository(db).list(conversation_id)
     return [item.to_dict() for item in items]
-
-
-@router.post("/{conversation_id}/messages")
-async def create_message(
-    conversation_id: int,
-    payload: ConversationMessageCreate,
-    user_key: str = Query(default="default", min_length=1, max_length=128),
-    db: AsyncSession = Depends(get_db),
-) -> dict:
-    conversation = await ConversationRepository(db).get(conversation_id, user_key=user_key)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found.")
-    item = await ConversationMessageRepository(db).create(
-        conversation_id=conversation_id,
-        role=payload.role,
-        content=payload.content,
-        metadata=payload.metadata,
-    )
-    await ConversationRepository(db).touch(conversation)
-    return item.to_dict()

@@ -16,31 +16,27 @@ def _resource_names(items: list[dict]) -> list[str]:
 
 
 def build_resource_context(context: Any) -> str:
-    """根据运行时上下文生成 MCP、Skill、Subagent 和 Tool 的资源摘要。"""
+    """生成由通用运行时中间件负责注入的资源摘要。"""
     mcps = _resource_names(_get_value(context, "mcps", []))
-    skills = _resource_names(_get_value(context, "skills", []))
     subagents = _resource_names(_get_value(context, "subagents", []))
     tools = _resource_names(_get_value(context, "tools", []))
     return (
         "当前启用资源:\n"
         f"- MCP: {mcps or '无'}\n"
-        f"- Skill: {skills or '无'}\n"
         f"- Subagent: {subagents or '无'}\n"
         f"- Tool: {tools or '无'}"
     )
 
 
 def build_system_prompt(context: Any, base_prompt: str | None = None) -> str:
-    """组装最终 system prompt，包含基础提示词、资源上下文和工具策略。"""
+    """创建 Agent 时组装稳定的基础 system prompt。"""
     prompt = base_prompt or _get_value(context, "system_prompt", DEFAULT_SYSTEM_PROMPT)
-    parts = [
-        prompt,
-        build_time_context(context),
-        build_resource_context(context),
-    ]
-    skill_prompt = _get_value(context, "skill_prompt", "")
-    if skill_prompt:
-        parts.append(skill_prompt)
+    return "\n\n".join([prompt, build_time_context(context)])
+
+
+def build_runtime_prompt(context: Any) -> str:
+    """生成每次模型调用前追加的资源与工具策略。"""
+    parts = [build_resource_context(context)]
     if _get_value(context, "tools", []):
         parts.append(
             "工具调用策略:\n"
@@ -49,7 +45,31 @@ def build_system_prompt(context: Any, base_prompt: str | None = None) -> str:
             "- 可先调用 list_available_tools 查看当前允许的工具。\n"
             "- 工具结果只作为上下文，最终回答仍需要你归纳整理。"
         )
+    if _get_value(context, "knowledge_base_ids", []):
+        parts.append(
+            "知识库工具调用策略:\n"
+            "- 使用 list_kbs 查看当前会话已启用的知识库及其 kb_id。\n"
+            "- 当问题需要依据知识库文档回答时，使用 query_kb 查询指定知识库。\n"
+            "- 回答时保留 query_kb 结果中的 citation_id，不要编造知识库内容或引用。"
+        )
     return "\n\n".join(parts)
+
+
+def build_skill_prompt(context: Any) -> str:
+    """生成 Skill 元数据提示段，具体能力仍由对应运行时资源提供。"""
+    skills = _get_value(context, "skills", [])
+    lines = []
+    for item in skills:
+        name = item.get("display_name") or item.get("name", "")
+        runtime_name = item.get("name", "")
+        if not runtime_name:
+            continue
+        description = str(item.get("description") or "").strip()
+        label = f"{name} (`{runtime_name}`)" if name != runtime_name else f"`{runtime_name}`"
+        lines.append(f"- {label}: {description}" if description else f"- {label}")
+    if not lines:
+        return ""
+    return "当前启用 Skills:\n" + "\n".join(lines)
 
 
 def build_time_context(context: Any) -> str:
