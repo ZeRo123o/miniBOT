@@ -212,7 +212,7 @@ http://localhost:5173
 
 ## 11. 知识库分块补充
 
-- 通用 Markdown 分块实现放在 `backend/app/chunking/general.py`，策略仿照 Yuxi general：按分隔符形成 section，再按 token 上限合并，超长 chunk 兜底硬切。
+- 多策略 Markdown 分块实现放在 `backend/app/chunking/ragflow_like`，由 `dispatcher.py` 统一调度；通用策略位于 `parsers/general.py`，按分隔符形成 section，再按 token 上限合并，超长 chunk 兜底硬切。
 - 文档上传解析成功后由 `backend/app/services/knowledge_service.py` 串联分块、embedding 和 Milvus 入库。
 - `knowledge_chunks` 只保存 chunk 元数据；chunk 正文和向量保存在 Milvus collection 中。
 - chunk 查询接口为 `GET /api/knowledge-documents/{document_id}/chunks?user_key=default`。

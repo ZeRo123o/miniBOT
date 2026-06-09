@@ -1,4 +1,4 @@
-import { API_BASE, request } from './base'
+import { API_BASE, getResponseError, request } from './base'
 
 export function listResources(kind) {
   const query = kind ? `?kind=${encodeURIComponent(kind)}` : ''
@@ -43,6 +43,10 @@ export function listKnowledgeBases(userKey) {
   return request(`/knowledge-bases?user_key=${encodeURIComponent(userKey)}`)
 }
 
+export function listKnowledgeChunkPresets() {
+  return request('/knowledge-chunk-presets')
+}
+
 export function createKnowledgeBase(payload) {
   return request('/knowledge-bases', {
     method: 'POST',
@@ -69,8 +73,7 @@ export async function uploadKnowledgeDocument(knowledgeBaseId, userKey, file) {
   )
 
   if (!response.ok) {
-    const text = await response.text()
-    throw new Error(text || `Request failed: ${response.status}`)
+    throw new Error(await getResponseError(response))
   }
 
   return response.json()

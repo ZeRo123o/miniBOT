@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { FileText, Loader2, Plus, Search, UploadCloud, X } from 'lucide-vue-next'
 import {
   createKnowledgeBase,
+  listKnowledgeChunkPresets,
   listKnowledgeBases,
   listKnowledgeDocuments,
   uploadKnowledgeDocument,
@@ -14,17 +15,22 @@ const acceptedTypes = '.md,.markdown,.txt,.pdf,.docx,.xlsx,.csv'
 
 const searchText = ref('')
 const knowledgeBases = ref([])
+const chunkPresets = ref([])
 const documentsByBaseId = ref({})
 const selectedBaseId = ref(null)
 const loading = ref(false)
 const errorMessage = ref('')
 
-const dialogOpen = ref(false)
-const form = ref({
+const createDialogOpen = ref(false)
+const uploadDialogOpen = ref(false)
+const createForm = ref({
   name: '',
   description: '',
-  file: null,
+  chunk_preset_id: 'general',
 })
+const uploadFile = ref(null)
+const uploadTargetBaseId = ref(null)
+const uploadErrorMessage = ref('')
 const submitting = ref(false)
 const submitMessage = ref('')
 
@@ -42,9 +48,30 @@ const selectedKnowledgeBase = computed(() =>
 
 const selectedDocuments = computed(() => documentsByBaseId.value[selectedBaseId.value] || [])
 
+const uploadTargetKnowledgeBase = computed(() =>
+  knowledgeBases.value.find((item) => item.id === uploadTargetBaseId.value),
+)
+
+const selectedCreatePreset = computed(() =>
+  chunkPresets.value.find((item) => item.value === createForm.value.chunk_preset_id),
+)
+
+const selectedKnowledgeBasePreset = computed(() =>
+  chunkPresets.value.find((item) => item.value === selectedKnowledgeBase.value?.chunk_preset_id),
+)
+
 onMounted(() => {
   loadKnowledgeBases()
+  loadChunkPresets()
 })
+
+async function loadChunkPresets() {
+  try {
+    chunkPresets.value = await listKnowledgeChunkPresets()
+  } catch (error) {
+    errorMessage.value = error.message
+  }
+}
 
 async function loadKnowledgeBases() {
   loading.value = true
@@ -78,28 +105,49 @@ async function selectKnowledgeBase(knowledgeBaseId) {
 }
 
 function openCreateDialog() {
-  form.value = {
+  createForm.value = {
     name: '',
     description: '',
-    file: null,
+    chunk_preset_id: 'general',
   }
   submitMessage.value = ''
   errorMessage.value = ''
-  dialogOpen.value = true
+  createDialogOpen.value = true
 }
 
 function closeCreateDialog() {
   if (submitting.value) return
-  dialogOpen.value = false
+  createDialogOpen.value = false
+}
+
+function openUploadDialog() {
+  if (!selectedKnowledgeBase.value) {
+    errorMessage.value = '请先选择一个知识库。'
+    return
+  }
+  uploadTargetBaseId.value = selectedKnowledgeBase.value.id
+  uploadFile.value = null
+  uploadErrorMessage.value = ''
+  submitMessage.value = ''
+  errorMessage.value = ''
+  uploadDialogOpen.value = true
+}
+
+function closeUploadDialog() {
+  if (submitting.value) return
+  uploadDialogOpen.value = false
+  uploadTargetBaseId.value = null
+  uploadErrorMessage.value = ''
 }
 
 function handleFileChange(event) {
-  form.value.file = event.target.files?.[0] || null
+  uploadFile.value = event.target.files?.[0] || null
+  uploadErrorMessage.value = ''
 }
 
 async function submitKnowledgeBase() {
-  const name = form.value.name.trim()
-  if (!name || !form.value.file || submitting.value) return
+  const name = createForm.value.name.trim()
+  if (!name || submitting.value) return
 
   submitting.value = true
   submitMessage.value = '正在创建知识库...'
@@ -108,18 +156,44 @@ async function submitKnowledgeBase() {
   try {
     const knowledgeBase = await createKnowledgeBase({
       name,
-      description: form.value.description.trim(),
+      description: createForm.value.description.trim(),
       user_key: selectionStore.userKey,
+      chunk_preset_id: createForm.value.chunk_preset_id,
+      chunk_parser_config: selectedCreatePreset.value?.default_config || {},
     })
+    documentsByBaseId.value = {
+      ...documentsByBaseId.value,
+      [knowledgeBase.id]: [],
+    }
     selectedBaseId.value = knowledgeBase.id
-    submitMessage.value = '正在上传并解析文档...'
-    await uploadKnowledgeDocument(knowledgeBase.id, selectionStore.userKey, form.value.file)
     await loadKnowledgeBases()
-    await loadDocuments(knowledgeBase.id)
     selectedBaseId.value = knowledgeBase.id
-    dialogOpen.value = false
+    createDialogOpen.value = false
   } catch (error) {
     errorMessage.value = error.message
+  } finally {
+    submitting.value = false
+    submitMessage.value = ''
+  }
+}
+
+async function submitKnowledgeDocument() {
+  const knowledgeBaseId = uploadTargetBaseId.value
+  if (!knowledgeBaseId || !uploadFile.value || submitting.value) return
+
+  submitting.value = true
+  submitMessage.value = '正在上传并解析文档...'
+  uploadErrorMessage.value = ''
+  errorMessage.value = ''
+
+  try {
+    await uploadKnowledgeDocument(knowledgeBaseId, selectionStore.userKey, uploadFile.value)
+    await loadDocuments(knowledgeBaseId)
+    selectedBaseId.value = knowledgeBaseId
+    uploadDialogOpen.value = false
+    uploadTargetBaseId.value = null
+  } catch (error) {
+    uploadErrorMessage.value = error.message
   } finally {
     submitting.value = false
     submitMessage.value = ''
@@ -214,10 +288,18 @@ function statusText(status) {
           <div>
             <h2>{{ selectedKnowledgeBase?.name || '请选择知识库' }}</h2>
             <p>{{ selectedKnowledgeBase?.description || '上传文档后会自动转为 Markdown 并保存解析状态。' }}</p>
+            <span v-if="selectedKnowledgeBase" class="chunk-preset-badge">
+              分块策略：{{ selectedKnowledgeBasePreset?.label || selectedKnowledgeBase.chunk_preset_id || 'General' }}
+            </span>
           </div>
-          <button type="button" class="knowledge-create-button" @click="openCreateDialog">
+          <button
+            type="button"
+            class="knowledge-create-button"
+            :disabled="!selectedKnowledgeBase"
+            @click="openUploadDialog"
+          >
             <UploadCloud :size="16" />
-            <span>上传新文档</span>
+            <span>添加文档</span>
           </button>
         </div>
 
@@ -240,12 +322,12 @@ function statusText(status) {
 
     <p v-if="errorMessage" class="knowledge-error">{{ errorMessage }}</p>
 
-    <div v-if="dialogOpen" class="modal-backdrop" @click.self="closeCreateDialog">
+    <div v-if="createDialogOpen" class="modal-backdrop" @click.self="closeCreateDialog">
       <section class="knowledge-upload-dialog" role="dialog" aria-modal="true" aria-labelledby="knowledge-upload-title">
         <header>
           <div>
             <h2 id="knowledge-upload-title">创建知识库</h2>
-            <p>上传文档后，后端会保存原始文件、转换 Markdown 并记录解析状态。</p>
+            <p>先创建知识库，再在知识库详情中添加和管理文档。</p>
           </div>
           <button type="button" class="dialog-close-button" :disabled="submitting" @click="closeCreateDialog">
             <X :size="18" />
@@ -253,21 +335,29 @@ function statusText(status) {
         </header>
 
         <form class="knowledge-upload-form" @submit.prevent="submitKnowledgeBase">
-          <label>
-            <span>知识库名称</span>
-            <input v-model="form.name" type="text" maxlength="255" placeholder="例如：公司制度文档" required />
-          </label>
+          <div class="knowledge-form-grid">
+            <label>
+              <span>知识库名称</span>
+              <input v-model="createForm.name" type="text" maxlength="255" placeholder="例如：公司制度文档" required />
+            </label>
+
+            <label>
+              <span>分块策略</span>
+              <select v-model="createForm.chunk_preset_id">
+                <option v-for="preset in chunkPresets" :key="preset.value" :value="preset.value">
+                  {{ preset.label }}
+                </option>
+              </select>
+            </label>
+          </div>
+
+          <p v-if="selectedCreatePreset" class="chunk-preset-description">
+            {{ selectedCreatePreset.description }}
+          </p>
 
           <label>
             <span>描述</span>
-            <textarea v-model="form.description" rows="3" placeholder="记录知识库用途或文档范围" />
-          </label>
-
-          <label class="file-drop-zone">
-            <UploadCloud :size="28" />
-            <strong>{{ form.file?.name || '选择要上传的文档' }}</strong>
-            <span>{{ form.file ? formatFileSize(form.file.size) : '支持 md、txt、pdf、docx、xlsx、csv' }}</span>
-            <input :accept="acceptedTypes" type="file" required @change="handleFileChange" />
+            <textarea v-model="createForm.description" rows="3" placeholder="记录知识库用途或文档范围" />
           </label>
 
           <p v-if="submitMessage" class="upload-status">
@@ -279,10 +369,55 @@ function statusText(status) {
             <button type="button" class="secondary-button" :disabled="submitting" @click="closeCreateDialog">
               取消
             </button>
-            <button type="submit" class="knowledge-primary-button" :disabled="submitting || !form.name.trim() || !form.file">
+            <button type="submit" class="knowledge-primary-button" :disabled="submitting || !createForm.name.trim()">
               <Loader2 v-if="submitting" class="spin" :size="16" />
               <Plus v-else :size="16" />
-              <span>{{ submitting ? '处理中' : '创建并上传' }}</span>
+              <span>{{ submitting ? '创建中' : '创建知识库' }}</span>
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div v-if="uploadDialogOpen" class="modal-backdrop" @click.self="closeUploadDialog">
+      <section class="knowledge-upload-dialog" role="dialog" aria-modal="true" aria-labelledby="document-upload-title">
+        <header>
+          <div>
+            <h2 id="document-upload-title">添加文档</h2>
+            <p>
+              文档将添加到知识库“{{ uploadTargetKnowledgeBase?.name }}”，上传后会自动解析并建立索引。
+            </p>
+          </div>
+          <button type="button" class="dialog-close-button" :disabled="submitting" @click="closeUploadDialog">
+            <X :size="18" />
+          </button>
+        </header>
+
+        <form class="knowledge-upload-form" @submit.prevent="submitKnowledgeDocument">
+          <label class="file-drop-zone">
+            <UploadCloud :size="28" />
+            <strong>{{ uploadFile?.name || '选择要添加的文档' }}</strong>
+            <span>{{ uploadFile ? formatFileSize(uploadFile.size) : '支持 md、txt、pdf、docx、xlsx、csv' }}</span>
+            <input :accept="acceptedTypes" type="file" required @change="handleFileChange" />
+          </label>
+
+          <p v-if="submitMessage" class="upload-status">
+            <Loader2 class="spin" :size="16" />
+            <span>{{ submitMessage }}</span>
+          </p>
+
+          <p v-if="uploadErrorMessage" class="upload-error" role="alert">
+            {{ uploadErrorMessage }}
+          </p>
+
+          <div class="dialog-actions">
+            <button type="button" class="secondary-button" :disabled="submitting" @click="closeUploadDialog">
+              取消
+            </button>
+            <button type="submit" class="knowledge-primary-button" :disabled="submitting || !uploadFile">
+              <Loader2 v-if="submitting" class="spin" :size="16" />
+              <UploadCloud v-else :size="16" />
+              <span>{{ submitting ? '处理中' : '添加文档' }}</span>
             </button>
           </div>
         </form>

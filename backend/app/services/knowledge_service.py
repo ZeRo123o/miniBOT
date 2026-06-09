@@ -7,7 +7,12 @@ from fastapi import UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.chunking import GeneralChunkConfig, chunk_markdown_general
+from app.chunking import (
+    CHUNK_ENGINE_VERSION,
+    chunk_markdown,
+    normalize_chunk_preset_id,
+    resolve_chunk_processing_params,
+)
 from app.db.repositories import KnowledgeBaseRepository, KnowledgeChunkRepository, KnowledgeDocumentRepository
 from app.document_parsers import parse_document_to_markdown
 from app.embedding import get_embedding_service
@@ -15,6 +20,14 @@ from app.storage import get_storage
 from app.vectorstores import get_vector_store
 
 logger = logging.getLogger(__name__)
+
+
+class KnowledgeBaseNotFoundError(ValueError):
+    """Raised when a knowledge base is missing or inaccessible to the user."""
+
+
+class DuplicateKnowledgeDocumentError(ValueError):
+    """Raised when the same file content already exists in a knowledge base."""
 
 
 class KnowledgeService:
@@ -29,22 +42,37 @@ class KnowledgeService:
     async def list_knowledge_bases(self, user_key: str) -> list[dict]:
         items = await self.base_repo.list(user_key)
         logger.info("Knowledge service listed bases: user_key=%s count=%s", user_key, len(items))
-        return [item.to_dict() for item in items]
+        return [self._knowledge_base_to_dict(item) for item in items]
 
-    async def create_knowledge_base(self, *, name: str, description: str = "", user_key: str = "default") -> dict:
-        item = await self.base_repo.create(name=name, description=description, user_key=user_key)
+    async def create_knowledge_base(
+        self,
+        *,
+        name: str,
+        description: str = "",
+        user_key: str = "default",
+        chunk_preset_id: str = "general",
+        chunk_parser_config: dict | None = None,
+    ) -> dict:
+        chunk_params = resolve_chunk_processing_params(chunk_preset_id, chunk_parser_config)
+        item = await self.base_repo.create(
+            name=name,
+            description=description,
+            user_key=user_key,
+            metadata=chunk_params,
+        )
         logger.info(
-            "Knowledge service created base: user_key=%s knowledge_base_id=%s name=%s",
+            "Knowledge service created base: user_key=%s knowledge_base_id=%s name=%s chunk_preset_id=%s",
             user_key,
             item.id,
             item.name,
+            chunk_params["chunk_preset_id"],
         )
-        return item.to_dict()
+        return self._knowledge_base_to_dict(item)
 
     async def list_documents(self, *, knowledge_base_id: int, user_key: str) -> list[dict]:
         knowledge_base = await self.base_repo.get(knowledge_base_id, user_key=user_key)
         if knowledge_base is None:
-            raise ValueError("Knowledge base not found.")
+            raise KnowledgeBaseNotFoundError("Knowledge base not found.")
         documents = await self.document_repo.list(knowledge_base_id)
         logger.info(
             "Knowledge service listed documents: user_key=%s knowledge_base_id=%s count=%s",
@@ -80,7 +108,7 @@ class KnowledgeService:
     ) -> dict:
         knowledge_base = await self.base_repo.get(knowledge_base_id, user_key=user_key)
         if knowledge_base is None:
-            raise ValueError("Knowledge base not found.")
+            raise KnowledgeBaseNotFoundError("Knowledge base not found.")
         if not file.filename:
             raise ValueError("Filename is required.")
 
@@ -89,6 +117,10 @@ class KnowledgeService:
             raise ValueError("Uploaded file is empty.")
 
         filename = Path(file.filename).name
+        chunk_params = resolve_chunk_processing_params(
+            (knowledge_base.metadata_ or {}).get("chunk_preset_id"),
+            (knowledge_base.metadata_ or {}).get("chunk_parser_config"),
+        )
         file_hash = hashlib.sha256(content).hexdigest()
         logger.info(
             "Knowledge document file read: user_key=%s knowledge_base_id=%s filename=%s size=%s hash_prefix=%s",
@@ -106,7 +138,7 @@ class KnowledgeService:
                 existing.id,
                 file_hash[:8],
             )
-            return existing.to_dict()
+            raise DuplicateKnowledgeDocumentError("该文件已存在")
 
         original_object_key = self._original_object_key(knowledge_base_id, file_hash, filename)
         markdown_object_key = self._markdown_object_key(knowledge_base_id, file_hash)
@@ -147,7 +179,7 @@ class KnowledgeService:
                     existing.id,
                     file_hash[:8],
                 )
-                return existing.to_dict()
+                raise DuplicateKnowledgeDocumentError("该文件已存在")
             logger.exception(
                 "Knowledge document db insert failed: knowledge_base_id=%s filename=%s hash_prefix=%s",
                 knowledge_base_id,
@@ -188,18 +220,21 @@ class KnowledgeService:
                 metadata={
                     **(document.metadata_ or {}),
                     "markdown_size": len(markdown_bytes),
-                    "chunk_engine": "general_v1",
+                    "chunk_engine": CHUNK_ENGINE_VERSION,
+                    "chunk_preset_id": chunk_params["chunk_preset_id"],
+                    "chunk_parser_config": chunk_params["chunk_parser_config"],
                 },
             )
             logger.info(
                 "Knowledge document status updated: document_id=%s status=chunking",
                 document.id,
             )
-            chunks = chunk_markdown_general(
+            chunks = chunk_markdown(
                 markdown,
                 file_id=str(document.id),
                 filename=filename,
-                config=GeneralChunkConfig(),
+                preset_id=chunk_params["chunk_preset_id"],
+                parser_config=chunk_params["chunk_parser_config"],
             )
             logger.info(
                 "Knowledge document chunked: document_id=%s chunks=%s",
@@ -237,7 +272,9 @@ class KnowledgeService:
                 metadata={
                     **(document.metadata_ or {}),
                     "chunk_count": len(chunks),
-                    "chunk_engine": "general_v1",
+                    "chunk_engine": CHUNK_ENGINE_VERSION,
+                    "chunk_preset_id": chunk_params["chunk_preset_id"],
+                    "chunk_parser_config": chunk_params["chunk_parser_config"],
                     "content_store": "milvus",
                     "embedding_model": self.embedding_service.model_name,
                 },
@@ -296,6 +333,22 @@ class KnowledgeService:
                 document.id,
             )
         return document.to_dict()
+
+    @staticmethod
+    def _knowledge_base_to_dict(knowledge_base) -> dict:
+        item = knowledge_base.to_dict()
+        metadata = item.get("metadata") or {}
+        chunk_params = resolve_chunk_processing_params(
+            metadata.get("chunk_preset_id"),
+            metadata.get("chunk_parser_config"),
+        )
+        item["metadata"] = {
+            **metadata,
+            **chunk_params,
+        }
+        item["chunk_preset_id"] = normalize_chunk_preset_id(chunk_params["chunk_preset_id"])
+        item["chunk_parser_config"] = chunk_params["chunk_parser_config"]
+        return item
 
     def _original_object_key(self, knowledge_base_id: int, file_hash: str, filename: str) -> str:
         safe_filename = self._safe_filename(filename)

@@ -3,12 +3,22 @@ import logging
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.chunking import get_chunk_preset_options
 from app.db.session import get_db
 from app.schemas import KnowledgeBaseCreate
-from app.services.knowledge_service import KnowledgeService
+from app.services.knowledge_service import (
+    DuplicateKnowledgeDocumentError,
+    KnowledgeBaseNotFoundError,
+    KnowledgeService,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+@router.get("/knowledge-chunk-presets")
+async def list_knowledge_chunk_presets() -> list[dict]:
+    return get_chunk_preset_options()
 
 
 @router.get("/knowledge-bases")
@@ -37,6 +47,8 @@ async def create_knowledge_base(
             name=payload.name,
             description=payload.description,
             user_key=payload.user_key,
+            chunk_preset_id=payload.chunk_preset_id,
+            chunk_parser_config=payload.chunk_parser_config,
         )
         logger.info(
             "Knowledge base created: user_key=%s knowledge_base_id=%s name=%s",
@@ -122,6 +134,22 @@ async def upload_knowledge_document(
             document.get("status"),
         )
         return document
+    except KnowledgeBaseNotFoundError as error:
+        logger.warning(
+            "Knowledge document upload target not found: user_key=%s knowledge_base_id=%s filename=%s",
+            user_key,
+            knowledge_base_id,
+            file.filename,
+        )
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except DuplicateKnowledgeDocumentError as error:
+        logger.warning(
+            "Knowledge document upload conflict: user_key=%s knowledge_base_id=%s filename=%s",
+            user_key,
+            knowledge_base_id,
+            file.filename,
+        )
+        raise HTTPException(status_code=409, detail=str(error)) from error
     except ValueError as error:
         logger.warning(
             "Knowledge document upload rejected: user_key=%s knowledge_base_id=%s filename=%s error=%s",

@@ -35,3 +35,5 @@ class KnowledgeBaseCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str = ""
     user_key: str = Field(default="default", min_length=1, max_length=128)
+    chunk_preset_id: str = Field(default="general", min_length=1, max_length=32)
+    chunk_parser_config: dict[str, Any] = Field(default_factory=dict)

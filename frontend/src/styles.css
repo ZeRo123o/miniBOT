@@ -791,6 +791,17 @@ textarea {
   line-height: 1.5;
 }
 
+.chunk-preset-badge {
+  display: inline-flex;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #eef7fb;
+  color: #087f9f;
+  padding: 4px 9px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .knowledge-document-list {
   display: grid;
   align-content: start;
@@ -954,11 +965,19 @@ textarea {
   font-weight: 700;
 }
 
+.knowledge-form-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.7fr);
+  gap: 14px;
+}
+
 .knowledge-upload-form input[type="text"],
-.knowledge-upload-form textarea {
+.knowledge-upload-form textarea,
+.knowledge-upload-form select {
   width: 100%;
   border: 1px solid #dfe4ea;
   border-radius: 8px;
+  background: #fff;
   outline: 0;
   color: #202124;
   padding: 10px 12px;
@@ -969,9 +988,25 @@ textarea {
 }
 
 .knowledge-upload-form input[type="text"]:focus,
-.knowledge-upload-form textarea:focus {
+.knowledge-upload-form textarea:focus,
+.knowledge-upload-form select:focus {
   border-color: #1593b5;
   box-shadow: 0 0 0 3px rgba(21, 147, 181, 0.12);
+}
+
+.chunk-preset-description {
+  margin: -6px 0 0 !important;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #667085 !important;
+  padding: 10px 12px;
+  font-size: 13px !important;
+}
+
+@media (max-width: 680px) {
+  .knowledge-form-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .file-drop-zone {
@@ -1024,6 +1059,17 @@ textarea {
   margin: 0;
   color: #087f9f;
   font-size: 13px;
+}
+
+.upload-error {
+  margin: 0;
+  border: 1px solid #f7c7c7;
+  border-radius: 8px;
+  background: #fff5f5;
+  color: #b42318;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .dialog-actions {

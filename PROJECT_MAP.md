@@ -43,7 +43,9 @@ miniBOT
   -> PostgreSQL 保存 knowledge_documents 元数据，status=uploaded/parsing
   -> document_parsers 转 Markdown
   -> MinIO 保存 Markdown 副本
-  -> PostgreSQL 更新 status=parsed 或 failed
+  -> 根据知识库 metadata 中的 chunk_preset_id 选择分块策略
+  -> embedding + Milvus 入库
+  -> PostgreSQL 更新 status=indexed 或 failed
 ```
 
 ## 2. 后端地图
@@ -241,6 +243,7 @@ POST   /api/chat
 POST   /api/chat/stream
 GET    /api/knowledge-bases?user_key=default
 POST   /api/knowledge-bases
+GET    /api/knowledge-chunk-presets
 GET    /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
 POST   /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
 ```
@@ -293,24 +296,31 @@ POST   /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
 修改知识库上传和解析：
 - `backend/app/api/routes/knowledge.py`
 - `backend/app/services/knowledge_service.py`
-- `backend/app/chunking/general.py`
+- `backend/app/chunking/ragflow_like/dispatcher.py`
+- `backend/app/chunking/ragflow_like/parsers/`
 - `backend/app/document_parsers/factory.py`
 - `backend/app/storage/`
 - `backend/app/db/models.py`
 
 ## 8. 知识库分块补充
 
-当前知识库上传链路在 Markdown 解析后会执行通用分块：
+当前知识库上传链路在 Markdown 解析后，会读取知识库 `metadata` 中保存的
+`chunk_preset_id` 和 `chunk_parser_config`，执行对应分块策略：
 
 ```text
 Markdown
-  -> backend/app/chunking/general.py
+  -> backend/app/chunking/ragflow_like/dispatcher.py
+  -> general / separator / book / laws / qa
   -> knowledge_chunks
   -> embedding
   -> Milvus 保存 chunk content + dense embedding
   -> Milvus BM25 Function 生成 sparse_embedding
   -> knowledge_documents.status=indexed
 ```
+
+分块实现移植并裁剪自 Yuxi `ragflow_like`。当前未接入 Semantic 策略，因为其同步 embedding、
+NLTK 和 scikit-learn 依赖与 miniBOT 当前异步 embedding 链路不直接兼容。第三方许可保存在
+`backend/app/chunking/ragflow_like/YUXI_LICENSE`。
 
 新增数据表：
 
