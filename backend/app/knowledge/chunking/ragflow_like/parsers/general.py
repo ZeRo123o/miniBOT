@@ -3,7 +3,7 @@ from __future__ import annotations
 # Adapted from xerrors/Yuxi knowledge chunking under the MIT license.
 from typing import Any
 
-from app.chunking.ragflow_like import nlp
+from app.knowledge.chunking.ragflow_like import nlp
 
 GENERAL_HARD_LIMIT_RATIO = 1.5
 

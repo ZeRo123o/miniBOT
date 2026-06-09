@@ -864,7 +864,8 @@ textarea {
 .document-status.parsing,
 .document-status.uploaded,
 .document-status.chunking,
-.document-status.embedding {
+.document-status.embedding,
+.document-status.indexing {
   background: #eef7fb;
   color: #087f9f;
 }

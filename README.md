@@ -17,11 +17,19 @@ miniBOT is a small FastAPI + LangChain + LangGraph + Vue scaffold inspired by YU
 
 ## Development
 
-Start PostgreSQL:
+Start PostgreSQL, MinIO, Milvus, and Neo4j:
 
 ```powershell
-docker compose up -d postgres
+docker compose up -d postgres minio milvus neo4j
 ```
+
+Knowledge bases support two independent backends:
+
+- `milvus`: miniBOT chunking, embedding, dense vector, and BM25 retrieval.
+- `lightrag`: LightRAG-managed Milvus collections plus a Neo4j knowledge graph.
+
+LightRAG requires a real OpenAI-compatible chat model and embedding model. See
+`.env.example` for `MINIBOT_LIGHTRAG_*`, `MINIBOT_NEO4J_*`, and embedding settings.
 
 Install and run backend:
 

@@ -5,8 +5,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories import KnowledgeBaseRepository, KnowledgeDocumentRepository
-from app.embedding import get_embedding_service
-from app.vectorstores import get_vector_store
+from app.knowledge.backends import get_knowledge_backend, normalize_knowledge_backend_type
 
 logger = logging.getLogger(__name__)
 
@@ -15,8 +14,6 @@ class KnowledgeRetrievalService:
     def __init__(self, db: AsyncSession):
         self.base_repo = KnowledgeBaseRepository(db)
         self.document_repo = KnowledgeDocumentRepository(db)
-        self.embedding_service = get_embedding_service()
-        self.vector_store = get_vector_store()
 
     async def query(
         self,
@@ -53,12 +50,10 @@ class KnowledgeRetrievalService:
                 "searched_knowledge_base_ids": [],
             }
 
-        query_embedding = (await self.embedding_service.embed_texts([clean_query]))[0]
         searches = [
             self._search_base(
-                knowledge_base_id=base.id,
+                knowledge_base=base,
                 query=clean_query,
-                query_embedding=query_embedding,
                 search_mode=normalized_mode,
                 recall_top_k=recall_top_k,
                 similarity_threshold=similarity_threshold,
@@ -94,9 +89,8 @@ class KnowledgeRetrievalService:
     async def _search_base(
         self,
         *,
-        knowledge_base_id: int,
+        knowledge_base: Any,
         query: str,
-        query_embedding: list[float],
         search_mode: str,
         recall_top_k: int,
         similarity_threshold: float,
@@ -107,16 +101,17 @@ class KnowledgeRetrievalService:
         include_distances: bool,
         document_ids: list[int] | None,
     ) -> list[dict[str, Any]]:
+        knowledge_base_id = int(knowledge_base.id)
+        metadata = knowledge_base.metadata_ or {}
+        kb_type = normalize_knowledge_backend_type(metadata.get("kb_type"))
+        backend = get_knowledge_backend(kb_type)
         try:
-            # LightRAG or other retrievers can be added beside this Milvus call,
-            # then fused here without changing the tool-facing result contract.
-            return await self.vector_store.search_chunks(
+            return await backend.query(
                 knowledge_base_id=knowledge_base_id,
                 query_text=query,
-                query_embedding=query_embedding,
-                search_mode=search_mode,
                 final_top_k=recall_top_k,
                 recall_top_k=recall_top_k,
+                search_mode=search_mode,
                 similarity_threshold=similarity_threshold,
                 bm25_top_k=bm25_top_k,
                 vector_weight=vector_weight,
@@ -124,35 +119,52 @@ class KnowledgeRetrievalService:
                 bm25_drop_ratio_search=bm25_drop_ratio_search,
                 include_distances=include_distances,
                 document_ids=document_ids,
+                lightrag_query_mode=metadata.get("lightrag_query_mode") or None,
             )
         except ValueError as error:
-            # Old collections may not contain sparse fields; they are ignored until reindexed.
+            if kb_type == "lightrag":
+                raise
             logger.warning(
-                "Knowledge collection skipped: knowledge_base_id=%s mode=%s error=%s",
+                "Knowledge backend skipped: knowledge_base_id=%s kb_type=%s mode=%s error=%s",
                 knowledge_base_id,
+                kb_type,
                 search_mode,
                 error,
             )
             return []
 
     async def _attach_document_metadata(self, results: list[dict[str, Any]]) -> None:
-        document_ids = sorted({int(item["metadata"]["document_id"]) for item in results})
+        document_ids = sorted(
+            {
+                int(item["metadata"]["document_id"])
+                for item in results
+                if item.get("metadata", {}).get("document_id") is not None
+            }
+        )
         documents = await self.document_repo.get_by_ids(document_ids)
         documents_by_id = {document.id: document for document in documents}
         for item in results:
             metadata = item["metadata"]
-            document = documents_by_id.get(int(metadata["document_id"]))
+            document_id = metadata.get("document_id")
+            document = documents_by_id.get(int(document_id)) if document_id is not None else None
             metadata["source"] = document.filename if document else ""
-            metadata["citation_id"] = (
-                f"kb:{metadata['knowledge_base_id']}:doc:{metadata['document_id']}:chunk:{metadata['chunk_id']}"
-            )
+            if document is not None:
+                metadata["citation_id"] = (
+                    f"kb:{metadata['knowledge_base_id']}:doc:{document.id}:chunk:{metadata['chunk_id']}"
+                )
 
     async def _resolve_document_ids(self, knowledge_base_id: int, file_name: str | None) -> list[int] | None:
-        if not file_name:
-            return None
-        pattern = file_name.replace("%", "").strip().lower()
         documents = await self.document_repo.list(knowledge_base_id)
-        return [document.id for document in documents if pattern in document.filename.lower()]
+        indexed_documents = [document for document in documents if document.status == "indexed"]
+        if not file_name:
+            return [document.id for document in indexed_documents]
+
+        pattern = file_name.replace("%", "").strip().lower()
+        return [
+            document.id
+            for document in indexed_documents
+            if pattern in document.filename.lower()
+        ]
 
     def _normalize_search_mode(self, search_mode: str) -> str:
         aliases = {"dense": "vector", "bm25": "keyword"}

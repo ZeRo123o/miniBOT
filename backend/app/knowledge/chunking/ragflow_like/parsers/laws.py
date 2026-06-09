@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from app.chunking.ragflow_like import nlp
+from app.knowledge.chunking.ragflow_like import nlp
 
 _ARTICLE_PATTERN = re.compile(r"^(第[零一二三四五六七八九十百千万0-9]+条)[\s　:：]*(.*)$")
 

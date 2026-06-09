@@ -3,8 +3,8 @@ from __future__ import annotations
 # Adapted from xerrors/Yuxi knowledge chunking under the MIT license.
 from typing import Any
 
-from app.chunking.ragflow_like import nlp
-from app.chunking.ragflow_like.parsers.general import _iter_sections, _unescape_delimiter
+from app.knowledge.chunking.ragflow_like import nlp
+from app.knowledge.chunking.ragflow_like.parsers.general import _iter_sections, _unescape_delimiter
 
 
 def _slice_text_by_tokens(text: str, max_tokens: int, overlap_tokens: int) -> list[str]:

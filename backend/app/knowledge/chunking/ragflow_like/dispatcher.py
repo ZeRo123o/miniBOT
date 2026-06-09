@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.chunking.ragflow_like import nlp
-from app.chunking.ragflow_like.parsers import book, general, laws, qa, separator
-from app.chunking.ragflow_like.presets import (
+from app.knowledge.chunking.ragflow_like import nlp
+from app.knowledge.chunking.ragflow_like.parsers import book, general, laws, qa, separator
+from app.knowledge.chunking.ragflow_like.presets import (
     CHUNK_ENGINE_VERSION,
     map_to_internal_parser_id,
     resolve_chunk_processing_params,

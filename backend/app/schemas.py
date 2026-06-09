@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -35,5 +35,6 @@ class KnowledgeBaseCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str = ""
     user_key: str = Field(default="default", min_length=1, max_length=128)
+    kb_type: Literal["milvus", "lightrag"] = "milvus"
     chunk_preset_id: str = Field(default="general", min_length=1, max_length=32)
     chunk_parser_config: dict[str, Any] = Field(default_factory=dict)

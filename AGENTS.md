@@ -154,6 +154,7 @@ http://localhost:5173
 - `POST /api/knowledge-bases`
 - `GET /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default`
 - `POST /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default`
+- `DELETE /api/knowledge-documents/{document_id}?user_key=default`
 
 `/api/chat` 负责：
 
@@ -212,10 +213,13 @@ http://localhost:5173
 
 ## 11. 知识库分块补充
 
-- 多策略 Markdown 分块实现放在 `backend/app/chunking/ragflow_like`，由 `dispatcher.py` 统一调度；通用策略位于 `parsers/general.py`，按分隔符形成 section，再按 token 上限合并，超长 chunk 兜底硬切。
+- 多策略 Markdown 分块实现放在 `backend/app/knowledge/chunking/ragflow_like`，由 `dispatcher.py` 统一调度；通用策略位于 `parsers/general.py`，按分隔符形成 section，再按 token 上限合并，超长 chunk 兜底硬切。
 - 文档上传解析成功后由 `backend/app/services/knowledge_service.py` 串联分块、embedding 和 Milvus 入库。
 - `knowledge_chunks` 只保存 chunk 元数据；chunk 正文和向量保存在 Milvus collection 中。
 - chunk 查询接口为 `GET /api/knowledge-documents/{document_id}/chunks?user_key=default`。
+- 知识库通过 `knowledge_bases.metadata.kb_type` 区分 `milvus` 与 `lightrag`；旧数据默认按 `milvus` 处理。
+- LightRAG 作为与 Milvus 平级的知识库 backend，使用独立 Milvus database 保存内部向量集合，并使用 Neo4j 保存图谱；具体实现放在 `backend/app/knowledge/backends`。
+- 文档删除接口为 `DELETE /api/knowledge-documents/{document_id}?user_key=default`，必须先清理对应 backend 索引，再删除 PostgreSQL 元数据。
 
 
 

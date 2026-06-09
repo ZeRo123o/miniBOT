@@ -1,0 +1,3508 @@
+{
+  "Graph RAG<SEP>Graph RAG 2024知识图谱增强的RAG": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991981,
+    "update_time": 1780991981,
+    "_id": "Graph RAG<SEP>Graph RAG 2024知识图谱增强的RAG"
+  },
+  "LATS<SEP>LATS 2023树搜索与Agent结合": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991981,
+    "update_time": 1780991981,
+    "_id": "LATS<SEP>LATS 2023树搜索与Agent结合"
+  },
+  "OpenHands<SEP>OpenHands 2024开源代码Agent平台": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991981,
+    "update_time": 1780991981,
+    "_id": "OpenHands<SEP>OpenHands 2024开源代码Agent平台"
+  },
+  "AutoGen<SEP>AutoGen 2023多Agent对话框架": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991981,
+    "update_time": 1780991981,
+    "_id": "AutoGen<SEP>AutoGen 2023多Agent对话框架"
+  },
+  "Reflexion<SEP>Reflexion 2023语言反思实现无梯度学习": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991981,
+    "update_time": 1780991981,
+    "_id": "Reflexion<SEP>Reflexion 2023语言反思实现无梯度学习"
+  },
+  "SWE-Agent<SEP>SWE-Agent 2024软件工程Agent": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991981,
+    "update_time": 1780991981,
+    "_id": "SWE-Agent<SEP>SWE-Agent 2024软件工程Agent"
+  },
+  "Voyager<SEP>Voyager 2023 Minecraft中的终身学习Agent": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991981,
+    "update_time": 1780991981,
+    "_id": "Voyager<SEP>Voyager 2023 Minecraft中的终身学习Agent"
+  },
+  "ReAct<SEP>ReAct 2022推理+行动交错模式": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991981,
+    "update_time": 1780991981,
+    "_id": "ReAct<SEP>ReAct 2022推理+行动交错模式"
+  },
+  "MCP Spec<SEP>MCP Spec 2024工具连接标准协议": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991982,
+    "update_time": 1780991982,
+    "_id": "MCP Spec<SEP>MCP Spec 2024工具连接标准协议"
+  },
+  "A2A Spec<SEP>A2A Spec 2025 Agent间通信标准": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991982,
+    "update_time": 1780991982,
+    "_id": "A2A Spec<SEP>A2A Spec 2025 Agent间通信标准"
+  },
+  "RLHF / DPO<SEP>RLHF / DPO通过人类偏好强化学习是": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991982,
+    "update_time": 1780991982,
+    "_id": "RLHF / DPO<SEP>RLHF / DPO通过人类偏好强化学习是"
+  },
+  "In-Context Learning<SEP>In-Context Learning通过prompt中的示例学习否": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991982,
+    "update_time": 1780991982,
+    "_id": "In-Context Learning<SEP>In-Context Learning通过prompt中的示例学习否"
+  },
+  "Agent Survey (Xi et al.)<SEP>Agent Survey (Xi et al.) 2025 LLM Agent综述": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991982,
+    "update_time": 1780991982,
+    "_id": "Agent Survey (Xi et al.)<SEP>Agent Survey (Xi et al.) 2025 LLM Agent综述"
+  },
+  "Experience Replay<SEP>经验回放存储成功轨迹用于后续参考否": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991982,
+    "update_time": 1780991982,
+    "_id": "Experience Replay<SEP>经验回放存储成功轨迹用于后续参考否"
+  },
+  "Fine-tuning<SEP>微调(Fine-tuning)在tool use数据上微调是": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991982,
+    "update_time": 1780991982,
+    "_id": "Fine-tuning<SEP>微调(Fine-tuning)在tool use数据上微调是"
+  },
+  "DeepSeek-R1<SEP>DeepSeek-R1 2025 RL训练推理能力": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991982,
+    "update_time": 1780991982,
+    "_id": "DeepSeek-R1<SEP>DeepSeek-R1 2025 RL训练推理能力"
+  },
+  "Asyncio<SEP>asyncio的单线程协作式并发完美适配": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991983,
+    "update_time": 1780991983,
+    "_id": "Asyncio<SEP>asyncio的单线程协作式并发完美适配"
+  },
+  "TaskGroup<SEP>TaskGroup结构化并发(3.11+)更安全的并行": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991983,
+    "update_time": 1780991983,
+    "_id": "TaskGroup<SEP>TaskGroup结构化并发(3.11+)更安全的并行"
+  },
+  "Semaphore<SEP>Semaphore信号量，限制并发数控制API并发": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991983,
+    "update_time": 1780991983,
+    "_id": "Semaphore<SEP>Semaphore信号量，限制并发数控制API并发"
+  },
+  "RateLimitedLLMClient<SEP>RateLimitedLLMClient类实现RPM和TPM双重限流": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991984,
+    "update_time": 1780991984,
+    "_id": "RateLimitedLLMClient<SEP>RateLimitedLLMClient类实现RPM和TPM双重限流"
+  },
+  "Anthropic Agent Loop<SEP>Anthropic Agent Loop手写完整Agent Loop": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991984,
+    "update_time": 1780991984,
+    "_id": "Anthropic Agent Loop<SEP>Anthropic Agent Loop手写完整Agent Loop"
+  },
+  "CrewAI<SEP>researcher": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991984,
+    "update_time": 1780991984,
+    "_id": "CrewAI<SEP>researcher"
+  },
+  "RateLimitedLLMClient<SEP>TokenBucket": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991985,
+    "update_time": 1780991985,
+    "_id": "RateLimitedLLMClient<SEP>TokenBucket"
+  },
+  "Asyncio<SEP>gather": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991985,
+    "update_time": 1780991985,
+    "_id": "Asyncio<SEP>gather"
+  },
+  "CrewAI<SEP>writer": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991985,
+    "update_time": 1780991985,
+    "_id": "CrewAI<SEP>writer"
+  },
+  "Asyncio<SEP>Coroutine": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991985,
+    "update_time": 1780991985,
+    "_id": "Asyncio<SEP>Coroutine"
+  },
+  "AutoGen<SEP>Event-Driven Architecture": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991985,
+    "update_time": 1780991985,
+    "_id": "AutoGen<SEP>Event-Driven Architecture"
+  },
+  "CrewAI<SEP>research_task": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991985,
+    "update_time": 1780991985,
+    "_id": "CrewAI<SEP>research_task"
+  },
+  "Asyncio<SEP>Task": {
+    "chunk_ids": [
+      "chunk-0f68c16f3cfcebac03588fe9b6a11e21"
+    ],
+    "count": 1,
+    "create_time": 1780991985,
+    "update_time": 1780991985,
+    "_id": "Asyncio<SEP>Task"
+  },
+  "AutoGen<SEP>ConversableAgent": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991985,
+    "update_time": 1780991985,
+    "_id": "AutoGen<SEP>ConversableAgent"
+  },
+  "CrewAI<SEP>write_task": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991986,
+    "update_time": 1780991986,
+    "_id": "CrewAI<SEP>write_task"
+  },
+  "Google ADK<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991986,
+    "update_time": 1780991986,
+    "_id": "Google ADK<SEP>MCP"
+  },
+  "AutoGen<SEP>GroupChat": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991986,
+    "update_time": 1780991986,
+    "_id": "AutoGen<SEP>GroupChat"
+  },
+  "CrewAI<SEP>Sequential Process": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991986,
+    "update_time": 1780991986,
+    "_id": "CrewAI<SEP>Sequential Process"
+  },
+  "Function Calling<SEP>GPT-4o": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991986,
+    "update_time": 1780991986,
+    "_id": "Function Calling<SEP>GPT-4o"
+  },
+  "A2A<SEP>Google ADK": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991986,
+    "update_time": 1780991986,
+    "_id": "A2A<SEP>Google ADK"
+  },
+  "AutoGen<SEP>GroupChatManager": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991986,
+    "update_time": 1780991986,
+    "_id": "AutoGen<SEP>GroupChatManager"
+  },
+  "CrewAI<SEP>Hierarchical Process": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991986,
+    "update_time": 1780991986,
+    "_id": "CrewAI<SEP>Hierarchical Process"
+  },
+  "Gemini<SEP>Google ADK": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991986,
+    "update_time": 1780991986,
+    "_id": "Gemini<SEP>Google ADK"
+  },
+  "Claude Sonnet<SEP>Function Calling": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991986,
+    "update_time": 1780991986,
+    "_id": "Claude Sonnet<SEP>Function Calling"
+  },
+  "Claude Opus<SEP>Function Calling": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991987,
+    "update_time": 1780991987,
+    "_id": "Claude Opus<SEP>Function Calling"
+  },
+  "researcher<SEP>search_tool": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991987,
+    "update_time": 1780991987,
+    "_id": "researcher<SEP>search_tool"
+  },
+  "CrewAI<SEP>Google ADK": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991987,
+    "update_time": 1780991987,
+    "_id": "CrewAI<SEP>Google ADK"
+  },
+  "researcher<SEP>web_scraper": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991987,
+    "update_time": 1780991987,
+    "_id": "researcher<SEP>web_scraper"
+  },
+  "Function Calling<SEP>Tool Schema": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991987,
+    "update_time": 1780991987,
+    "_id": "Function Calling<SEP>Tool Schema"
+  },
+  "AutoGen<SEP>CrewAI": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991988,
+    "update_time": 1780991988,
+    "_id": "AutoGen<SEP>CrewAI"
+  },
+  "Page 11<SEP>Third Chapter": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991988,
+    "update_time": 1780991988,
+    "_id": "Page 11<SEP>Third Chapter"
+  },
+  "Conditional Edge<SEP>LangGraph": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991988,
+    "update_time": 1780991988,
+    "_id": "Conditional Edge<SEP>LangGraph"
+  },
+  "Function Calling<SEP>LangGraph": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991988,
+    "update_time": 1780991988,
+    "_id": "Function Calling<SEP>LangGraph"
+  },
+  "AutoGen<SEP>Page 10": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991988,
+    "update_time": 1780991988,
+    "_id": "AutoGen<SEP>Page 10"
+  },
+  "Function Calling<SEP>OpenAI Agents SDK": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991989,
+    "update_time": 1780991989,
+    "_id": "Function Calling<SEP>OpenAI Agents SDK"
+  },
+  "LangGraph<SEP>Reducer": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991989,
+    "update_time": 1780991989,
+    "_id": "LangGraph<SEP>Reducer"
+  },
+  "Checkpointer<SEP>LangGraph": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991989,
+    "update_time": 1780991989,
+    "_id": "Checkpointer<SEP>LangGraph"
+  },
+  "Function Calling<SEP>Page 11": {
+    "chunk_ids": [
+      "chunk-d7f8e786ec599adac5b7eb3be63fbb3e"
+    ],
+    "count": 1,
+    "create_time": 1780991989,
+    "update_time": 1780991989,
+    "_id": "Function Calling<SEP>Page 11"
+  },
+  "Human-in-the-Loop<SEP>LangGraph": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991989,
+    "update_time": 1780991989,
+    "_id": "Human-in-the-Loop<SEP>LangGraph"
+  },
+  "Handoff<SEP>OpenAI Agents SDK": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097",
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 2,
+    "create_time": 1780991989,
+    "update_time": 1780991989,
+    "_id": "Handoff<SEP>OpenAI Agents SDK"
+  },
+  "Guardrails<SEP>OpenAI Agents SDK": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097",
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 2,
+    "create_time": 1780991990,
+    "update_time": 1780991990,
+    "_id": "Guardrails<SEP>OpenAI Agents SDK"
+  },
+  "OpenAI Agents SDK<SEP>Tracing": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991990,
+    "update_time": 1780991990,
+    "_id": "OpenAI Agents SDK<SEP>Tracing"
+  },
+  "billing_agent<SEP>search_knowledge_base": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991990,
+    "update_time": 1780991990,
+    "_id": "billing_agent<SEP>search_knowledge_base"
+  },
+  "billing_agent<SEP>triage_agent": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991991,
+    "update_time": 1780991991,
+    "_id": "billing_agent<SEP>triage_agent"
+  },
+  "Agent (CrewAI)<SEP>CrewAI": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991991,
+    "update_time": 1780991991,
+    "_id": "Agent (CrewAI)<SEP>CrewAI"
+  },
+  "AgentState<SEP>LangGraph": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991991,
+    "update_time": 1780991991,
+    "_id": "AgentState<SEP>LangGraph"
+  },
+  "Runner<SEP>triage_agent": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991991,
+    "update_time": 1780991991,
+    "_id": "Runner<SEP>triage_agent"
+  },
+  "CrewAI<SEP>Task": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991991,
+    "update_time": 1780991991,
+    "_id": "CrewAI<SEP>Task"
+  },
+  "START<SEP>StateGraph": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991991,
+    "update_time": 1780991991,
+    "_id": "START<SEP>StateGraph"
+  },
+  "LangGraph<SEP>call_model": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991991,
+    "update_time": 1780991991,
+    "_id": "LangGraph<SEP>call_model"
+  },
+  "END<SEP>StateGraph": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991992,
+    "update_time": 1780991992,
+    "_id": "END<SEP>StateGraph"
+  },
+  "Reducer<SEP>add_messages": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991992,
+    "update_time": 1780991992,
+    "_id": "Reducer<SEP>add_messages"
+  },
+  "LangGraph<SEP>should_continue": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991992,
+    "update_time": 1780991992,
+    "_id": "LangGraph<SEP>should_continue"
+  },
+  "call_model<SEP>llm": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991992,
+    "update_time": 1780991992,
+    "_id": "call_model<SEP>llm"
+  },
+  "search_knowledge_base<SEP>vector_db": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991992,
+    "update_time": 1780991992,
+    "_id": "search_knowledge_base<SEP>vector_db"
+  },
+  "OpenAI Agents SDK<SEP>Swarm": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991992,
+    "update_time": 1780991992,
+    "_id": "OpenAI Agents SDK<SEP>Swarm"
+  },
+  "LangGraph<SEP>tool_node": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991992,
+    "update_time": 1780991992,
+    "_id": "LangGraph<SEP>tool_node"
+  },
+  "Agent<SEP>Human-in-the-Loop": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991992,
+    "update_time": 1780991992,
+    "_id": "Agent<SEP>Human-in-the-Loop"
+  },
+  "Agent<SEP>Permissions Control": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991993,
+    "update_time": 1780991993,
+    "_id": "Agent<SEP>Permissions Control"
+  },
+  "Guardrails<SEP>Prompt Injection Detection": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991993,
+    "update_time": 1780991993,
+    "_id": "Guardrails<SEP>Prompt Injection Detection"
+  },
+  "AgentExecutor<SEP>LangGraph": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991993,
+    "update_time": 1780991993,
+    "_id": "AgentExecutor<SEP>LangGraph"
+  },
+  "Agent<SEP>Sandbox": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991993,
+    "update_time": 1780991993,
+    "_id": "Agent<SEP>Sandbox"
+  },
+  "LangGraph<SEP>StateGraph": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097",
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 2,
+    "create_time": 1780991993,
+    "update_time": 1780991993,
+    "_id": "LangGraph<SEP>StateGraph"
+  },
+  "Prompt Caching<SEP>Token Management": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991994,
+    "update_time": 1780991994,
+    "_id": "Prompt Caching<SEP>Token Management"
+  },
+  "LangGraph<SEP>MessagesState": {
+    "chunk_ids": [
+      "chunk-60d113ce2283d528b5da34121b03c097"
+    ],
+    "count": 1,
+    "create_time": 1780991994,
+    "update_time": 1780991994,
+    "_id": "LangGraph<SEP>MessagesState"
+  },
+  "Agent<SEP>Guardrails": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991994,
+    "update_time": 1780991994,
+    "_id": "Agent<SEP>Guardrails"
+  },
+  "Semantic Caching<SEP>Token Management": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991994,
+    "update_time": 1780991994,
+    "_id": "Semantic Caching<SEP>Token Management"
+  },
+  "Model Routing<SEP>Token Management": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991994,
+    "update_time": 1780991994,
+    "_id": "Model Routing<SEP>Token Management"
+  },
+  "Agent Deployment<SEP>Docker Compose": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991994,
+    "update_time": 1780991994,
+    "_id": "Agent Deployment<SEP>Docker Compose"
+  },
+  "Model Routing<SEP>ModelRouter": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991995,
+    "update_time": 1780991995,
+    "_id": "Model Routing<SEP>ModelRouter"
+  },
+  "Batch API<SEP>Token Management": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991995,
+    "update_time": 1780991995,
+    "_id": "Batch API<SEP>Token Management"
+  },
+  "Agent-API<SEP>Docker Compose": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991995,
+    "update_time": 1780991995,
+    "_id": "Agent-API<SEP>Docker Compose"
+  },
+  "Context Compression<SEP>Token Management": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991995,
+    "update_time": 1780991995,
+    "_id": "Context Compression<SEP>Token Management"
+  },
+  "Agent Deployment<SEP>Celery": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991995,
+    "update_time": 1780991995,
+    "_id": "Agent Deployment<SEP>Celery"
+  },
+  "Docker Compose<SEP>Redis": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991995,
+    "update_time": 1780991995,
+    "_id": "Docker Compose<SEP>Redis"
+  },
+  "Agent Deployment<SEP>RQ": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991996,
+    "update_time": 1780991996,
+    "_id": "Agent Deployment<SEP>RQ"
+  },
+  "Token Management<SEP>Tool Output Summarization": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991996,
+    "update_time": 1780991996,
+    "_id": "Token Management<SEP>Tool Output Summarization"
+  },
+  "Reflexion<SEP>Shinn et al. (2023)": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991996,
+    "update_time": 1780991996,
+    "_id": "Reflexion<SEP>Shinn et al. (2023)"
+  },
+  "Docker Compose<SEP>Milvus": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991996,
+    "update_time": 1780991996,
+    "_id": "Docker Compose<SEP>Milvus"
+  },
+  "Agent Deployment<SEP>SSE": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991996,
+    "update_time": 1780991996,
+    "_id": "Agent Deployment<SEP>SSE"
+  },
+  "Agent<SEP>Token Management": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991996,
+    "update_time": 1780991996,
+    "_id": "Agent<SEP>Token Management"
+  },
+  "Episodic Memory<SEP>Reflexion": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991996,
+    "update_time": 1780991996,
+    "_id": "Episodic Memory<SEP>Reflexion"
+  },
+  "AutoGPT-style Autonomous Loop<SEP>Autonomy": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991996,
+    "update_time": 1780991996,
+    "_id": "AutoGPT-style Autonomous Loop<SEP>Autonomy"
+  },
+  "Multi-hop Reasoning<SEP>Self-Ask": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991996,
+    "update_time": 1780991996,
+    "_id": "Multi-hop Reasoning<SEP>Self-Ask"
+  },
+  "Cognitive Architecture<SEP>Human Cognition": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991997,
+    "update_time": 1780991997,
+    "_id": "Cognitive Architecture<SEP>Human Cognition"
+  },
+  "Agent Deployment<SEP>WebSocket": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991997,
+    "update_time": 1780991997,
+    "_id": "Agent Deployment<SEP>WebSocket"
+  },
+  "Autonomous Research<SEP>OpenAI Deep Research": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991997,
+    "update_time": 1780991997,
+    "_id": "Autonomous Research<SEP>OpenAI Deep Research"
+  },
+  "Reflexion<SEP>in-context learning": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991997,
+    "update_time": 1780991997,
+    "_id": "Reflexion<SEP>in-context learning"
+  },
+  "Function Calling Agent<SEP>Simple Tool Use": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991997,
+    "update_time": 1780991997,
+    "_id": "Function Calling Agent<SEP>Simple Tool Use"
+  },
+  "Multi-step Reasoning<SEP>ReAct": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991997,
+    "update_time": 1780991997,
+    "_id": "Multi-step Reasoning<SEP>ReAct"
+  },
+  "Agent Deployment<SEP>Health Check": {
+    "chunk_ids": [
+      "chunk-a69f84affdcaf4a99b035fe362224b06"
+    ],
+    "count": 1,
+    "create_time": 1780991997,
+    "update_time": 1780991997,
+    "_id": "Agent Deployment<SEP>Health Check"
+  },
+  "Global Planning<SEP>Plan-and-Execute": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991997,
+    "update_time": 1780991997,
+    "_id": "Global Planning<SEP>Plan-and-Execute"
+  },
+  "Decision Quality<SEP>LATS (Tree Search)": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991997,
+    "update_time": 1780991997,
+    "_id": "Decision Quality<SEP>LATS (Tree Search)"
+  },
+  "Multi-Agent<SEP>Role Collaboration": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991997,
+    "update_time": 1780991997,
+    "_id": "Multi-Agent<SEP>Role Collaboration"
+  },
+  "Directed Graph<SEP>LangGraph": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991998,
+    "update_time": 1780991998,
+    "_id": "Directed Graph<SEP>LangGraph"
+  },
+  "AutoGen GroupChat<SEP>Mesh自由通信": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780991998,
+    "update_time": 1780991998,
+    "_id": "AutoGen GroupChat<SEP>Mesh自由通信"
+  },
+  "Expert Agent<SEP>Router Agent": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780991998,
+    "update_time": 1780991998,
+    "_id": "Expert Agent<SEP>Router Agent"
+  },
+  "Multi-Agent System<SEP>Single-Agent System": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780991998,
+    "update_time": 1780991998,
+    "_id": "Multi-Agent System<SEP>Single-Agent System"
+  },
+  "LangChain AgentExecutor<SEP>LangGraph": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991998,
+    "update_time": 1780991998,
+    "_id": "LangChain AgentExecutor<SEP>LangGraph"
+  },
+  "Agent Memory System<SEP>Short-Term Memory": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780991998,
+    "update_time": 1780991998,
+    "_id": "Agent Memory System<SEP>Short-Term Memory"
+  },
+  "Deadlock Prevention in Multi-Agent Systems<SEP>Multi-Agent System": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780991999,
+    "update_time": 1780991999,
+    "_id": "Deadlock Prevention in Multi-Agent Systems<SEP>Multi-Agent System"
+  },
+  "Agent Memory System<SEP>Long-Term Memory": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780991999,
+    "update_time": 1780991999,
+    "_id": "Agent Memory System<SEP>Long-Term Memory"
+  },
+  "LangGraph<SEP>State": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991999,
+    "update_time": 1780991999,
+    "_id": "LangGraph<SEP>State"
+  },
+  "Context Window Management<SEP>Short-Term Memory": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780991999,
+    "update_time": 1780991999,
+    "_id": "Context Window Management<SEP>Short-Term Memory"
+  },
+  "Agent Memory System<SEP>Episodic Memory": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780991999,
+    "update_time": 1780991999,
+    "_id": "Agent Memory System<SEP>Episodic Memory"
+  },
+  "Letta<SEP>MemGPT": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780991999,
+    "update_time": 1780991999,
+    "_id": "Letta<SEP>MemGPT"
+  },
+  "LangGraph<SEP>Node": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780991999,
+    "update_time": 1780991999,
+    "_id": "LangGraph<SEP>Node"
+  },
+  "Multi-Agent System<SEP>Page 20": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780992000,
+    "update_time": 1780992000,
+    "_id": "Multi-Agent System<SEP>Page 20"
+  },
+  "Agent Memory System<SEP>Semantic Memory": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780992000,
+    "update_time": 1780992000,
+    "_id": "Agent Memory System<SEP>Semantic Memory"
+  },
+  "Agent<SEP>主存": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992000,
+    "update_time": 1780992000,
+    "_id": "Agent<SEP>主存"
+  },
+  "Edge<SEP>LangGraph": {
+    "chunk_ids": [
+      "chunk-2dba9f4d7c459c41d46bdeca04a82a85"
+    ],
+    "count": 1,
+    "create_time": 1780992000,
+    "update_time": 1780992000,
+    "_id": "Edge<SEP>LangGraph"
+  },
+  "Agent Memory System<SEP>Procedural Memory": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780992000,
+    "update_time": 1780992000,
+    "_id": "Agent Memory System<SEP>Procedural Memory"
+  },
+  "Chain-of-Thought<SEP>Reasoning Models": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992000,
+    "update_time": 1780992000,
+    "_id": "Chain-of-Thought<SEP>Reasoning Models"
+  },
+  "Agent<SEP>磁盘": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992000,
+    "update_time": 1780992000,
+    "_id": "Agent<SEP>磁盘"
+  },
+  "Agent Memory System<SEP>MemGPT": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780992000,
+    "update_time": 1780992000,
+    "_id": "Agent Memory System<SEP>MemGPT"
+  },
+  "Agent<SEP>内存管理": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992001,
+    "update_time": 1780992001,
+    "_id": "Agent<SEP>内存管理"
+  },
+  "Reasoning Models<SEP>Tree-of-Thought": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992001,
+    "update_time": 1780992001,
+    "_id": "Reasoning Models<SEP>Tree-of-Thought"
+  },
+  "Agent Memory System<SEP>Page 21": {
+    "chunk_ids": [
+      "chunk-a4979beecdaa464cd9d4d884e9c40e82"
+    ],
+    "count": 1,
+    "create_time": 1780992001,
+    "update_time": 1780992001,
+    "_id": "Agent Memory System<SEP>Page 21"
+  },
+  "Claude Computer Use<SEP>Extended Thinking": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992001,
+    "update_time": 1780992001,
+    "_id": "Claude Computer Use<SEP>Extended Thinking"
+  },
+  "Graph-of-Thought<SEP>Reasoning Models": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992001,
+    "update_time": 1780992001,
+    "_id": "Graph-of-Thought<SEP>Reasoning Models"
+  },
+  "Browser Use<SEP>Playwright Agent": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992001,
+    "update_time": 1780992001,
+    "_id": "Browser Use<SEP>Playwright Agent"
+  },
+  "Claude Computer Use<SEP>WebArena": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992001,
+    "update_time": 1780992001,
+    "_id": "Claude Computer Use<SEP>WebArena"
+  },
+  "Devin<SEP>SWE-bench": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992001,
+    "update_time": 1780992001,
+    "_id": "Devin<SEP>SWE-bench"
+  },
+  "DeepSeek-R1<SEP>Reasoning Models": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992002,
+    "update_time": 1780992002,
+    "_id": "DeepSeek-R1<SEP>Reasoning Models"
+  },
+  "Claude Code Anthropic CLI<SEP>Devin": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992002,
+    "update_time": 1780992002,
+    "_id": "Claude Code Anthropic CLI<SEP>Devin"
+  },
+  "OpenHands<SEP>SWE-bench": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992002,
+    "update_time": 1780992002,
+    "_id": "OpenHands<SEP>SWE-bench"
+  },
+  "Claude Computer Use<SEP>VisualWebArena": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992002,
+    "update_time": 1780992002,
+    "_id": "Claude Computer Use<SEP>VisualWebArena"
+  },
+  "Chain-of-Thought<SEP>DeepSeek-R1": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992002,
+    "update_time": 1780992002,
+    "_id": "Chain-of-Thought<SEP>DeepSeek-R1"
+  },
+  "Cursor<SEP>Windsurf": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992002,
+    "update_time": 1780992002,
+    "_id": "Cursor<SEP>Windsurf"
+  },
+  "Codex Agent<SEP>SWE-bench": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992002,
+    "update_time": 1780992002,
+    "_id": "Codex Agent<SEP>SWE-bench"
+  },
+  "Tree-of-Thought<SEP>Yao et al. 2023": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992002,
+    "update_time": 1780992002,
+    "_id": "Tree-of-Thought<SEP>Yao et al. 2023"
+  },
+  "Besta et al. 2023<SEP>Graph-of-Thought": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992002,
+    "update_time": 1780992002,
+    "_id": "Besta et al. 2023<SEP>Graph-of-Thought"
+  },
+  "Chain-of-Thought<SEP>Wei et al. 2022": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "Chain-of-Thought<SEP>Wei et al. 2022"
+  },
+  "DeepSeek-R1<SEP>蒸馏技术": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "DeepSeek-R1<SEP>蒸馏技术"
+  },
+  "OpenDevin<SEP>OpenHands": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "OpenDevin<SEP>OpenHands"
+  },
+  "Claude Sonnet-4-20250514<SEP>Extended Thinking": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "Claude Sonnet-4-20250514<SEP>Extended Thinking"
+  },
+  "SWE-bench<SEP>SWE-bench Verified": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "SWE-bench<SEP>SWE-bench Verified"
+  },
+  "Agent Evaluation<SEP>WebArena": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "Agent Evaluation<SEP>WebArena"
+  },
+  "Code Generation Evaluation<SEP>HumanEval": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "Code Generation Evaluation<SEP>HumanEval"
+  },
+  "Codex Agent<SEP>OpenHands": {
+    "chunk_ids": [
+      "chunk-e47282ed4b71378fa80ac00a0b6f46fe"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "Codex Agent<SEP>OpenHands"
+  },
+  "Interaction Reliability Evaluation<SEP>TAU-bench": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "Interaction Reliability Evaluation<SEP>TAU-bench"
+  },
+  "Agent Evaluation<SEP>AgentBench": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "Agent Evaluation<SEP>AgentBench"
+  },
+  "LangSmith<SEP>Observability": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992003,
+    "update_time": 1780992003,
+    "_id": "LangSmith<SEP>Observability"
+  },
+  "Indirect Prompt Injection<SEP>Prompt Injection": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992004,
+    "update_time": 1780992004,
+    "_id": "Indirect Prompt Injection<SEP>Prompt Injection"
+  },
+  "Observability<SEP>Phoenix (Arize)": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992004,
+    "update_time": 1780992004,
+    "_id": "Observability<SEP>Phoenix (Arize)"
+  },
+  "Indirect Prompt Injection<SEP>Tool Abuse": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992004,
+    "update_time": 1780992004,
+    "_id": "Indirect Prompt Injection<SEP>Tool Abuse"
+  },
+  "Braintrust<SEP>Observability": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992004,
+    "update_time": 1780992004,
+    "_id": "Braintrust<SEP>Observability"
+  },
+  "Agent Evaluation<SEP>LLM-as-Judge": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992004,
+    "update_time": 1780992004,
+    "_id": "Agent Evaluation<SEP>LLM-as-Judge"
+  },
+  "Data Exfiltration<SEP>Indirect Prompt Injection": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992005,
+    "update_time": 1780992005,
+    "_id": "Data Exfiltration<SEP>Indirect Prompt Injection"
+  },
+  "Observability<SEP>OpenTelemetry": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992005,
+    "update_time": 1780992005,
+    "_id": "Observability<SEP>OpenTelemetry"
+  },
+  "Anthropic<SEP>Claude-Sonnet-4-20250514": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992005,
+    "update_time": 1780992005,
+    "_id": "Anthropic<SEP>Claude-Sonnet-4-20250514"
+  },
+  "Agent<SEP>Stream Response": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992005,
+    "update_time": 1780992005,
+    "_id": "Agent<SEP>Stream Response"
+  },
+  "Data / Instruction Separation<SEP>Indirect Prompt Injection": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992005,
+    "update_time": 1780992005,
+    "_id": "Data / Instruction Separation<SEP>Indirect Prompt Injection"
+  },
+  "Observability<SEP>Tracing": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992005,
+    "update_time": 1780992005,
+    "_id": "Observability<SEP>Tracing"
+  },
+  "Independent Detection<SEP>Indirect Prompt Injection": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992005,
+    "update_time": 1780992005,
+    "_id": "Independent Detection<SEP>Indirect Prompt Injection"
+  },
+  "Indirect Prompt Injection<SEP>Permission Isolation": {
+    "chunk_ids": [
+      "chunk-b143069acc10db10e1acbea804ddde9a"
+    ],
+    "count": 1,
+    "create_time": 1780992006,
+    "update_time": 1780992006,
+    "_id": "Indirect Prompt Injection<SEP>Permission Isolation"
+  },
+  "Agent<SEP>Tool Use": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992006,
+    "update_time": 1780992006,
+    "_id": "Agent<SEP>Tool Use"
+  },
+  "AgentAction<SEP>Pydantic": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992006,
+    "update_time": 1780992006,
+    "_id": "AgentAction<SEP>Pydantic"
+  },
+  "Agent<SEP>Python GIL": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992006,
+    "update_time": 1780992006,
+    "_id": "Agent<SEP>Python GIL"
+  },
+  "Pydantic<SEP>SearchParams": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992006,
+    "update_time": 1780992006,
+    "_id": "Pydantic<SEP>SearchParams"
+  },
+  "Agent<SEP>asyncio": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992007,
+    "update_time": 1780992007,
+    "_id": "Agent<SEP>asyncio"
+  },
+  "ConversationState<SEP>Pydantic": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992007,
+    "update_time": 1780992007,
+    "_id": "ConversationState<SEP>Pydantic"
+  },
+  "Claude-Sonnet-4-20250514<SEP>system_prompt": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992007,
+    "update_time": 1780992007,
+    "_id": "Claude-Sonnet-4-20250514<SEP>system_prompt"
+  },
+  "Agent<SEP>ProcessPoolExecutor": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992007,
+    "update_time": 1780992007,
+    "_id": "Agent<SEP>ProcessPoolExecutor"
+  },
+  "Agent<SEP>ThreadPoolExecutor": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992007,
+    "update_time": 1780992007,
+    "_id": "Agent<SEP>ThreadPoolExecutor"
+  },
+  "Claude-Sonnet-4-20250514<SEP>tools": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992007,
+    "update_time": 1780992007,
+    "_id": "Claude-Sonnet-4-20250514<SEP>tools"
+  },
+  "Tool Use<SEP>execute_tool": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992007,
+    "update_time": 1780992007,
+    "_id": "Tool Use<SEP>execute_tool"
+  },
+  "Agent<SEP>Python 3.13 Free-threaded Mode": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992008,
+    "update_time": 1780992008,
+    "_id": "Agent<SEP>Python 3.13 Free-threaded Mode"
+  },
+  "ProcessPoolExecutor<SEP>compute_embeddings": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992008,
+    "update_time": 1780992008,
+    "_id": "ProcessPoolExecutor<SEP>compute_embeddings"
+  },
+  "async_llm_call<SEP>asyncio": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992008,
+    "update_time": 1780992008,
+    "_id": "async_llm_call<SEP>asyncio"
+  },
+  "Claude-Sonnet-4-20250514<SEP>messages": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992008,
+    "update_time": 1780992008,
+    "_id": "Claude-Sonnet-4-20250514<SEP>messages"
+  },
+  "MCP<SEP>Tools": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992008,
+    "update_time": 1780992008,
+    "_id": "MCP<SEP>Tools"
+  },
+  "Agent<SEP>Pydantic": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992009,
+    "update_time": 1780992009,
+    "_id": "Agent<SEP>Pydantic"
+  },
+  "MCP<SEP>Resources": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992009,
+    "update_time": 1780992009,
+    "_id": "MCP<SEP>Resources"
+  },
+  "Agent<SEP>SWE-bench": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992009,
+    "update_time": 1780992009,
+    "_id": "Agent<SEP>SWE-bench"
+  },
+  "MCP<SEP>Prompts": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992009,
+    "update_time": 1780992009,
+    "_id": "MCP<SEP>Prompts"
+  },
+  "Agent<SEP>GAIA": {
+    "chunk_ids": [
+      "chunk-f350af82c9777be9df01aecfdaf47a7c"
+    ],
+    "count": 1,
+    "create_time": 1780992009,
+    "update_time": 1780992009,
+    "_id": "Agent<SEP>GAIA"
+  },
+  "Linux Foundation<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992009,
+    "update_time": 1780992009,
+    "_id": "Linux Foundation<SEP>MCP"
+  },
+  "A2A<SEP>Linux Foundation": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992010,
+    "update_time": 1780992010,
+    "_id": "A2A<SEP>Linux Foundation"
+  },
+  "ChatGPT<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992010,
+    "update_time": 1780992010,
+    "_id": "ChatGPT<SEP>MCP"
+  },
+  "Claude<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992010,
+    "update_time": 1780992010,
+    "_id": "Claude<SEP>MCP"
+  },
+  "A2A<SEP>Google": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992010,
+    "update_time": 1780992010,
+    "_id": "A2A<SEP>Google"
+  },
+  "Cursor<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e",
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 2,
+    "create_time": 1780992010,
+    "update_time": 1780992010,
+    "_id": "Cursor<SEP>MCP"
+  },
+  "Gemini<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992011,
+    "update_time": 1780992011,
+    "_id": "Gemini<SEP>MCP"
+  },
+  "MCP<SEP>VS Code": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e",
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 2,
+    "create_time": 1780992011,
+    "update_time": 1780992011,
+    "_id": "MCP<SEP>VS Code"
+  },
+  "Copilot<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992011,
+    "update_time": 1780992011,
+    "_id": "Copilot<SEP>MCP"
+  },
+  "MCP<SEP>stdio": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992012,
+    "update_time": 1780992012,
+    "_id": "MCP<SEP>stdio"
+  },
+  "RAG<SEP>文档处理": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992012,
+    "update_time": 1780992012,
+    "_id": "RAG<SEP>文档处理"
+  },
+  "MCP<SEP>Streamable HTTP": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992012,
+    "update_time": 1780992012,
+    "_id": "MCP<SEP>Streamable HTTP"
+  },
+  "RAG<SEP>查询处理": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992012,
+    "update_time": 1780992012,
+    "_id": "RAG<SEP>查询处理"
+  },
+  "向量数据库<SEP>文档处理": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992012,
+    "update_time": 1780992012,
+    "_id": "向量数据库<SEP>文档处理"
+  },
+  "MCP 2025年重大更新<SEP>Streamable HTTP Transport": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992013,
+    "update_time": 1780992013,
+    "_id": "MCP 2025年重大更新<SEP>Streamable HTTP Transport"
+  },
+  "A2A<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992013,
+    "update_time": 1780992013,
+    "_id": "A2A<SEP>MCP"
+  },
+  "A2A<SEP>Agent Card": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992013,
+    "update_time": 1780992013,
+    "_id": "A2A<SEP>Agent Card"
+  },
+  "MCP 2025年重大更新<SEP>OAuth 2.1授权": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992013,
+    "update_time": 1780992013,
+    "_id": "MCP 2025年重大更新<SEP>OAuth 2.1授权"
+  },
+  "AAIF<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992013,
+    "update_time": 1780992013,
+    "_id": "AAIF<SEP>MCP"
+  },
+  "A2A<SEP>Task": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992014,
+    "update_time": 1780992014,
+    "_id": "A2A<SEP>Task"
+  },
+  "MCP 2025年重大更新<SEP>MCP Registry": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992014,
+    "update_time": 1780992014,
+    "_id": "MCP 2025年重大更新<SEP>MCP Registry"
+  },
+  "Chunking<SEP>RAG检索增强生成": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992014,
+    "update_time": 1780992014,
+    "_id": "Chunking<SEP>RAG检索增强生成"
+  },
+  "Embedding<SEP>RAG检索增强生成": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992014,
+    "update_time": 1780992014,
+    "_id": "Embedding<SEP>RAG检索增强生成"
+  },
+  "MCP 2025年重大更新<SEP>Tasks Primitive": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992014,
+    "update_time": 1780992014,
+    "_id": "MCP 2025年重大更新<SEP>Tasks Primitive"
+  },
+  "OpenAI Agents SDK<SEP>客服Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992014,
+    "update_time": 1780992014,
+    "_id": "OpenAI Agents SDK<SEP>客服Agent系统"
+  },
+  "A2A<SEP>Message": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992014,
+    "update_time": 1780992014,
+    "_id": "A2A<SEP>Message"
+  },
+  "RAG检索增强生成<SEP>查询改写": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992015,
+    "update_time": 1780992015,
+    "_id": "RAG检索增强生成<SEP>查询改写"
+  },
+  "A2A<SEP>Part": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992015,
+    "update_time": 1780992015,
+    "_id": "A2A<SEP>Part"
+  },
+  "RAG<SEP>客服Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992015,
+    "update_time": 1780992015,
+    "_id": "RAG<SEP>客服Agent系统"
+  },
+  "RAG检索增强生成<SEP>Reranking": {
+    "chunk_ids": [
+      "chunk-9b2011bacd64be9e3e604cbe2c33471e"
+    ],
+    "count": 1,
+    "create_time": 1780992015,
+    "update_time": 1780992015,
+    "_id": "RAG检索增强生成<SEP>Reranking"
+  },
+  "Milvus<SEP>客服Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992015,
+    "update_time": 1780992015,
+    "_id": "Milvus<SEP>客服Agent系统"
+  },
+  "Agent幻觉<SEP>RAG": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992015,
+    "update_time": 1780992015,
+    "_id": "Agent幻觉<SEP>RAG"
+  },
+  "LangSmith<SEP>客服Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992015,
+    "update_time": 1780992015,
+    "_id": "LangSmith<SEP>客服Agent系统"
+  },
+  "Guardrails<SEP>客服Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992016,
+    "update_time": 1780992016,
+    "_id": "Guardrails<SEP>客服Agent系统"
+  },
+  "Agent幻觉<SEP>Prompt约束": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992016,
+    "update_time": 1780992016,
+    "_id": "Agent幻觉<SEP>Prompt约束"
+  },
+  "Self-Verification<SEP>客服Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992016,
+    "update_time": 1780992016,
+    "_id": "Self-Verification<SEP>客服Agent系统"
+  },
+  "Reasoning Model<SEP>客服Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992016,
+    "update_time": 1780992016,
+    "_id": "Reasoning Model<SEP>客服Agent系统"
+  },
+  "Agent幻觉<SEP>Self-Verification": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992017,
+    "update_time": 1780992017,
+    "_id": "Agent幻觉<SEP>Self-Verification"
+  },
+  "Agent延迟问题<SEP>并行化": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992017,
+    "update_time": 1780992017,
+    "_id": "Agent延迟问题<SEP>并行化"
+  },
+  "LangGraph<SEP>客服Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992017,
+    "update_time": 1780992017,
+    "_id": "LangGraph<SEP>客服Agent系统"
+  },
+  "Agent幻觉<SEP>Guardrails": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992017,
+    "update_time": 1780992017,
+    "_id": "Agent幻觉<SEP>Guardrails"
+  },
+  "SSE<SEP>客服Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992017,
+    "update_time": 1780992017,
+    "_id": "SSE<SEP>客服Agent系统"
+  },
+  "Agent幻觉<SEP>Reasoning Model": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992017,
+    "update_time": 1780992017,
+    "_id": "Agent幻觉<SEP>Reasoning Model"
+  },
+  "客服Agent系统<SEP>语义缓存": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992018,
+    "update_time": 1780992018,
+    "_id": "客服Agent系统<SEP>语义缓存"
+  },
+  "Agent延迟问题<SEP>SSE": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992018,
+    "update_time": 1780992018,
+    "_id": "Agent延迟问题<SEP>SSE"
+  },
+  "LangSmith<SEP>调试Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992018,
+    "update_time": 1780992018,
+    "_id": "LangSmith<SEP>调试Agent系统"
+  },
+  "Agent延迟问题<SEP>模型选择": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992018,
+    "update_time": 1780992018,
+    "_id": "Agent延迟问题<SEP>模型选择"
+  },
+  "LangGraph<SEP>调试Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992018,
+    "update_time": 1780992018,
+    "_id": "LangGraph<SEP>调试Agent系统"
+  },
+  "日志分级<SEP>调试Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992018,
+    "update_time": 1780992018,
+    "_id": "日志分级<SEP>调试Agent系统"
+  },
+  "Agent延迟问题<SEP>语义缓存": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992019,
+    "update_time": 1780992019,
+    "_id": "Agent延迟问题<SEP>语义缓存"
+  },
+  "CRM查询<SEP>客服Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992019,
+    "update_time": 1780992019,
+    "_id": "CRM查询<SEP>客服Agent系统"
+  },
+  "客服Agent系统<SEP>工单创建": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992019,
+    "update_time": 1780992019,
+    "_id": "客服Agent系统<SEP>工单创建"
+  },
+  "Agent延迟问题<SEP>预计算": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992019,
+    "update_time": 1780992019,
+    "_id": "Agent延迟问题<SEP>预计算"
+  },
+  "Replay回放<SEP>调试Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992019,
+    "update_time": 1780992019,
+    "_id": "Replay回放<SEP>调试Agent系统"
+  },
+  "客服Agent系统<SEP>知识库检索": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992019,
+    "update_time": 1780992019,
+    "_id": "客服Agent系统<SEP>知识库检索"
+  },
+  "客服Agent系统<SEP>短期记忆": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992020,
+    "update_time": 1780992020,
+    "_id": "客服Agent系统<SEP>短期记忆"
+  },
+  "A/B测试<SEP>调试Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992020,
+    "update_time": 1780992020,
+    "_id": "A/B测试<SEP>调试Agent系统"
+  },
+  "用户画像<SEP>长期记忆": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992020,
+    "update_time": 1780992020,
+    "_id": "用户画像<SEP>长期记忆"
+  },
+  "Agent延迟问题<SEP>异步架构": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992020,
+    "update_time": 1780992020,
+    "_id": "Agent延迟问题<SEP>异步架构"
+  },
+  "RAG<SEP>重排序": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992020,
+    "update_time": 1780992020,
+    "_id": "RAG<SEP>重排序"
+  },
+  "对话历史<SEP>短期记忆": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992020,
+    "update_time": 1780992020,
+    "_id": "对话历史<SEP>短期记忆"
+  },
+  "Prompt缓存<SEP>性能优化": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992020,
+    "update_time": 1780992020,
+    "_id": "Prompt缓存<SEP>性能优化"
+  },
+  "客服Agent系统<SEP>长期记忆": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992020,
+    "update_time": 1780992020,
+    "_id": "客服Agent系统<SEP>长期记忆"
+  },
+  "评估套件<SEP>调试Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "评估套件<SEP>调试Agent系统"
+  },
+  "Q4 2024 Revenue<SEP>Tesla": {
+    "chunk_ids": [
+      "chunk-e823ae396d47cc462976f0e06757181e"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "Q4 2024 Revenue<SEP>Tesla"
+  },
+  "Plan-and-Execute<SEP>ReAct": {
+    "chunk_ids": [
+      "chunk-e823ae396d47cc462976f0e06757181e"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "Plan-and-Execute<SEP>ReAct"
+  },
+  "性能优化<SEP>热查询预生成答案": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "性能优化<SEP>热查询预生成答案"
+  },
+  "LATS<SEP>Monte Carlo Tree Search": {
+    "chunk_ids": [
+      "chunk-e823ae396d47cc462976f0e06757181e"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "LATS<SEP>Monte Carlo Tree Search"
+  },
+  "Plan-and-Execute<SEP>Planner": {
+    "chunk_ids": [
+      "chunk-e823ae396d47cc462976f0e06757181e"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "Plan-and-Execute<SEP>Planner"
+  },
+  "Page 3<SEP>ReAct": {
+    "chunk_ids": [
+      "chunk-e823ae396d47cc462976f0e06757181e"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "Page 3<SEP>ReAct"
+  },
+  "LangGraph的interrupt_before<SEP>调试Agent系统": {
+    "chunk_ids": [
+      "chunk-cc1ee4e09365de1cc33447ad84d692b0"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "LangGraph的interrupt_before<SEP>调试Agent系统"
+  },
+  "RecursiveCharacterTextSplitter<SEP>文本分割": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "RecursiveCharacterTextSplitter<SEP>文本分割"
+  },
+  "Executor<SEP>Plan-and-Execute": {
+    "chunk_ids": [
+      "chunk-e823ae396d47cc462976f0e06757181e"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "Executor<SEP>Plan-and-Execute"
+  },
+  "LATS<SEP>ReAct": {
+    "chunk_ids": [
+      "chunk-e823ae396d47cc462976f0e06757181e"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "LATS<SEP>ReAct"
+  },
+  "OpenAI<SEP>text-embedding-3-small": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992021,
+    "update_time": 1780992021,
+    "_id": "OpenAI<SEP>text-embedding-3-small"
+  },
+  "Plan-and-Execute<SEP>Replanner": {
+    "chunk_ids": [
+      "chunk-e823ae396d47cc462976f0e06757181e"
+    ],
+    "count": 1,
+    "create_time": 1780992022,
+    "update_time": 1780992022,
+    "_id": "Plan-and-Execute<SEP>Replanner"
+  },
+  "Cohere<SEP>embed-v3": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992022,
+    "update_time": 1780992022,
+    "_id": "Cohere<SEP>embed-v3"
+  },
+  "BGE-M3<SEP>开源Embedding模型": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992022,
+    "update_time": 1780992022,
+    "_id": "BGE-M3<SEP>开源Embedding模型"
+  },
+  "Page 4<SEP>Plan-and-Execute": {
+    "chunk_ids": [
+      "chunk-e823ae396d47cc462976f0e06757181e"
+    ],
+    "count": 1,
+    "create_time": 1780992022,
+    "update_time": 1780992022,
+    "_id": "Page 4<SEP>Plan-and-Execute"
+  },
+  "OpenAI<SEP>text-embedding-3-large": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992022,
+    "update_time": 1780992022,
+    "_id": "OpenAI<SEP>text-embedding-3-large"
+  },
+  "Milvus<SEP>向量数据库": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992022,
+    "update_time": 1780992022,
+    "_id": "Milvus<SEP>向量数据库"
+  },
+  "LATS<SEP>Page 4": {
+    "chunk_ids": [
+      "chunk-e823ae396d47cc462976f0e06757181e"
+    ],
+    "count": 1,
+    "create_time": 1780992022,
+    "update_time": 1780992022,
+    "_id": "LATS<SEP>Page 4"
+  },
+  "Jina Embedding v3<SEP>开源Embedding模型": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992022,
+    "update_time": 1780992022,
+    "_id": "Jina Embedding v3<SEP>开源Embedding模型"
+  },
+  "GTE-Qwen2<SEP>开源Embedding模型": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992023,
+    "update_time": 1780992023,
+    "_id": "GTE-Qwen2<SEP>开源Embedding模型"
+  },
+  "Zilliz<SEP>向量数据库": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992023,
+    "update_time": 1780992023,
+    "_id": "Zilliz<SEP>向量数据库"
+  },
+  "RAGAS<SEP>RAG评估框架": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992023,
+    "update_time": 1780992023,
+    "_id": "RAGAS<SEP>RAG评估框架"
+  },
+  "Pinecone<SEP>向量数据库": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992023,
+    "update_time": 1780992023,
+    "_id": "Pinecone<SEP>向量数据库"
+  },
+  "Qdrant<SEP>向量数据库": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992023,
+    "update_time": 1780992023,
+    "_id": "Qdrant<SEP>向量数据库"
+  },
+  "Faithfulness<SEP>RAGAS": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "Faithfulness<SEP>RAGAS"
+  },
+  "RAG<SEP>长上下文": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "RAG<SEP>长上下文"
+  },
+  "Weaviate<SEP>向量数据库": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "Weaviate<SEP>向量数据库"
+  },
+  "Answer Relevancy<SEP>RAGAS": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "Answer Relevancy<SEP>RAGAS"
+  },
+  "RAG<SEP>微调": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "RAG<SEP>微调"
+  },
+  "多智能体系统<SEP>流水线": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "多智能体系统<SEP>流水线"
+  },
+  "ChromaDB<SEP>向量数据库": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "ChromaDB<SEP>向量数据库"
+  },
+  "Context Precision<SEP>RAGAS": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "Context Precision<SEP>RAGAS"
+  },
+  "微调<SEP>长上下文": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "微调<SEP>长上下文"
+  },
+  "pgvector<SEP>向量数据库": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "pgvector<SEP>向量数据库"
+  },
+  "多智能体系统<SEP>层次化": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "多智能体系统<SEP>层次化"
+  },
+  "OpenAI<SEP>Page 18": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "OpenAI<SEP>Page 18"
+  },
+  "Context Recall<SEP>RAGAS": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992024,
+    "update_time": 1780992024,
+    "_id": "Context Recall<SEP>RAGAS"
+  },
+  "协作<SEP>多智能体系统": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992025,
+    "update_time": 1780992025,
+    "_id": "协作<SEP>多智能体系统"
+  },
+  "Cohere<SEP>Page 18": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992025,
+    "update_time": 1780992025,
+    "_id": "Cohere<SEP>Page 18"
+  },
+  "BGE-M3<SEP>Page 18": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992025,
+    "update_time": 1780992025,
+    "_id": "BGE-M3<SEP>Page 18"
+  },
+  "多智能体系统<SEP>辩论": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992025,
+    "update_time": 1780992025,
+    "_id": "多智能体系统<SEP>辩论"
+  },
+  "Jina Embedding v3<SEP>Page 18": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992025,
+    "update_time": 1780992025,
+    "_id": "Jina Embedding v3<SEP>Page 18"
+  },
+  "GTE-Qwen2<SEP>Page 18": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992026,
+    "update_time": 1780992026,
+    "_id": "GTE-Qwen2<SEP>Page 18"
+  },
+  "Page 19<SEP>RAG": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992026,
+    "update_time": 1780992026,
+    "_id": "Page 19<SEP>RAG"
+  },
+  "Page 19<SEP>长上下文": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992026,
+    "update_time": 1780992026,
+    "_id": "Page 19<SEP>长上下文"
+  },
+  "Milvus<SEP>Page 18": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992026,
+    "update_time": 1780992026,
+    "_id": "Milvus<SEP>Page 18"
+  },
+  "Page 19<SEP>微调": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992026,
+    "update_time": 1780992026,
+    "_id": "Page 19<SEP>微调"
+  },
+  "Page 18<SEP>Pinecone": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992026,
+    "update_time": 1780992026,
+    "_id": "Page 18<SEP>Pinecone"
+  },
+  "流水线<SEP>第六章多智能体系统(Multi-Agent)": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992026,
+    "update_time": 1780992026,
+    "_id": "流水线<SEP>第六章多智能体系统(Multi-Agent)"
+  },
+  "Page 19<SEP>多智能体系统": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992027,
+    "update_time": 1780992027,
+    "_id": "Page 19<SEP>多智能体系统"
+  },
+  "Page 18<SEP>Qdrant": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992027,
+    "update_time": 1780992027,
+    "_id": "Page 18<SEP>Qdrant"
+  },
+  "层次化<SEP>第六章多智能体系统(Multi-Agent)": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992027,
+    "update_time": 1780992027,
+    "_id": "层次化<SEP>第六章多智能体系统(Multi-Agent)"
+  },
+  "AgenticRAG<SEP>CRAG": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992027,
+    "update_time": 1780992027,
+    "_id": "AgenticRAG<SEP>CRAG"
+  },
+  "Page 18<SEP>Weaviate": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992027,
+    "update_time": 1780992027,
+    "_id": "Page 18<SEP>Weaviate"
+  },
+  "协作<SEP>第六章多智能体系统(Multi-Agent)": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992027,
+    "update_time": 1780992027,
+    "_id": "协作<SEP>第六章多智能体系统(Multi-Agent)"
+  },
+  "AgenticRAG<SEP>Self-RAG": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992027,
+    "update_time": 1780992027,
+    "_id": "AgenticRAG<SEP>Self-RAG"
+  },
+  "ChromaDB<SEP>Page 18": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992027,
+    "update_time": 1780992027,
+    "_id": "ChromaDB<SEP>Page 18"
+  },
+  "第六章多智能体系统(Multi-Agent)<SEP>辩论": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992027,
+    "update_time": 1780992027,
+    "_id": "第六章多智能体系统(Multi-Agent)<SEP>辩论"
+  },
+  "MCP 2025 Roadmap<SEP>Model Context Protocol": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992027,
+    "update_time": 1780992027,
+    "_id": "MCP 2025 Roadmap<SEP>Model Context Protocol"
+  },
+  "AgenticRAG<SEP>asyncio.gather": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992028,
+    "update_time": 1780992028,
+    "_id": "AgenticRAG<SEP>asyncio.gather"
+  },
+  "A2A协议升级<SEP>Google A2A Protocol": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992028,
+    "update_time": 1780992028,
+    "_id": "A2A协议升级<SEP>Google A2A Protocol"
+  },
+  "Page 18<SEP>pgvector": {
+    "chunk_ids": [
+      "chunk-0920350e34ce4eff7c3a2d5a96b75e63"
+    ],
+    "count": 1,
+    "create_time": 1780992028,
+    "update_time": 1780992028,
+    "_id": "Page 18<SEP>pgvector"
+  },
+  "A/B Testing<SEP>Gray Release": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992028,
+    "update_time": 1780992028,
+    "_id": "A/B Testing<SEP>Gray Release"
+  },
+  "AgenticRAG<SEP>asyncio.TaskGroup": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992028,
+    "update_time": 1780992028,
+    "_id": "AgenticRAG<SEP>asyncio.TaskGroup"
+  },
+  "MCP 1周年Spec更新<SEP>Model Context Protocol": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992028,
+    "update_time": 1780992028,
+    "_id": "MCP 1周年Spec更新<SEP>Model Context Protocol"
+  },
+  "AI Agent<SEP>LLM Application": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992028,
+    "update_time": 1780992028,
+    "_id": "AI Agent<SEP>LLM Application"
+  },
+  "AgenticRAG<SEP>LLM-as-Judge": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992028,
+    "update_time": 1780992028,
+    "_id": "AgenticRAG<SEP>LLM-as-Judge"
+  },
+  "AI Agent<SEP>Action-Observation Loop": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992029,
+    "update_time": 1780992029,
+    "_id": "AI Agent<SEP>Action-Observation Loop"
+  },
+  "AgenticRAG<SEP>RAGAS": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992029,
+    "update_time": 1780992029,
+    "_id": "AgenticRAG<SEP>RAGAS"
+  },
+  "AI Agent<SEP>Tool Use": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992029,
+    "update_time": 1780992029,
+    "_id": "AI Agent<SEP>Tool Use"
+  },
+  "Action-Observation Loop<SEP>ReAct": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992029,
+    "update_time": 1780992029,
+    "_id": "Action-Observation Loop<SEP>ReAct"
+  },
+  "AgenticRAG<SEP>Gray Release": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992029,
+    "update_time": 1780992029,
+    "_id": "AgenticRAG<SEP>Gray Release"
+  },
+  "ReAct<SEP>Yao et al. (2022)": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992029,
+    "update_time": 1780992029,
+    "_id": "ReAct<SEP>Yao et al. (2022)"
+  },
+  "Andrew Ng<SEP>Tool Use": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992029,
+    "update_time": 1780992029,
+    "_id": "Andrew Ng<SEP>Tool Use"
+  },
+  "AI Agent<SEP>Planning": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992029,
+    "update_time": 1780992029,
+    "_id": "AI Agent<SEP>Planning"
+  },
+  "A/B Testing<SEP>AgenticRAG": {
+    "chunk_ids": [
+      "chunk-975704c9901178fbfc44bec233a85218"
+    ],
+    "count": 1,
+    "create_time": 1780992030,
+    "update_time": 1780992030,
+    "_id": "A/B Testing<SEP>AgenticRAG"
+  },
+  "AI Agent<SEP>Multi-Agent Collaboration": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992030,
+    "update_time": 1780992030,
+    "_id": "AI Agent<SEP>Multi-Agent Collaboration"
+  },
+  "Andrew Ng<SEP>Planning": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992030,
+    "update_time": 1780992030,
+    "_id": "Andrew Ng<SEP>Planning"
+  },
+  "Andrew Ng<SEP>Multi-Agent Collaboration": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992030,
+    "update_time": 1780992030,
+    "_id": "Andrew Ng<SEP>Multi-Agent Collaboration"
+  },
+  "AI Agent<SEP>Reflection": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992030,
+    "update_time": 1780992030,
+    "_id": "AI Agent<SEP>Reflection"
+  },
+  "AI Agent Interview Questions<SEP>Python": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992030,
+    "update_time": 1780992030,
+    "_id": "AI Agent Interview Questions<SEP>Python"
+  },
+  "ChatGPT<SEP>LLM Application": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992030,
+    "update_time": 1780992030,
+    "_id": "ChatGPT<SEP>LLM Application"
+  },
+  "AI Agent<SEP>MCP Protocol": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992031,
+    "update_time": 1780992031,
+    "_id": "AI Agent<SEP>MCP Protocol"
+  },
+  "OpenAI<SEP>get_weather": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992031,
+    "update_time": 1780992031,
+    "_id": "OpenAI<SEP>get_weather"
+  },
+  "Andrew Ng<SEP>Reflection": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992031,
+    "update_time": 1780992031,
+    "_id": "Andrew Ng<SEP>Reflection"
+  },
+  "A2A Protocol<SEP>AI Agent": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992031,
+    "update_time": 1780992031,
+    "_id": "A2A Protocol<SEP>AI Agent"
+  },
+  "Anthropic<SEP>get_weather": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992031,
+    "update_time": 1780992031,
+    "_id": "Anthropic<SEP>get_weather"
+  },
+  "Claude Desktop<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992031,
+    "update_time": 1780992031,
+    "_id": "Claude Desktop<SEP>MCP"
+  },
+  "MCP Client<SEP>MCP Server": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992031,
+    "update_time": 1780992031,
+    "_id": "MCP Client<SEP>MCP Server"
+  },
+  "AI Agent<SEP>RAG": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992031,
+    "update_time": 1780992031,
+    "_id": "AI Agent<SEP>RAG"
+  },
+  "Anthropic<SEP>OpenAI": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992031,
+    "update_time": 1780992031,
+    "_id": "Anthropic<SEP>OpenAI"
+  },
+  "Function Calling<SEP>tool_choice": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992031,
+    "update_time": 1780992031,
+    "_id": "Function Calling<SEP>tool_choice"
+  },
+  "Function Calling<SEP>system prompt": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "Function Calling<SEP>system prompt"
+  },
+  "RateLimitError<SEP>execute_tool_with_retry": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "RateLimitError<SEP>execute_tool_with_retry"
+  },
+  "Anthropic<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "Anthropic<SEP>MCP"
+  },
+  "AI Agent<SEP>Guardrails": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "AI Agent<SEP>Guardrails"
+  },
+  "MCP<SEP>USB-C": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "MCP<SEP>USB-C"
+  },
+  "Agentic RAG<SEP>Naive RAG": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "Agentic RAG<SEP>Naive RAG"
+  },
+  "ToolExecutionError<SEP>execute_tool_with_retry": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "ToolExecutionError<SEP>execute_tool_with_retry"
+  },
+  "AI Agent<SEP>Agent Architecture": {
+    "chunk_ids": [
+      "chunk-021a38d47073e22e475a4d0afd09e685"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "AI Agent<SEP>Agent Architecture"
+  },
+  "Graph RAG<SEP>Naive RAG": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "Graph RAG<SEP>Naive RAG"
+  },
+  "Advanced RAG<SEP>Agentic RAG": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "Advanced RAG<SEP>Agentic RAG"
+  },
+  "Anthropic<SEP>Contextual Retrieval": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "Anthropic<SEP>Contextual Retrieval"
+  },
+  "MCP<SEP>Model Context Protocol": {
+    "chunk_ids": [
+      "chunk-1be604f2592f28906de0e1c8521c9044"
+    ],
+    "count": 1,
+    "create_time": 1780992032,
+    "update_time": 1780992032,
+    "_id": "MCP<SEP>Model Context Protocol"
+  },
+  "Graph RAG<SEP>Microsoft": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992033,
+    "update_time": 1780992033,
+    "_id": "Graph RAG<SEP>Microsoft"
+  },
+  "LLM<SEP>Self-RAG": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992033,
+    "update_time": 1780992033,
+    "_id": "LLM<SEP>Self-RAG"
+  },
+  "Chunking Strategy<SEP>Fixed-size Chunking": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992033,
+    "update_time": 1780992033,
+    "_id": "Chunking Strategy<SEP>Fixed-size Chunking"
+  },
+  "Graph RAG<SEP>Leiden Algorithm": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992033,
+    "update_time": 1780992033,
+    "_id": "Graph RAG<SEP>Leiden Algorithm"
+  },
+  "Chunking Strategy<SEP>Recursive Chunking": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992033,
+    "update_time": 1780992033,
+    "_id": "Chunking Strategy<SEP>Recursive Chunking"
+  },
+  "Graph RAG<SEP>Knowledge Graph": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992033,
+    "update_time": 1780992033,
+    "_id": "Graph RAG<SEP>Knowledge Graph"
+  },
+  "Agent<SEP>Agentic RAG": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992033,
+    "update_time": 1780992033,
+    "_id": "Agent<SEP>Agentic RAG"
+  },
+  "CRAG<SEP>LLM": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992033,
+    "update_time": 1780992033,
+    "_id": "CRAG<SEP>LLM"
+  },
+  "Chunking Strategy<SEP>Semantic Chunking": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992033,
+    "update_time": 1780992033,
+    "_id": "Chunking Strategy<SEP>Semantic Chunking"
+  },
+  "Reflection Token<SEP>Self-RAG": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992033,
+    "update_time": 1780992033,
+    "_id": "Reflection Token<SEP>Self-RAG"
+  },
+  "Community Summary<SEP>Graph RAG": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992034,
+    "update_time": 1780992034,
+    "_id": "Community Summary<SEP>Graph RAG"
+  },
+  "CRAG<SEP>Web Search": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992034,
+    "update_time": 1780992034,
+    "_id": "CRAG<SEP>Web Search"
+  },
+  "HyDE<SEP>LLM": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992034,
+    "update_time": 1780992034,
+    "_id": "HyDE<SEP>LLM"
+  },
+  "Global Semantic Preservation<SEP>Late Chunking": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992034,
+    "update_time": 1780992034,
+    "_id": "Global Semantic Preservation<SEP>Late Chunking"
+  },
+  "Anthropic<SEP>Prompt Caching": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992034,
+    "update_time": 1780992034,
+    "_id": "Anthropic<SEP>Prompt Caching"
+  },
+  "Graph RAG<SEP>LLM": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992034,
+    "update_time": 1780992034,
+    "_id": "Graph RAG<SEP>LLM"
+  },
+  "HyDE<SEP>Hypothetical Answer": {
+    "chunk_ids": [
+      "chunk-a2af8303a25ec9747b1ab50cedbd3222"
+    ],
+    "count": 1,
+    "create_time": 1780992034,
+    "update_time": 1780992034,
+    "_id": "HyDE<SEP>Hypothetical Answer"
+  },
+  "Function Calling<SEP>MCP": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992034,
+    "update_time": 1780992034,
+    "_id": "Function Calling<SEP>MCP"
+  },
+  "Agent System<SEP>Prompt Caching": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992034,
+    "update_time": 1780992034,
+    "_id": "Agent System<SEP>Prompt Caching"
+  },
+  "DPO<SEP>RLHF": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992034,
+    "update_time": 1780992034,
+    "_id": "DPO<SEP>RLHF"
+  },
+  "Agent System<SEP>LangGraph Checkpoint": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992035,
+    "update_time": 1780992035,
+    "_id": "Agent System<SEP>LangGraph Checkpoint"
+  },
+  "Prompt Caching<SEP>System Prompt": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992035,
+    "update_time": 1780992035,
+    "_id": "Prompt Caching<SEP>System Prompt"
+  },
+  "Constitutional AI<SEP>RLHF": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992035,
+    "update_time": 1780992035,
+    "_id": "Constitutional AI<SEP>RLHF"
+  },
+  "Agentic RAG System<SEP>RAG": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992035,
+    "update_time": 1780992035,
+    "_id": "Agentic RAG System<SEP>RAG"
+  },
+  "LangGraph Checkpoint<SEP>SqliteSaver": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992035,
+    "update_time": 1780992035,
+    "_id": "LangGraph Checkpoint<SEP>SqliteSaver"
+  },
+  "RLAIF<SEP>RLHF": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992035,
+    "update_time": 1780992035,
+    "_id": "RLAIF<SEP>RLHF"
+  },
+  "Anthropic<SEP>Constitutional AI": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992035,
+    "update_time": 1780992035,
+    "_id": "Anthropic<SEP>Constitutional AI"
+  },
+  "Agent System<SEP>Agentic RAG System": {
+    "chunk_ids": [
+      "chunk-a6e7ac2f109f76c5944357d892c02ece"
+    ],
+    "count": 1,
+    "create_time": 1780992035,
+    "update_time": 1780992035,
+    "_id": "Agent System<SEP>Agentic RAG System"
+  }
+}

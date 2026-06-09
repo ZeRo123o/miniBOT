@@ -81,9 +81,27 @@ services:
       - milvus-etcd
       - milvus-minio
 
+  neo4j:
+    image: neo4j:5.26
+    container_name: minibot-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/minibot123
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - minibot-neo4j-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -a bolt://localhost:7687 -u neo4j -p minibot123 'RETURN 1;' >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
 volumes:
   minibot-postgres-data:
   minibot-minio-data:
   minibot-milvus-etcd-data:
   minibot-milvus-minio-data:
   minibot-milvus-data:
+  minibot-neo4j-data:

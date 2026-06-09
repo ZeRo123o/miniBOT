@@ -1,10 +1,10 @@
 import logging
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.chunking import get_chunk_preset_options
-from app.db.session import get_db
+from app.knowledge.chunking import get_chunk_preset_options
+from app.db.session import AsyncSessionLocal, get_db
 from app.schemas import KnowledgeBaseCreate
 from app.services.knowledge_service import (
     DuplicateKnowledgeDocumentError,
@@ -14,6 +14,12 @@ from app.services.knowledge_service import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def process_knowledge_document(document_id: int) -> None:
+    """Run document parsing and indexing after the upload response is sent."""
+    async with AsyncSessionLocal() as db:
+        await KnowledgeService(db).process_document(document_id)
 
 
 @router.get("/knowledge-chunk-presets")
@@ -47,6 +53,7 @@ async def create_knowledge_base(
             name=payload.name,
             description=payload.description,
             user_key=payload.user_key,
+            kb_type=payload.kb_type,
             chunk_preset_id=payload.chunk_preset_id,
             chunk_parser_config=payload.chunk_parser_config,
         )
@@ -109,6 +116,7 @@ async def list_knowledge_documents(
 @router.post("/knowledge-bases/{knowledge_base_id}/documents")
 async def upload_knowledge_document(
     knowledge_base_id: int,
+    background_tasks: BackgroundTasks,
     user_key: str = Query(default="default"),
     file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
@@ -126,8 +134,9 @@ async def upload_knowledge_document(
             user_key=user_key,
             file=file,
         )
+        background_tasks.add_task(process_knowledge_document, document["id"])
         logger.info(
-            "Knowledge document upload completed: user_key=%s knowledge_base_id=%s document_id=%s status=%s",
+            "Knowledge document upload accepted: user_key=%s knowledge_base_id=%s document_id=%s status=%s",
             user_key,
             knowledge_base_id,
             document.get("id"),
@@ -200,3 +209,17 @@ async def list_knowledge_chunks(
     except Exception:
         logger.exception("Knowledge chunks list failed: user_key=%s document_id=%s", user_key, document_id)
         raise
+
+
+@router.delete("/knowledge-documents/{document_id}")
+async def delete_knowledge_document(
+    document_id: int,
+    user_key: str = Query(default="default"),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """删除文档元数据及其对应知识库后端索引。"""
+    try:
+        await KnowledgeService(db).delete_document(document_id=document_id, user_key=user_key)
+        return {"message": "删除成功"}
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error

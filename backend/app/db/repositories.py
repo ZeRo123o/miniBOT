@@ -194,6 +194,10 @@ class KnowledgeDocumentRepository:
         await self.db.refresh(document)
         return document
 
+    async def delete(self, document: KnowledgeDocument) -> None:
+        await self.db.delete(document)
+        await self.db.commit()
+
 
 class KnowledgeChunkRepository:
     def __init__(self, db: AsyncSession):

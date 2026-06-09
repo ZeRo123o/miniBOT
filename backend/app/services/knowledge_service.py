@@ -7,7 +7,7 @@ from fastapi import UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.chunking import (
+from app.knowledge.chunking import (
     CHUNK_ENGINE_VERSION,
     chunk_markdown,
     normalize_chunk_preset_id,
@@ -15,9 +15,8 @@ from app.chunking import (
 )
 from app.db.repositories import KnowledgeBaseRepository, KnowledgeChunkRepository, KnowledgeDocumentRepository
 from app.document_parsers import parse_document_to_markdown
-from app.embedding import get_embedding_service
+from app.knowledge.backends import get_knowledge_backend, normalize_knowledge_backend_type
 from app.storage import get_storage
-from app.vectorstores import get_vector_store
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +35,6 @@ class KnowledgeService:
         self.document_repo = KnowledgeDocumentRepository(db)
         self.chunk_repo = KnowledgeChunkRepository(db)
         self.storage = get_storage()
-        self.embedding_service = get_embedding_service()
-        self.vector_store = get_vector_store()
 
     async def list_knowledge_bases(self, user_key: str) -> list[dict]:
         items = await self.base_repo.list(user_key)
@@ -50,21 +47,27 @@ class KnowledgeService:
         name: str,
         description: str = "",
         user_key: str = "default",
+        kb_type: str = "milvus",
         chunk_preset_id: str = "general",
         chunk_parser_config: dict | None = None,
     ) -> dict:
+        normalized_kb_type = normalize_knowledge_backend_type(kb_type)
         chunk_params = resolve_chunk_processing_params(chunk_preset_id, chunk_parser_config)
         item = await self.base_repo.create(
             name=name,
             description=description,
             user_key=user_key,
-            metadata=chunk_params,
+            metadata={
+                **chunk_params,
+                "kb_type": normalized_kb_type,
+            },
         )
         logger.info(
-            "Knowledge service created base: user_key=%s knowledge_base_id=%s name=%s chunk_preset_id=%s",
+            "Knowledge service created base: user_key=%s knowledge_base_id=%s name=%s kb_type=%s chunk_preset_id=%s",
             user_key,
             item.id,
             item.name,
+            normalized_kb_type,
             chunk_params["chunk_preset_id"],
         )
         return self._knowledge_base_to_dict(item)
@@ -99,6 +102,30 @@ class KnowledgeService:
         )
         return [chunk.to_dict() for chunk in chunks]
 
+    async def delete_document(self, *, document_id: int, user_key: str) -> None:
+        """按知识库类型删除后端索引，再删除 PostgreSQL 文档元数据。"""
+        document = await self.document_repo.get(document_id)
+        if document is None:
+            raise ValueError("Knowledge document not found.")
+        knowledge_base = await self.base_repo.get(document.knowledge_base_id, user_key=user_key)
+        if knowledge_base is None:
+            raise ValueError("Knowledge document not found.")
+
+        kb_type = normalize_knowledge_backend_type((knowledge_base.metadata_ or {}).get("kb_type"))
+        backend = get_knowledge_backend(kb_type)
+        await backend.delete_document(
+            knowledge_base_id=knowledge_base.id,
+            document_id=document.id,
+        )
+        await self.document_repo.delete(document)
+        logger.info(
+            "Knowledge document deleted: user_key=%s knowledge_base_id=%s document_id=%s backend=%s",
+            user_key,
+            knowledge_base.id,
+            document.id,
+            kb_type,
+        )
+
     async def upload_document(
         self,
         *,
@@ -117,10 +144,6 @@ class KnowledgeService:
             raise ValueError("Uploaded file is empty.")
 
         filename = Path(file.filename).name
-        chunk_params = resolve_chunk_processing_params(
-            (knowledge_base.metadata_ or {}).get("chunk_preset_id"),
-            (knowledge_base.metadata_ or {}).get("chunk_parser_config"),
-        )
         file_hash = hashlib.sha256(content).hexdigest()
         logger.info(
             "Knowledge document file read: user_key=%s knowledge_base_id=%s filename=%s size=%s hash_prefix=%s",
@@ -141,7 +164,6 @@ class KnowledgeService:
             raise DuplicateKnowledgeDocumentError("该文件已存在")
 
         original_object_key = self._original_object_key(knowledge_base_id, file_hash, filename)
-        markdown_object_key = self._markdown_object_key(knowledge_base_id, file_hash)
         await self.storage.put_bytes(original_object_key, content, file.content_type)
         logger.info(
             "Knowledge document original saved: knowledge_base_id=%s object_key=%s content_type=%s",
@@ -188,13 +210,37 @@ class KnowledgeService:
             )
             raise
 
-        await self.document_repo.update_status(document, status="parsing")
-        logger.info(
-            "Knowledge document status updated: document_id=%s status=parsing",
-            document.id,
+        return document.to_dict()
+
+    async def process_document(self, document_id: int) -> None:
+        """Parse, chunk, and index an uploaded document in a background task."""
+        document = await self.document_repo.get(document_id)
+        if document is None:
+            logger.warning("Knowledge document background task skipped: document_id=%s not found", document_id)
+            return
+
+        knowledge_base = await self.base_repo.get(document.knowledge_base_id)
+        if knowledge_base is None:
+            logger.warning(
+                "Knowledge document background task skipped: document_id=%s knowledge_base_id=%s not found",
+                document.id,
+                document.knowledge_base_id,
+            )
+            return
+
+        chunk_params = resolve_chunk_processing_params(
+            (knowledge_base.metadata_ or {}).get("chunk_preset_id"),
+            (knowledge_base.metadata_ or {}).get("chunk_parser_config"),
         )
+        kb_type = normalize_knowledge_backend_type((knowledge_base.metadata_ or {}).get("kb_type"))
+        backend = get_knowledge_backend(kb_type)
+        markdown_object_key = self._markdown_object_key(knowledge_base.id, document.file_hash)
+        document = await self.document_repo.update_status(document, status="parsing")
+        logger.info("Knowledge document status updated: document_id=%s status=parsing", document.id)
+
         try:
-            markdown = parse_document_to_markdown(filename, content)
+            content = await self.storage.get_bytes(document.original_object_key)
+            markdown = parse_document_to_markdown(document.filename, content)
             if not markdown.strip():
                 raise ValueError("Parsed markdown is empty.")
             markdown_bytes = markdown.encode("utf-8")
@@ -232,7 +278,7 @@ class KnowledgeService:
             chunks = chunk_markdown(
                 markdown,
                 file_id=str(document.id),
-                filename=filename,
+                filename=document.filename,
                 preset_id=chunk_params["chunk_preset_id"],
                 parser_config=chunk_params["chunk_parser_config"],
             )
@@ -245,7 +291,7 @@ class KnowledgeService:
             await self.chunk_repo.bulk_create(
                 [
                     {
-                        "knowledge_base_id": knowledge_base_id,
+                        "knowledge_base_id": knowledge_base.id,
                         "document_id": document.id,
                         "chunk_id": chunk["chunk_id"],
                         "chunk_index": chunk["chunk_index"],
@@ -255,7 +301,7 @@ class KnowledgeService:
                         "end_char_pos": chunk["end_char_pos"],
                         "metadata_": {
                             **chunk["metadata"],
-                            "content_store": "milvus",
+                            "content_store": kb_type,
                         },
                     }
                     for chunk in chunks
@@ -268,49 +314,41 @@ class KnowledgeService:
             )
             document = await self.document_repo.update_status(
                 document,
-                status="embedding",
+                status="embedding" if kb_type == "milvus" else "indexing",
                 metadata={
                     **(document.metadata_ or {}),
                     "chunk_count": len(chunks),
                     "chunk_engine": CHUNK_ENGINE_VERSION,
                     "chunk_preset_id": chunk_params["chunk_preset_id"],
                     "chunk_parser_config": chunk_params["chunk_parser_config"],
-                    "content_store": "milvus",
-                    "embedding_model": self.embedding_service.model_name,
+                    "content_store": kb_type,
+                    "kb_type": kb_type,
                 },
             )
             logger.info(
-                "Knowledge document status updated: document_id=%s status=embedding",
+                "Knowledge document status updated: document_id=%s status=%s",
                 document.id,
+                document.status,
             )
-            texts = [chunk["content"] for chunk in chunks]
-            embeddings = await self.embedding_service.embed_texts(texts)
-            logger.info(
-                "Knowledge chunk embeddings generated: document_id=%s chunks=%s dimension=%s model=%s",
-                document.id,
-                len(embeddings),
-                self.embedding_service.dimension,
-                self.embedding_service.model_name,
-            )
-            await self.vector_store.upsert_chunks(
-                knowledge_base_id=knowledge_base_id,
+            index_metadata = await backend.index_document(
+                knowledge_base_id=knowledge_base.id,
                 document_id=document.id,
+                filename=document.filename,
+                markdown=markdown,
                 chunks=chunks,
-                embeddings=embeddings,
-                dimension=self.embedding_service.dimension,
             )
             logger.info(
-                "Knowledge chunk vectors saved: document_id=%s chunks=%s store=milvus",
+                "Knowledge document indexed: document_id=%s chunks=%s backend=%s",
                 document.id,
                 len(chunks),
+                kb_type,
             )
             document = await self.document_repo.update_status(
                 document,
                 status="indexed",
                 metadata={
                     **(document.metadata_ or {}),
-                    "embedding_count": len(embeddings),
-                    "vector_store": "milvus",
+                    **index_metadata,
                 },
             )
             logger.info(
@@ -321,7 +359,7 @@ class KnowledgeService:
             logger.exception(
                 "Knowledge document parse, chunk, or vector index failed: document_id=%s filename=%s",
                 document.id,
-                filename,
+                document.filename,
             )
             document = await self.document_repo.update_status(
                 document,
@@ -332,7 +370,6 @@ class KnowledgeService:
                 "Knowledge document status updated: document_id=%s status=failed",
                 document.id,
             )
-        return document.to_dict()
 
     @staticmethod
     def _knowledge_base_to_dict(knowledge_base) -> dict:
@@ -345,7 +382,9 @@ class KnowledgeService:
         item["metadata"] = {
             **metadata,
             **chunk_params,
+            "kb_type": normalize_knowledge_backend_type(metadata.get("kb_type")),
         }
+        item["kb_type"] = item["metadata"]["kb_type"]
         item["chunk_preset_id"] = normalize_chunk_preset_id(chunk_params["chunk_preset_id"])
         item["chunk_parser_config"] = chunk_params["chunk_parser_config"]
         return item

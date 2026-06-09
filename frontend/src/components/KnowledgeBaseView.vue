@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { FileText, Loader2, Plus, Search, UploadCloud, X } from 'lucide-vue-next'
 import {
   createKnowledgeBase,
@@ -12,6 +12,8 @@ import { selectionStore } from '../stores/selectionStore'
 
 const knowledgeTypes = ['全部类型', '文档知识库', '知识图谱']
 const acceptedTypes = '.md,.markdown,.txt,.pdf,.docx,.xlsx,.csv'
+const processingStatuses = new Set(['uploaded', 'parsing', 'chunking', 'embedding', 'indexing'])
+const documentPollIntervalMs = 3000
 
 const searchText = ref('')
 const knowledgeBases = ref([])
@@ -26,6 +28,7 @@ const uploadDialogOpen = ref(false)
 const createForm = ref({
   name: '',
   description: '',
+  kb_type: 'milvus',
   chunk_preset_id: 'general',
 })
 const uploadFile = ref(null)
@@ -33,6 +36,8 @@ const uploadTargetBaseId = ref(null)
 const uploadErrorMessage = ref('')
 const submitting = ref(false)
 const submitMessage = ref('')
+let documentPollTimer = null
+let documentRefreshPending = false
 
 const filteredKnowledgeBases = computed(() => {
   const keyword = searchText.value.trim().toLowerCase()
@@ -63,6 +68,13 @@ const selectedKnowledgeBasePreset = computed(() =>
 onMounted(() => {
   loadKnowledgeBases()
   loadChunkPresets()
+  documentPollTimer = window.setInterval(refreshProcessingDocuments, documentPollIntervalMs)
+})
+
+onBeforeUnmount(() => {
+  if (documentPollTimer) {
+    window.clearInterval(documentPollTimer)
+  }
 })
 
 async function loadChunkPresets() {
@@ -97,6 +109,23 @@ async function loadDocuments(knowledgeBaseId) {
   }
 }
 
+async function refreshProcessingDocuments() {
+  const knowledgeBaseId = selectedBaseId.value
+  if (!knowledgeBaseId || documentRefreshPending) return
+
+  const documents = documentsByBaseId.value[knowledgeBaseId] || []
+  if (!documents.some((document) => processingStatuses.has(document.status))) return
+
+  documentRefreshPending = true
+  try {
+    await loadDocuments(knowledgeBaseId)
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    documentRefreshPending = false
+  }
+}
+
 async function selectKnowledgeBase(knowledgeBaseId) {
   selectedBaseId.value = knowledgeBaseId
   if (!documentsByBaseId.value[knowledgeBaseId]) {
@@ -108,6 +137,7 @@ function openCreateDialog() {
   createForm.value = {
     name: '',
     description: '',
+    kb_type: 'milvus',
     chunk_preset_id: 'general',
   }
   submitMessage.value = ''
@@ -158,6 +188,7 @@ async function submitKnowledgeBase() {
       name,
       description: createForm.value.description.trim(),
       user_key: selectionStore.userKey,
+      kb_type: createForm.value.kb_type,
       chunk_preset_id: createForm.value.chunk_preset_id,
       chunk_parser_config: selectedCreatePreset.value?.default_config || {},
     })
@@ -220,6 +251,7 @@ function statusText(status) {
     chunking: '分块中',
     chunked: '已分块',
     embedding: '向量化中',
+    indexing: '图谱构建中',
     indexed: '已入库',
     failed: '解析失败',
   }
@@ -280,6 +312,7 @@ function statusText(status) {
         >
           <strong>{{ item.name }}</strong>
           <span>{{ item.description || '暂无描述' }}</span>
+          <span>{{ item.kb_type === 'lightrag' ? 'LightRAG 图知识库' : 'Milvus 文档知识库' }}</span>
         </button>
       </aside>
 
@@ -289,7 +322,8 @@ function statusText(status) {
             <h2>{{ selectedKnowledgeBase?.name || '请选择知识库' }}</h2>
             <p>{{ selectedKnowledgeBase?.description || '上传文档后会自动转为 Markdown 并保存解析状态。' }}</p>
             <span v-if="selectedKnowledgeBase" class="chunk-preset-badge">
-              分块策略：{{ selectedKnowledgeBasePreset?.label || selectedKnowledgeBase.chunk_preset_id || 'General' }}
+              {{ selectedKnowledgeBase.kb_type === 'lightrag' ? 'LightRAG' : 'Milvus' }}
+              · 分块策略：{{ selectedKnowledgeBasePreset?.label || selectedKnowledgeBase.chunk_preset_id || 'General' }}
             </span>
           </div>
           <button
@@ -339,6 +373,14 @@ function statusText(status) {
             <label>
               <span>知识库名称</span>
               <input v-model="createForm.name" type="text" maxlength="255" placeholder="例如：公司制度文档" required />
+            </label>
+
+            <label>
+              <span>知识库类型</span>
+              <select v-model="createForm.kb_type">
+                <option value="milvus">Milvus 文档知识库</option>
+                <option value="lightrag">LightRAG 图知识库</option>
+              </select>
             </label>
 
             <label>

@@ -1,0 +1,1566 @@
+{
+  "28": {
+    "relation_pairs": [
+      [
+        "Agent",
+        "Token Management"
+      ],
+      [
+        "researcher",
+        "search_tool"
+      ],
+      [
+        "Global Planning",
+        "Plan-and-Execute"
+      ],
+      [
+        "Claude Computer Use",
+        "VisualWebArena"
+      ],
+      [
+        "Agent Memory System",
+        "Semantic Memory"
+      ],
+      [
+        "Claude-Sonnet-4-20250514",
+        "tools"
+      ],
+      [
+        "Reasoning Model",
+        "客服Agent系统"
+      ],
+      [
+        "Letta",
+        "MemGPT"
+      ],
+      [
+        "Agent Survey (Xi et al.)",
+        "Agent Survey (Xi et al.) 2025 LLM Agent综述"
+      ],
+      [
+        "Tool Use",
+        "execute_tool"
+      ],
+      [
+        "LangGraph",
+        "call_model"
+      ],
+      [
+        "AutoGen",
+        "ConversableAgent"
+      ],
+      [
+        "BGE-M3",
+        "Page 18"
+      ],
+      [
+        "AgenticRAG",
+        "CRAG"
+      ],
+      [
+        "Page 18",
+        "Weaviate"
+      ],
+      [
+        "A2A协议升级",
+        "Google A2A Protocol"
+      ],
+      [
+        "CRAG",
+        "Web Search"
+      ],
+      [
+        "Guardrails",
+        "Prompt Injection Detection"
+      ],
+      [
+        "Browser Use",
+        "Playwright Agent"
+      ],
+      [
+        "Agent",
+        "Stream Response"
+      ],
+      [
+        "Page 19",
+        "RAG"
+      ],
+      [
+        "Page 11",
+        "Third Chapter"
+      ],
+      [
+        "Page 18",
+        "Pinecone"
+      ],
+      [
+        "Edge",
+        "LangGraph"
+      ],
+      [
+        "Agent",
+        "GAIA"
+      ],
+      [
+        "Context Recall",
+        "RAGAS"
+      ],
+      [
+        "Agent延迟问题",
+        "并行化"
+      ],
+      [
+        "Global Semantic Preservation",
+        "Late Chunking"
+      ],
+      [
+        "OpenAI Agents SDK",
+        "Tracing"
+      ],
+      [
+        "Agent Deployment",
+        "WebSocket"
+      ],
+      [
+        "Data Exfiltration",
+        "Indirect Prompt Injection"
+      ],
+      [
+        "LangGraph",
+        "StateGraph"
+      ],
+      [
+        "Agent",
+        "内存管理"
+      ],
+      [
+        "Agent Deployment",
+        "Health Check"
+      ],
+      [
+        "RAG",
+        "查询处理"
+      ],
+      [
+        "Agent",
+        "Human-in-the-Loop"
+      ],
+      [
+        "Agent Memory System",
+        "Episodic Memory"
+      ],
+      [
+        "Constitutional AI",
+        "RLHF"
+      ],
+      [
+        "RAG",
+        "长上下文"
+      ],
+      [
+        "Cursor",
+        "MCP"
+      ],
+      [
+        "MCP",
+        "stdio"
+      ],
+      [
+        "Human-in-the-Loop",
+        "LangGraph"
+      ],
+      [
+        "AgentExecutor",
+        "LangGraph"
+      ],
+      [
+        "Agent",
+        "SWE-bench"
+      ],
+      [
+        "Function Calling",
+        "tool_choice"
+      ],
+      [
+        "MCP",
+        "Tools"
+      ],
+      [
+        "ReAct",
+        "ReAct 2022推理+行动交错模式"
+      ],
+      [
+        "Graph-of-Thought",
+        "Reasoning Models"
+      ],
+      [
+        "Chunking Strategy",
+        "Semantic Chunking"
+      ],
+      [
+        "Agent",
+        "主存"
+      ],
+      [
+        "Chain-of-Thought",
+        "Wei et al. 2022"
+      ],
+      [
+        "AI Agent",
+        "Agent Architecture"
+      ],
+      [
+        "Graph RAG",
+        "Graph RAG 2024知识图谱增强的RAG"
+      ],
+      [
+        "Claude Desktop",
+        "MCP"
+      ],
+      [
+        "CRAG",
+        "LLM"
+      ],
+      [
+        "Claude Code Anthropic CLI",
+        "Devin"
+      ],
+      [
+        "LangChain AgentExecutor",
+        "LangGraph"
+      ],
+      [
+        "Pinecone",
+        "向量数据库"
+      ],
+      [
+        "Semantic Caching",
+        "Token Management"
+      ],
+      [
+        "Anthropic",
+        "Contextual Retrieval"
+      ],
+      [
+        "ChatGPT",
+        "LLM Application"
+      ],
+      [
+        "Agent延迟问题",
+        "预计算"
+      ],
+      [
+        "Independent Detection",
+        "Indirect Prompt Injection"
+      ],
+      [
+        "RLHF / DPO",
+        "RLHF / DPO通过人类偏好强化学习是"
+      ],
+      [
+        "ChromaDB",
+        "向量数据库"
+      ],
+      [
+        "Indirect Prompt Injection",
+        "Tool Abuse"
+      ],
+      [
+        "AgenticRAG",
+        "LLM-as-Judge"
+      ],
+      [
+        "MCP 2025 Roadmap",
+        "Model Context Protocol"
+      ],
+      [
+        "Anthropic",
+        "Claude-Sonnet-4-20250514"
+      ],
+      [
+        "BGE-M3",
+        "开源Embedding模型"
+      ],
+      [
+        "Indirect Prompt Injection",
+        "Prompt Injection"
+      ],
+      [
+        "Asyncio",
+        "gather"
+      ],
+      [
+        "MCP 2025年重大更新",
+        "Streamable HTTP Transport"
+      ],
+      [
+        "ConversationState",
+        "Pydantic"
+      ],
+      [
+        "A/B Testing",
+        "AgenticRAG"
+      ],
+      [
+        "Anthropic",
+        "Constitutional AI"
+      ],
+      [
+        "Claude Sonnet",
+        "Function Calling"
+      ],
+      [
+        "RAG检索增强生成",
+        "查询改写"
+      ],
+      [
+        "Anthropic",
+        "get_weather"
+      ],
+      [
+        "Agentic RAG",
+        "Naive RAG"
+      ],
+      [
+        "Model Routing",
+        "ModelRouter"
+      ],
+      [
+        "Claude Sonnet-4-20250514",
+        "Extended Thinking"
+      ],
+      [
+        "AgenticRAG",
+        "RAGAS"
+      ],
+      [
+        "ToolExecutionError",
+        "execute_tool_with_retry"
+      ],
+      [
+        "MCP Spec",
+        "MCP Spec 2024工具连接标准协议"
+      ],
+      [
+        "Asyncio",
+        "Task"
+      ],
+      [
+        "用户画像",
+        "长期记忆"
+      ],
+      [
+        "Agent",
+        "Guardrails"
+      ],
+      [
+        "Advanced RAG",
+        "Agentic RAG"
+      ],
+      [
+        "ChromaDB",
+        "Page 18"
+      ],
+      [
+        "HyDE",
+        "Hypothetical Answer"
+      ],
+      [
+        "Autonomous Research",
+        "OpenAI Deep Research"
+      ],
+      [
+        "Agent幻觉",
+        "Self-Verification"
+      ],
+      [
+        "Function Calling Agent",
+        "Simple Tool Use"
+      ],
+      [
+        "Graph RAG",
+        "Microsoft"
+      ],
+      [
+        "AI Agent",
+        "Tool Use"
+      ],
+      [
+        "Anthropic",
+        "OpenAI"
+      ],
+      [
+        "Claude Opus",
+        "Function Calling"
+      ],
+      [
+        "SWE-Agent",
+        "SWE-Agent 2024软件工程Agent"
+      ],
+      [
+        "OpenAI",
+        "Page 18"
+      ],
+      [
+        "MCP 2025年重大更新",
+        "Tasks Primitive"
+      ],
+      [
+        "Chain-of-Thought",
+        "Reasoning Models"
+      ],
+      [
+        "A/B测试",
+        "调试Agent系统"
+      ],
+      [
+        "Reducer",
+        "add_messages"
+      ],
+      [
+        "Anthropic Agent Loop",
+        "Anthropic Agent Loop手写完整Agent Loop"
+      ],
+      [
+        "Agent延迟问题",
+        "模型选择"
+      ],
+      [
+        "RAG",
+        "客服Agent系统"
+      ],
+      [
+        "Episodic Memory",
+        "Reflexion"
+      ],
+      [
+        "Chunking Strategy",
+        "Fixed-size Chunking"
+      ],
+      [
+        "Agentic RAG System",
+        "RAG"
+      ],
+      [
+        "search_knowledge_base",
+        "vector_db"
+      ],
+      [
+        "A2A Protocol",
+        "AI Agent"
+      ],
+      [
+        "Runner",
+        "triage_agent"
+      ],
+      [
+        "Google ADK",
+        "MCP"
+      ],
+      [
+        "Multi-Agent",
+        "Role Collaboration"
+      ],
+      [
+        "AutoGen",
+        "Page 10"
+      ],
+      [
+        "LangGraph",
+        "MessagesState"
+      ],
+      [
+        "Reflexion",
+        "Reflexion 2023语言反思实现无梯度学习"
+      ],
+      [
+        "billing_agent",
+        "search_knowledge_base"
+      ],
+      [
+        "客服Agent系统",
+        "短期记忆"
+      ],
+      [
+        "LATS",
+        "Page 4"
+      ],
+      [
+        "CrewAI",
+        "research_task"
+      ],
+      [
+        "pgvector",
+        "向量数据库"
+      ],
+      [
+        "Chain-of-Thought",
+        "DeepSeek-R1"
+      ],
+      [
+        "OpenHands",
+        "SWE-bench"
+      ],
+      [
+        "Function Calling",
+        "Page 11"
+      ],
+      [
+        "LangGraph",
+        "客服Agent系统"
+      ],
+      [
+        "AI Agent",
+        "Action-Observation Loop"
+      ],
+      [
+        "LangGraph",
+        "tool_node"
+      ],
+      [
+        "Agent Memory System",
+        "Procedural Memory"
+      ],
+      [
+        "AI Agent",
+        "RAG"
+      ],
+      [
+        "Agent",
+        "Python GIL"
+      ],
+      [
+        "CRM查询",
+        "客服Agent系统"
+      ],
+      [
+        "AutoGPT-style Autonomous Loop",
+        "Autonomy"
+      ],
+      [
+        "CrewAI",
+        "writer"
+      ],
+      [
+        "Function Calling",
+        "GPT-4o"
+      ],
+      [
+        "多智能体系统",
+        "辩论"
+      ],
+      [
+        "AgenticRAG",
+        "asyncio.TaskGroup"
+      ],
+      [
+        "LLM",
+        "Self-RAG"
+      ],
+      [
+        "Chunking",
+        "RAG检索增强生成"
+      ],
+      [
+        "Agent System",
+        "Agentic RAG System"
+      ],
+      [
+        "billing_agent",
+        "triage_agent"
+      ],
+      [
+        "Agent",
+        "ThreadPoolExecutor"
+      ],
+      [
+        "OpenAI",
+        "text-embedding-3-large"
+      ],
+      [
+        "A2A",
+        "Agent Card"
+      ],
+      [
+        "Model Routing",
+        "Token Management"
+      ],
+      [
+        "Codex Agent",
+        "SWE-bench"
+      ],
+      [
+        "Agent Deployment",
+        "Docker Compose"
+      ],
+      [
+        "Observability",
+        "Tracing"
+      ],
+      [
+        "Function Calling",
+        "Tool Schema"
+      ],
+      [
+        "AAIF",
+        "MCP"
+      ],
+      [
+        "Agent Deployment",
+        "Celery"
+      ],
+      [
+        "对话历史",
+        "短期记忆"
+      ],
+      [
+        "Codex Agent",
+        "OpenHands"
+      ],
+      [
+        "LangGraph",
+        "调试Agent系统"
+      ],
+      [
+        "微调",
+        "长上下文"
+      ],
+      [
+        "第六章多智能体系统(Multi-Agent)",
+        "辩论"
+      ],
+      [
+        "A2A",
+        "Linux Foundation"
+      ],
+      [
+        "多智能体系统",
+        "层次化"
+      ],
+      [
+        "Braintrust",
+        "Observability"
+      ],
+      [
+        "RAG",
+        "重排序"
+      ],
+      [
+        "LangSmith",
+        "调试Agent系统"
+      ],
+      [
+        "Gemini",
+        "Google ADK"
+      ],
+      [
+        "Context Window Management",
+        "Short-Term Memory"
+      ],
+      [
+        "Semaphore",
+        "Semaphore信号量，限制并发数控制API并发"
+      ],
+      [
+        "AutoGen",
+        "GroupChat"
+      ],
+      [
+        "Prompt缓存",
+        "性能优化"
+      ],
+      [
+        "Page 19",
+        "微调"
+      ],
+      [
+        "Agent Memory System",
+        "Short-Term Memory"
+      ],
+      [
+        "AgentAction",
+        "Pydantic"
+      ],
+      [
+        "Agent",
+        "磁盘"
+      ],
+      [
+        "Guardrails",
+        "OpenAI Agents SDK"
+      ],
+      [
+        "A2A",
+        "Google"
+      ],
+      [
+        "DeepSeek-R1",
+        "DeepSeek-R1 2025 RL训练推理能力"
+      ],
+      [
+        "流水线",
+        "第六章多智能体系统(Multi-Agent)"
+      ],
+      [
+        "Asyncio",
+        "Coroutine"
+      ],
+      [
+        "Cohere",
+        "Page 18"
+      ],
+      [
+        "ProcessPoolExecutor",
+        "compute_embeddings"
+      ],
+      [
+        "A2A",
+        "Message"
+      ],
+      [
+        "Graph RAG",
+        "Naive RAG"
+      ],
+      [
+        "CrewAI",
+        "write_task"
+      ],
+      [
+        "AI Agent",
+        "LLM Application"
+      ],
+      [
+        "Devin",
+        "SWE-bench"
+      ],
+      [
+        "Page 18",
+        "pgvector"
+      ],
+      [
+        "Agent",
+        "Agentic RAG"
+      ],
+      [
+        "Conditional Edge",
+        "LangGraph"
+      ],
+      [
+        "call_model",
+        "llm"
+      ],
+      [
+        "Agent System",
+        "LangGraph Checkpoint"
+      ],
+      [
+        "LangSmith",
+        "Observability"
+      ],
+      [
+        "Embedding",
+        "RAG检索增强生成"
+      ],
+      [
+        "评估套件",
+        "调试Agent系统"
+      ],
+      [
+        "Answer Relevancy",
+        "RAGAS"
+      ],
+      [
+        "CrewAI",
+        "Sequential Process"
+      ],
+      [
+        "Agent幻觉",
+        "RAG"
+      ],
+      [
+        "Interaction Reliability Evaluation",
+        "TAU-bench"
+      ],
+      [
+        "层次化",
+        "第六章多智能体系统(Multi-Agent)"
+      ],
+      [
+        "Agent (CrewAI)",
+        "CrewAI"
+      ],
+      [
+        "Experience Replay",
+        "经验回放存储成功轨迹用于后续参考否"
+      ],
+      [
+        "START",
+        "StateGraph"
+      ],
+      [
+        "Plan-and-Execute",
+        "Planner"
+      ],
+      [
+        "OpenAI",
+        "text-embedding-3-small"
+      ],
+      [
+        "GTE-Qwen2",
+        "Page 18"
+      ],
+      [
+        "DeepSeek-R1",
+        "蒸馏技术"
+      ],
+      [
+        "Context Precision",
+        "RAGAS"
+      ],
+      [
+        "AutoGen",
+        "AutoGen 2023多Agent对话框架"
+      ],
+      [
+        "Milvus",
+        "客服Agent系统"
+      ],
+      [
+        "Andrew Ng",
+        "Tool Use"
+      ],
+      [
+        "DPO",
+        "RLHF"
+      ],
+      [
+        "Claude-Sonnet-4-20250514",
+        "messages"
+      ],
+      [
+        "Plan-and-Execute",
+        "ReAct"
+      ],
+      [
+        "RLAIF",
+        "RLHF"
+      ],
+      [
+        "A2A Spec",
+        "A2A Spec 2025 Agent间通信标准"
+      ],
+      [
+        "LATS",
+        "ReAct"
+      ],
+      [
+        "OpenAI Agents SDK",
+        "Swarm"
+      ],
+      [
+        "AI Agent",
+        "Multi-Agent Collaboration"
+      ],
+      [
+        "Claude Computer Use",
+        "WebArena"
+      ],
+      [
+        "TaskGroup",
+        "TaskGroup结构化并发(3.11+)更安全的并行"
+      ],
+      [
+        "CrewAI",
+        "Google ADK"
+      ],
+      [
+        "Agent",
+        "ProcessPoolExecutor"
+      ],
+      [
+        "Voyager",
+        "Voyager 2023 Minecraft中的终身学习Agent"
+      ],
+      [
+        "MCP",
+        "Streamable HTTP"
+      ],
+      [
+        "CrewAI",
+        "Hierarchical Process"
+      ],
+      [
+        "Expert Agent",
+        "Router Agent"
+      ],
+      [
+        "Agent-API",
+        "Docker Compose"
+      ],
+      [
+        "Prompt Caching",
+        "System Prompt"
+      ],
+      [
+        "Agent",
+        "Permissions Control"
+      ],
+      [
+        "Function Calling",
+        "MCP"
+      ],
+      [
+        "Milvus",
+        "向量数据库"
+      ],
+      [
+        "AI Agent",
+        "Guardrails"
+      ],
+      [
+        "Anthropic",
+        "MCP"
+      ],
+      [
+        "客服Agent系统",
+        "语义缓存"
+      ],
+      [
+        "Andrew Ng",
+        "Multi-Agent Collaboration"
+      ],
+      [
+        "MCP 2025年重大更新",
+        "OAuth 2.1授权"
+      ],
+      [
+        "A/B Testing",
+        "Gray Release"
+      ],
+      [
+        "SSE",
+        "客服Agent系统"
+      ],
+      [
+        "Self-Verification",
+        "客服Agent系统"
+      ],
+      [
+        "Decision Quality",
+        "LATS (Tree Search)"
+      ],
+      [
+        "Page 18",
+        "Qdrant"
+      ],
+      [
+        "AI Agent Interview Questions",
+        "Python"
+      ],
+      [
+        "Jina Embedding v3",
+        "Page 18"
+      ],
+      [
+        "AutoGen",
+        "GroupChatManager"
+      ],
+      [
+        "协作",
+        "多智能体系统"
+      ],
+      [
+        "Agent延迟问题",
+        "异步架构"
+      ],
+      [
+        "LangSmith",
+        "客服Agent系统"
+      ],
+      [
+        "Batch API",
+        "Token Management"
+      ],
+      [
+        "Cursor",
+        "Windsurf"
+      ],
+      [
+        "Milvus",
+        "Page 18"
+      ],
+      [
+        "Function Calling",
+        "system prompt"
+      ],
+      [
+        "向量数据库",
+        "文档处理"
+      ],
+      [
+        "Agent Evaluation",
+        "WebArena"
+      ],
+      [
+        "Reasoning Models",
+        "Tree-of-Thought"
+      ],
+      [
+        "AgentState",
+        "LangGraph"
+      ],
+      [
+        "Prompt Caching",
+        "Token Management"
+      ],
+      [
+        "Tree-of-Thought",
+        "Yao et al. 2023"
+      ],
+      [
+        "Linux Foundation",
+        "MCP"
+      ],
+      [
+        "RAG",
+        "微调"
+      ],
+      [
+        "MCP",
+        "Resources"
+      ],
+      [
+        "GTE-Qwen2",
+        "开源Embedding模型"
+      ],
+      [
+        "Weaviate",
+        "向量数据库"
+      ],
+      [
+        "Claude",
+        "MCP"
+      ],
+      [
+        "RAGAS",
+        "RAG评估框架"
+      ],
+      [
+        "Handoff",
+        "OpenAI Agents SDK"
+      ],
+      [
+        "OpenDevin",
+        "OpenHands"
+      ],
+      [
+        "Agent Evaluation",
+        "LLM-as-Judge"
+      ],
+      [
+        "Claude-Sonnet-4-20250514",
+        "system_prompt"
+      ],
+      [
+        "LangGraph",
+        "Node"
+      ],
+      [
+        "性能优化",
+        "热查询预生成答案"
+      ],
+      [
+        "Chunking Strategy",
+        "Recursive Chunking"
+      ],
+      [
+        "Reflexion",
+        "Shinn et al. (2023)"
+      ],
+      [
+        "Community Summary",
+        "Graph RAG"
+      ],
+      [
+        "Directed Graph",
+        "LangGraph"
+      ],
+      [
+        "END",
+        "StateGraph"
+      ],
+      [
+        "Multi-hop Reasoning",
+        "Self-Ask"
+      ],
+      [
+        "Anthropic",
+        "Prompt Caching"
+      ],
+      [
+        "Gemini",
+        "MCP"
+      ],
+      [
+        "HyDE",
+        "LLM"
+      ],
+      [
+        "RateLimitedLLMClient",
+        "TokenBucket"
+      ],
+      [
+        "Page 3",
+        "ReAct"
+      ],
+      [
+        "Code Generation Evaluation",
+        "HumanEval"
+      ],
+      [
+        "Observability",
+        "OpenTelemetry"
+      ],
+      [
+        "Zilliz",
+        "向量数据库"
+      ],
+      [
+        "AgenticRAG",
+        "Gray Release"
+      ],
+      [
+        "Agent",
+        "Pydantic"
+      ],
+      [
+        "Agent",
+        "Sandbox"
+      ],
+      [
+        "Multi-step Reasoning",
+        "ReAct"
+      ],
+      [
+        "Agent",
+        "asyncio"
+      ],
+      [
+        "协作",
+        "第六章多智能体系统(Multi-Agent)"
+      ],
+      [
+        "Fine-tuning",
+        "微调(Fine-tuning)在tool use数据上微调是"
+      ],
+      [
+        "AgenticRAG",
+        "Self-RAG"
+      ],
+      [
+        "AutoGen GroupChat",
+        "Mesh自由通信"
+      ],
+      [
+        "RateLimitedLLMClient",
+        "RateLimitedLLMClient类实现RPM和TPM双重限流"
+      ],
+      [
+        "Checkpointer",
+        "LangGraph"
+      ],
+      [
+        "Agent Deployment",
+        "RQ"
+      ],
+      [
+        "async_llm_call",
+        "asyncio"
+      ],
+      [
+        "Context Compression",
+        "Token Management"
+      ],
+      [
+        "客服Agent系统",
+        "工单创建"
+      ],
+      [
+        "LangGraph",
+        "should_continue"
+      ],
+      [
+        "Jina Embedding v3",
+        "开源Embedding模型"
+      ],
+      [
+        "Q4 2024 Revenue",
+        "Tesla"
+      ],
+      [
+        "LangGraph的interrupt_before",
+        "调试Agent系统"
+      ],
+      [
+        "Multi-Agent System",
+        "Single-Agent System"
+      ],
+      [
+        "Graph RAG",
+        "LLM"
+      ],
+      [
+        "MCP",
+        "USB-C"
+      ],
+      [
+        "Pydantic",
+        "SearchParams"
+      ],
+      [
+        "Agent幻觉",
+        "Guardrails"
+      ],
+      [
+        "Agent Deployment",
+        "SSE"
+      ],
+      [
+        "MCP",
+        "VS Code"
+      ],
+      [
+        "Agent",
+        "Python 3.13 Free-threaded Mode"
+      ],
+      [
+        "Agent Evaluation",
+        "AgentBench"
+      ],
+      [
+        "Multi-Agent System",
+        "Page 20"
+      ],
+      [
+        "Reflection Token",
+        "Self-RAG"
+      ],
+      [
+        "RecursiveCharacterTextSplitter",
+        "文本分割"
+      ],
+      [
+        "Deadlock Prevention in Multi-Agent Systems",
+        "Multi-Agent System"
+      ],
+      [
+        "Agent Memory System",
+        "Page 21"
+      ],
+      [
+        "MCP",
+        "Prompts"
+      ],
+      [
+        "AutoGen",
+        "CrewAI"
+      ],
+      [
+        "Cognitive Architecture",
+        "Human Cognition"
+      ],
+      [
+        "Claude Computer Use",
+        "Extended Thinking"
+      ],
+      [
+        "Function Calling",
+        "LangGraph"
+      ],
+      [
+        "LATS",
+        "LATS 2023树搜索与Agent结合"
+      ],
+      [
+        "RAG检索增强生成",
+        "Reranking"
+      ],
+      [
+        "多智能体系统",
+        "流水线"
+      ],
+      [
+        "LangGraph",
+        "State"
+      ],
+      [
+        "Agent",
+        "Tool Use"
+      ],
+      [
+        "Plan-and-Execute",
+        "Replanner"
+      ],
+      [
+        "Indirect Prompt Injection",
+        "Permission Isolation"
+      ],
+      [
+        "Faithfulness",
+        "RAGAS"
+      ],
+      [
+        "Copilot",
+        "MCP"
+      ],
+      [
+        "OpenHands",
+        "OpenHands 2024开源代码Agent平台"
+      ],
+      [
+        "A2A",
+        "Part"
+      ],
+      [
+        "Executor",
+        "Plan-and-Execute"
+      ],
+      [
+        "Agent延迟问题",
+        "SSE"
+      ],
+      [
+        "CrewAI",
+        "Task"
+      ],
+      [
+        "Cohere",
+        "embed-v3"
+      ],
+      [
+        "AgenticRAG",
+        "asyncio.gather"
+      ],
+      [
+        "Action-Observation Loop",
+        "ReAct"
+      ],
+      [
+        "Page 19",
+        "长上下文"
+      ],
+      [
+        "Function Calling",
+        "OpenAI Agents SDK"
+      ],
+      [
+        "AI Agent",
+        "Planning"
+      ],
+      [
+        "CrewAI",
+        "researcher"
+      ],
+      [
+        "日志分级",
+        "调试Agent系统"
+      ],
+      [
+        "DeepSeek-R1",
+        "Reasoning Models"
+      ],
+      [
+        "Besta et al. 2023",
+        "Graph-of-Thought"
+      ],
+      [
+        "A2A",
+        "Task"
+      ],
+      [
+        "LATS",
+        "Monte Carlo Tree Search"
+      ],
+      [
+        "Docker Compose",
+        "Redis"
+      ],
+      [
+        "Andrew Ng",
+        "Planning"
+      ],
+      [
+        "researcher",
+        "web_scraper"
+      ],
+      [
+        "OpenAI Agents SDK",
+        "客服Agent系统"
+      ],
+      [
+        "A2A",
+        "MCP"
+      ],
+      [
+        "RateLimitError",
+        "execute_tool_with_retry"
+      ],
+      [
+        "SWE-bench",
+        "SWE-bench Verified"
+      ],
+      [
+        "Replay回放",
+        "调试Agent系统"
+      ],
+      [
+        "Docker Compose",
+        "Milvus"
+      ],
+      [
+        "Data / Instruction Separation",
+        "Indirect Prompt Injection"
+      ],
+      [
+        "Agent延迟问题",
+        "语义缓存"
+      ],
+      [
+        "Graph RAG",
+        "Knowledge Graph"
+      ],
+      [
+        "Token Management",
+        "Tool Output Summarization"
+      ],
+      [
+        "AI Agent",
+        "Reflection"
+      ],
+      [
+        "客服Agent系统",
+        "知识库检索"
+      ],
+      [
+        "ChatGPT",
+        "MCP"
+      ],
+      [
+        "客服Agent系统",
+        "长期记忆"
+      ],
+      [
+        "Reflexion",
+        "in-context learning"
+      ],
+      [
+        "Agent Memory System",
+        "MemGPT"
+      ],
+      [
+        "Page 4",
+        "Plan-and-Execute"
+      ],
+      [
+        "Qdrant",
+        "向量数据库"
+      ],
+      [
+        "MCP",
+        "Model Context Protocol"
+      ],
+      [
+        "RAG",
+        "文档处理"
+      ],
+      [
+        "A2A",
+        "Google ADK"
+      ],
+      [
+        "Graph RAG",
+        "Leiden Algorithm"
+      ],
+      [
+        "Agent Memory System",
+        "Long-Term Memory"
+      ],
+      [
+        "Andrew Ng",
+        "Reflection"
+      ],
+      [
+        "AutoGen",
+        "Event-Driven Architecture"
+      ],
+      [
+        "Agent幻觉",
+        "Prompt约束"
+      ],
+      [
+        "Page 19",
+        "多智能体系统"
+      ],
+      [
+        "Agent幻觉",
+        "Reasoning Model"
+      ],
+      [
+        "MCP Client",
+        "MCP Server"
+      ],
+      [
+        "Asyncio",
+        "asyncio的单线程协作式并发完美适配"
+      ],
+      [
+        "LangGraph",
+        "Reducer"
+      ],
+      [
+        "MCP 2025年重大更新",
+        "MCP Registry"
+      ],
+      [
+        "LangGraph Checkpoint",
+        "SqliteSaver"
+      ],
+      [
+        "AI Agent",
+        "MCP Protocol"
+      ],
+      [
+        "OpenAI",
+        "get_weather"
+      ],
+      [
+        "Guardrails",
+        "客服Agent系统"
+      ],
+      [
+        "In-Context Learning",
+        "In-Context Learning通过prompt中的示例学习否"
+      ],
+      [
+        "MCP 1周年Spec更新",
+        "Model Context Protocol"
+      ],
+      [
+        "ReAct",
+        "Yao et al. (2022)"
+      ],
+      [
+        "Observability",
+        "Phoenix (Arize)"
+      ],
+      [
+        "Agent System",
+        "Prompt Caching"
+      ]
+    ],
+    "count": 389,
+    "create_time": 1780992035,
+    "update_time": 1780992035,
+    "_id": "28"
+  }
+}

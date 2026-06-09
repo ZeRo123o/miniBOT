@@ -79,6 +79,13 @@ export async function uploadKnowledgeDocument(knowledgeBaseId, userKey, file) {
   return response.json()
 }
 
+export function deleteKnowledgeDocument(documentId, userKey) {
+  return request(
+    `/knowledge-documents/${encodeURIComponent(documentId)}?user_key=${encodeURIComponent(userKey)}`,
+    { method: 'DELETE' },
+  )
+}
+
 export async function sendChatStream(message, userKey, conversationId = null, handlers = {}) {
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',

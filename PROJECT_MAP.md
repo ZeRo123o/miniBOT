@@ -44,7 +44,9 @@ miniBOT
   -> document_parsers 转 Markdown
   -> MinIO 保存 Markdown 副本
   -> 根据知识库 metadata 中的 chunk_preset_id 选择分块策略
-  -> embedding + Milvus 入库
+  -> 按 knowledge_bases.metadata.kb_type 选择 Milvus 或 LightRAG backend
+  -> Milvus：embedding + Milvus 入库
+  -> LightRAG：独立 Milvus collections + Neo4j 图谱入库
   -> PostgreSQL 更新 status=indexed 或 failed
 ```
 
@@ -89,6 +91,14 @@ backend/app
 |   |-- knowledge_service.py     知识库、文档上传和解析编排服务
 |   |-- selection_service.py     用户资源选择服务
 |   `-- resource_service.py      资源解析服务
+|-- knowledge/
+|   |-- backends/
+|   |   |-- base.py              Milvus / LightRAG 统一知识库接口
+|   |   |-- factory.py           按 kb_type 选择 backend
+|   |   |-- milvus.py            原有向量知识库实现
+|   |   `-- lightrag.py          LightRAG + Neo4j 图知识库实现
+|   `-- chunking/
+|       `-- ragflow_like/        多策略 Markdown 分块
 |-- storage/
 |   |-- base.py                  对象存储抽象
 |   |-- factory.py               存储服务工厂
@@ -246,6 +256,7 @@ POST   /api/knowledge-bases
 GET    /api/knowledge-chunk-presets
 GET    /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
 POST   /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
+DELETE /api/knowledge-documents/{document_id}?user_key=default
 ```
 
 ## 7. 常见任务定位
@@ -296,11 +307,27 @@ POST   /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
 修改知识库上传和解析：
 - `backend/app/api/routes/knowledge.py`
 - `backend/app/services/knowledge_service.py`
-- `backend/app/chunking/ragflow_like/dispatcher.py`
-- `backend/app/chunking/ragflow_like/parsers/`
+- `backend/app/knowledge/chunking/ragflow_like/dispatcher.py`
+- `backend/app/knowledge/chunking/ragflow_like/parsers/`
 - `backend/app/document_parsers/factory.py`
 - `backend/app/storage/`
 - `backend/app/db/models.py`
+
+知识库文档上传采用进程内后台索引：
+
+```text
+POST 上传
+  -> MinIO 保存原文件
+  -> PostgreSQL 创建 status=uploaded 的文档
+  -> 接口立即返回
+  -> FastAPI BackgroundTasks 使用独立 AsyncSession
+  -> 解析、分块、embedding / LightRAG 建图
+  -> status=indexed 或 failed
+  -> 前端每 3 秒轮询处理中状态
+```
+
+后台任务不复用请求数据库会话。检索服务只查询 `status=indexed` 的文档，避免索引中的部分数据参与问答。
+当前实现是单进程内任务，服务重启不会自动恢复未完成任务；需要持久化任务恢复时再接入 Redis/ARQ。
 
 ## 8. 知识库分块补充
 
@@ -309,18 +336,22 @@ POST   /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
 
 ```text
 Markdown
-  -> backend/app/chunking/ragflow_like/dispatcher.py
+  -> backend/app/knowledge/chunking/ragflow_like/dispatcher.py
   -> general / separator / book / laws / qa
   -> knowledge_chunks
-  -> embedding
-  -> Milvus 保存 chunk content + dense embedding
-  -> Milvus BM25 Function 生成 sparse_embedding
+  -> 按 kb_type 分派
+     -> milvus: embedding + Milvus dense/BM25
+     -> lightrag: LightRAG 独立 Milvus collections + Neo4j
   -> knowledge_documents.status=indexed
 ```
 
+`kb_type` 当前支持 `milvus` 和 `lightrag`，保存在 `knowledge_bases.metadata` 中；
+旧知识库缺少该字段时按 `milvus` 处理。LightRAG backend 按知识库缓存实例，并对同一知识库的
+写入使用进程内串行锁。多进程部署时需要进一步替换为 PostgreSQL advisory lock 或 Redis 锁。
+
 分块实现移植并裁剪自 Yuxi `ragflow_like`。当前未接入 Semantic 策略，因为其同步 embedding、
 NLTK 和 scikit-learn 依赖与 miniBOT 当前异步 embedding 链路不直接兼容。第三方许可保存在
-`backend/app/chunking/ragflow_like/YUXI_LICENSE`。
+`backend/app/knowledge/chunking/ragflow_like/YUXI_LICENSE`。
 
 新增数据表：
 
@@ -353,7 +384,7 @@ Milvus 查询层参考 Yuxi 实现，支持 `search_mode`、`final_top_k`、`rec
 `bm25_drop_ratio_search`、`include_distances` 和文档过滤。
 
 统一检索结果采用 `content + metadata + score` 结构，`metadata` 中包含来源文档、chunk、知识库和
-`citation_id`。后续接入 LightRAG 时在 `KnowledgeRetrievalService` 增加图检索召回并与 Milvus 结果融合，
+`citation_id`。`KnowledgeRetrievalService` 根据知识库 `kb_type` 调用对应 backend，
 不把 LightRAG 逻辑写入 `MilvusVectorStore`。
 
 知识库工具只根据 `ToolRuntime.context` 中的 `user_key` 和 `knowledge_base_ids` 确定访问范围，
