@@ -9,3 +9,11 @@ class StorageService(ABC):
     @abstractmethod
     async def get_bytes(self, object_key: str) -> bytes:
         """Read object bytes."""
+
+    @abstractmethod
+    async def delete_object(self, object_key: str) -> None:
+        """Delete one object if it exists."""
+
+    @abstractmethod
+    async def delete_prefix(self, prefix: str) -> None:
+        """Delete all objects whose keys start with the prefix."""

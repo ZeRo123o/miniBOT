@@ -9,6 +9,7 @@ from app.schemas import KnowledgeBaseCreate
 from app.services.knowledge_service import (
     DuplicateKnowledgeDocumentError,
     KnowledgeBaseNotFoundError,
+    KnowledgeResourceBusyError,
     KnowledgeService,
 )
 
@@ -75,6 +76,25 @@ async def create_knowledge_base(
     except Exception:
         logger.exception("Knowledge base create failed: user_key=%s name=%s", payload.user_key, payload.name)
         raise
+
+
+@router.delete("/knowledge-bases/{knowledge_base_id}")
+async def delete_knowledge_base(
+    knowledge_base_id: int,
+    user_key: str = Query(default="default"),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Delete a knowledge base only when none of its documents are processing."""
+    try:
+        await KnowledgeService(db).delete_knowledge_base(
+            knowledge_base_id=knowledge_base_id,
+            user_key=user_key,
+        )
+        return {"message": "知识库删除成功"}
+    except KnowledgeBaseNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except KnowledgeResourceBusyError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.get("/knowledge-bases/{knowledge_base_id}/documents")
@@ -221,5 +241,7 @@ async def delete_knowledge_document(
     try:
         await KnowledgeService(db).delete_document(document_id=document_id, user_key=user_key)
         return {"message": "删除成功"}
+    except KnowledgeResourceBusyError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error

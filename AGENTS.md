@@ -152,6 +152,7 @@ http://localhost:5173
 - `POST /api/chat`
 - `GET /api/knowledge-bases?user_key=default`
 - `POST /api/knowledge-bases`
+- `DELETE /api/knowledge-bases/{knowledge_base_id}?user_key=default`
 - `GET /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default`
 - `POST /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default`
 - `DELETE /api/knowledge-documents/{document_id}?user_key=default`
@@ -220,6 +221,7 @@ http://localhost:5173
 - 知识库通过 `knowledge_bases.metadata.kb_type` 区分 `milvus` 与 `lightrag`；旧数据默认按 `milvus` 处理。
 - LightRAG 作为与 Milvus 平级的知识库 backend，使用独立 Milvus database 保存内部向量集合，并使用 Neo4j 保存图谱；具体实现放在 `backend/app/knowledge/backends`。
 - 文档删除接口为 `DELETE /api/knowledge-documents/{document_id}?user_key=default`，必须先清理对应 backend 索引，再删除 PostgreSQL 元数据。
+- 知识库删除必须清理对应 backend、MinIO 前缀和 `user_selections.knowledge_base_ids` 引用，再删除 PostgreSQL 元数据；存在 `uploaded`、`parsing`、`chunking`、`embedding` 或 `indexing` 文档时返回 409。
 
 
 

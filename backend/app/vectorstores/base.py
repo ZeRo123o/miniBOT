@@ -20,6 +20,10 @@ class VectorStore(ABC):
         """Delete all vector records for one document."""
 
     @abstractmethod
+    async def delete_knowledge_base(self, *, knowledge_base_id: int) -> None:
+        """Delete the collection owned by one knowledge base."""
+
+    @abstractmethod
     async def search_chunks(
         self,
         *,

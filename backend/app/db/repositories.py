@@ -130,6 +130,18 @@ class KnowledgeBaseRepository:
         await self.db.refresh(item)
         return item
 
+    async def delete_with_selection_cleanup(self, knowledge_base: KnowledgeBase) -> None:
+        """Delete a knowledge base and remove its ID from every saved workspace selection."""
+        result = await self.db.execute(select(UserSelection))
+        for selection in result.scalars().all():
+            selected_ids = [int(item) for item in (selection.knowledge_base_ids or [])]
+            if knowledge_base.id in selected_ids:
+                selection.knowledge_base_ids = [
+                    item for item in selected_ids if item != knowledge_base.id
+                ]
+        await self.db.delete(knowledge_base)
+        await self.db.commit()
+
 
 class KnowledgeDocumentRepository:
     def __init__(self, db: AsyncSession):

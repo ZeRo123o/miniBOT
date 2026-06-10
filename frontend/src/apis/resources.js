@@ -54,6 +54,13 @@ export function createKnowledgeBase(payload) {
   })
 }
 
+export function deleteKnowledgeBase(knowledgeBaseId, userKey) {
+  return request(
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}?user_key=${encodeURIComponent(userKey)}`,
+    { method: 'DELETE' },
+  )
+}
+
 export function listKnowledgeDocuments(knowledgeBaseId, userKey) {
   return request(
     `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/documents?user_key=${encodeURIComponent(userKey)}`,

@@ -329,6 +329,20 @@ POST 上传
 后台任务不复用请求数据库会话。检索服务只查询 `status=indexed` 的文档，避免索引中的部分数据参与问答。
 当前实现是单进程内任务，服务重启不会自动恢复未完成任务；需要持久化任务恢复时再接入 Redis/ARQ。
 
+知识库与文档删除链路：
+
+```text
+前端二次确认
+  -> 检查文档是否处于处理中，处理中返回 409
+  -> backend 清理 Milvus collection 或 LightRAG 文档/图谱/向量数据
+  -> MinIO 删除文档对象或 knowledge-bases/{kb_id}/ 前缀
+  -> 删除 user_selections 中的知识库引用
+  -> PostgreSQL 级联删除 knowledge_bases / documents / chunks
+```
+
+对应接口为 `DELETE /api/knowledge-bases/{knowledge_base_id}` 和
+`DELETE /api/knowledge-documents/{document_id}`。
+
 ## 8. 知识库分块补充
 
 当前知识库上传链路在 Markdown 解析后，会读取知识库 `metadata` 中保存的

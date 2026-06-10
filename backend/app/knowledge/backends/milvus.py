@@ -45,6 +45,14 @@ class MilvusKnowledgeBackend(KnowledgeBackend):
             document_id=document_id,
         )
 
+    async def delete_knowledge_base(
+        self,
+        *,
+        knowledge_base_id: int,
+        document_ids: list[int],
+    ) -> None:
+        await self.vector_store.delete_knowledge_base(knowledge_base_id=knowledge_base_id)
+
     async def query(
         self,
         *,

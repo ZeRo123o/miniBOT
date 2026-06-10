@@ -1,8 +1,10 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FileText, Loader2, Plus, Search, UploadCloud, X } from 'lucide-vue-next'
+import { FileText, Loader2, MoreVertical, Plus, Search, Trash2, UploadCloud, X } from 'lucide-vue-next'
 import {
   createKnowledgeBase,
+  deleteKnowledgeBase,
+  deleteKnowledgeDocument,
   listKnowledgeChunkPresets,
   listKnowledgeBases,
   listKnowledgeDocuments,
@@ -36,6 +38,9 @@ const uploadTargetBaseId = ref(null)
 const uploadErrorMessage = ref('')
 const submitting = ref(false)
 const submitMessage = ref('')
+const deleting = ref(false)
+const deleteTarget = ref(null)
+const openDocumentMenuId = ref(null)
 let documentPollTimer = null
 let documentRefreshPending = false
 
@@ -127,9 +132,68 @@ async function refreshProcessingDocuments() {
 }
 
 async function selectKnowledgeBase(knowledgeBaseId) {
+  openDocumentMenuId.value = null
   selectedBaseId.value = knowledgeBaseId
   if (!documentsByBaseId.value[knowledgeBaseId]) {
     await loadDocuments(knowledgeBaseId)
+  }
+}
+
+function requestDeleteKnowledgeBase(knowledgeBase) {
+  errorMessage.value = ''
+  deleteTarget.value = { kind: 'knowledgeBase', item: knowledgeBase }
+}
+
+function toggleDocumentMenu(documentId) {
+  openDocumentMenuId.value = openDocumentMenuId.value === documentId ? null : documentId
+}
+
+function requestDeleteDocument(document) {
+  openDocumentMenuId.value = null
+  errorMessage.value = ''
+  deleteTarget.value = { kind: 'document', item: document }
+}
+
+function closeDeleteDialog() {
+  if (deleting.value) return
+  deleteTarget.value = null
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value || deleting.value) return
+
+  deleting.value = true
+  errorMessage.value = ''
+  const { kind, item } = deleteTarget.value
+  try {
+    if (kind === 'knowledgeBase') {
+      const deletedIndex = knowledgeBases.value.findIndex((knowledgeBase) => knowledgeBase.id === item.id)
+      await deleteKnowledgeBase(item.id, selectionStore.userKey)
+      knowledgeBases.value = knowledgeBases.value.filter((knowledgeBase) => knowledgeBase.id !== item.id)
+      const nextDocuments = { ...documentsByBaseId.value }
+      delete nextDocuments[item.id]
+      documentsByBaseId.value = nextDocuments
+      selectionStore.resources.knowledgeBase = selectionStore.resources.knowledgeBase.filter(
+        (knowledgeBase) => knowledgeBase.id !== item.id,
+      )
+      selectionStore.selection.knowledge_base_ids = selectionStore.selection.knowledge_base_ids.filter(
+        (knowledgeBaseId) => knowledgeBaseId !== item.id,
+      )
+
+      const nextKnowledgeBase = knowledgeBases.value[deletedIndex] || knowledgeBases.value[deletedIndex - 1]
+      selectedBaseId.value = nextKnowledgeBase?.id || null
+      if (nextKnowledgeBase && !documentsByBaseId.value[nextKnowledgeBase.id]) {
+        await loadDocuments(nextKnowledgeBase.id)
+      }
+    } else {
+      await deleteKnowledgeDocument(item.id, selectionStore.userKey)
+      await loadDocuments(item.knowledge_base_id)
+    }
+    deleteTarget.value = null
+  } catch (error) {
+    errorMessage.value = error.message
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -302,18 +366,31 @@ function statusText(status) {
 
     <div v-else class="knowledge-content">
       <aside class="knowledge-list" aria-label="知识库列表">
-        <button
+        <div
           v-for="item in filteredKnowledgeBases"
           :key="item.id"
-          type="button"
           class="knowledge-card"
           :class="{ active: item.id === selectedBaseId }"
-          @click="selectKnowledgeBase(item.id)"
         >
-          <strong>{{ item.name }}</strong>
-          <span>{{ item.description || '暂无描述' }}</span>
-          <span>{{ item.kb_type === 'lightrag' ? 'LightRAG 图知识库' : 'Milvus 文档知识库' }}</span>
-        </button>
+          <button
+            type="button"
+            class="knowledge-card-select"
+            @click="selectKnowledgeBase(item.id)"
+          >
+            <strong>{{ item.name }}</strong>
+            <span>{{ item.description || '暂无描述' }}</span>
+            <span>{{ item.kb_type === 'lightrag' ? 'LightRAG 图知识库' : 'Milvus 文档知识库' }}</span>
+          </button>
+          <button
+            type="button"
+            class="knowledge-delete-button"
+            :aria-label="`删除知识库 ${item.name}`"
+            :title="`删除知识库 ${item.name}`"
+            @click.stop="requestDeleteKnowledgeBase(item)"
+          >
+            <Trash2 :size="17" />
+          </button>
+        </div>
       </aside>
 
       <main class="knowledge-detail">
@@ -340,11 +417,27 @@ function statusText(status) {
         <div v-if="selectedDocuments.length" class="knowledge-document-list">
           <article v-for="document in selectedDocuments" :key="document.id" class="knowledge-document-row">
             <FileText :size="20" />
-            <div>
+            <div class="knowledge-document-info">
               <strong>{{ document.filename }}</strong>
               <span>{{ formatFileSize(document.file_size) }}</span>
             </div>
             <em :class="['document-status', document.status]">{{ statusText(document.status) }}</em>
+            <div class="document-actions">
+              <button
+                type="button"
+                class="document-menu-button"
+                :aria-label="`管理文档 ${document.filename}`"
+                @click.stop="toggleDocumentMenu(document.id)"
+              >
+                <MoreVertical :size="18" />
+              </button>
+              <div v-if="openDocumentMenuId === document.id" class="document-action-menu">
+                <button type="button" @click="requestDeleteDocument(document)">
+                  <Trash2 :size="15" />
+                  <span>删除文档</span>
+                </button>
+              </div>
+            </div>
           </article>
         </div>
         <div v-else class="knowledge-document-empty">
@@ -463,6 +556,38 @@ function statusText(status) {
             </button>
           </div>
         </form>
+      </section>
+    </div>
+
+    <div v-if="deleteTarget" class="modal-backdrop" @click.self="closeDeleteDialog">
+      <section class="knowledge-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-confirm-title">
+        <header>
+          <div class="delete-dialog-icon">
+            <Trash2 :size="22" />
+          </div>
+          <div>
+            <h2 id="delete-confirm-title">
+              {{ deleteTarget.kind === 'knowledgeBase' ? '删除知识库' : '删除文档' }}
+            </h2>
+            <p v-if="deleteTarget.kind === 'knowledgeBase'">
+              确定删除知识库“{{ deleteTarget.item.name }}”吗？其中的文档、分块、向量索引、图谱数据和存储文件都会被永久删除。
+            </p>
+            <p v-else>
+              确定删除文档“{{ deleteTarget.item.filename }}”吗？对应的分块、向量或图谱索引以及存储文件都会被永久删除。
+            </p>
+          </div>
+        </header>
+        <p class="delete-dialog-warning">此操作不可恢复。正在处理中的内容禁止删除。</p>
+        <div class="dialog-actions">
+          <button type="button" class="secondary-button" :disabled="deleting" @click="closeDeleteDialog">
+            取消
+          </button>
+          <button type="button" class="danger-button" :disabled="deleting" @click="confirmDelete">
+            <Loader2 v-if="deleting" class="spin" :size="16" />
+            <Trash2 v-else :size="16" />
+            <span>{{ deleting ? '删除中' : '确认删除' }}</span>
+          </button>
+        </div>
       </section>
     </div>
   </section>

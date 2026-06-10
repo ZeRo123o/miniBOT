@@ -24,6 +24,15 @@ class KnowledgeBackend(ABC):
         """删除文档在当前知识库后端中的索引。"""
 
     @abstractmethod
+    async def delete_knowledge_base(
+        self,
+        *,
+        knowledge_base_id: int,
+        document_ids: list[int],
+    ) -> None:
+        """Delete all backend data owned by one knowledge base."""
+
+    @abstractmethod
     async def query(
         self,
         *,

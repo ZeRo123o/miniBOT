@@ -61,6 +61,10 @@ class MilvusVectorStore(VectorStore):
         """异步删除指定文档在 Milvus 中保存的全部 chunk。"""
         await asyncio.to_thread(self._delete_document_chunks_sync, knowledge_base_id, document_id)
 
+    async def delete_knowledge_base(self, *, knowledge_base_id: int) -> None:
+        """Drop the collection dedicated to one knowledge base."""
+        await asyncio.to_thread(self._delete_knowledge_base_sync, knowledge_base_id)
+
     async def search_chunks(
         self,
         *,
@@ -142,6 +146,13 @@ class MilvusVectorStore(VectorStore):
             return
         self._delete_document_chunks_from_collection(collection_name, document_id)
         client.flush(collection_name=collection_name)
+
+    def _delete_knowledge_base_sync(self, knowledge_base_id: int) -> None:
+        collection_name = self._collection_name(knowledge_base_id)
+        client = self._connect()
+        if client.has_collection(collection_name=collection_name):
+            client.drop_collection(collection_name=collection_name)
+            logger.info("Milvus knowledge base collection deleted: collection=%s", collection_name)
 
     def _search_chunks_sync(
         self,

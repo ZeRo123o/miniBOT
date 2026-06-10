@@ -19,6 +19,7 @@ from app.knowledge.backends import get_knowledge_backend, normalize_knowledge_ba
 from app.storage import get_storage
 
 logger = logging.getLogger(__name__)
+PROCESSING_DOCUMENT_STATUSES = {"uploaded", "parsing", "chunking", "embedding", "indexing"}
 
 
 class KnowledgeBaseNotFoundError(ValueError):
@@ -27,6 +28,10 @@ class KnowledgeBaseNotFoundError(ValueError):
 
 class DuplicateKnowledgeDocumentError(ValueError):
     """Raised when the same file content already exists in a knowledge base."""
+
+
+class KnowledgeResourceBusyError(ValueError):
+    """Raised when a document or knowledge base still has active processing."""
 
 
 class KnowledgeService:
@@ -110,6 +115,8 @@ class KnowledgeService:
         knowledge_base = await self.base_repo.get(document.knowledge_base_id, user_key=user_key)
         if knowledge_base is None:
             raise ValueError("Knowledge document not found.")
+        if document.status in PROCESSING_DOCUMENT_STATUSES:
+            raise KnowledgeResourceBusyError("文档正在处理中，暂时无法删除。")
 
         kb_type = normalize_knowledge_backend_type((knowledge_base.metadata_ or {}).get("kb_type"))
         backend = get_knowledge_backend(kb_type)
@@ -117,12 +124,43 @@ class KnowledgeService:
             knowledge_base_id=knowledge_base.id,
             document_id=document.id,
         )
+        await self.storage.delete_object(document.original_object_key)
+        await self.storage.delete_object(document.markdown_object_key)
         await self.document_repo.delete(document)
         logger.info(
             "Knowledge document deleted: user_key=%s knowledge_base_id=%s document_id=%s backend=%s",
             user_key,
             knowledge_base.id,
             document.id,
+            kb_type,
+        )
+
+    async def delete_knowledge_base(self, *, knowledge_base_id: int, user_key: str) -> None:
+        """Delete backend indexes, stored files, selections, and relational metadata."""
+        knowledge_base = await self.base_repo.get(knowledge_base_id, user_key=user_key)
+        if knowledge_base is None:
+            raise KnowledgeBaseNotFoundError("Knowledge base not found.")
+
+        documents = await self.document_repo.list(knowledge_base_id)
+        processing_documents = [
+            document for document in documents if document.status in PROCESSING_DOCUMENT_STATUSES
+        ]
+        if processing_documents:
+            raise KnowledgeResourceBusyError("知识库中有文档正在处理，暂时无法删除。")
+
+        kb_type = normalize_knowledge_backend_type((knowledge_base.metadata_ or {}).get("kb_type"))
+        backend = get_knowledge_backend(kb_type)
+        await backend.delete_knowledge_base(
+            knowledge_base_id=knowledge_base.id,
+            document_ids=[document.id for document in documents],
+        )
+        await self.storage.delete_prefix(f"knowledge-bases/{knowledge_base.id}/")
+        await self.base_repo.delete_with_selection_cleanup(knowledge_base)
+        logger.info(
+            "Knowledge base deleted: user_key=%s knowledge_base_id=%s documents=%s backend=%s",
+            user_key,
+            knowledge_base.id,
+            len(documents),
             kb_type,
         )
 

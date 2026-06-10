@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -75,6 +76,30 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
         async with lock:
             rag = await self._get_instance(knowledge_base_id)
             await rag.adelete_by_doc_id(str(document_id))
+
+    async def delete_knowledge_base(
+        self,
+        *,
+        knowledge_base_id: int,
+        document_ids: list[int],
+    ) -> None:
+        """Delete every LightRAG document, then release and remove its workspace."""
+        lock = await self._get_lock(self._write_locks, knowledge_base_id)
+        async with lock:
+            rag = await self._get_instance(knowledge_base_id) if document_ids else self._instances.get(knowledge_base_id)
+            if rag is not None:
+                for document_id in document_ids:
+                    await rag.adelete_by_doc_id(str(document_id), delete_llm_cache=True)
+                await rag.finalize_storages()
+
+            self._instances.pop(knowledge_base_id, None)
+            self._instance_locks.pop(knowledge_base_id, None)
+            working_dir = Path(self.settings.lightrag_work_dir) / self._workspace(knowledge_base_id)
+            if working_dir.exists():
+                await asyncio.to_thread(shutil.rmtree, working_dir)
+
+        async with self._lock_guard:
+            self._write_locks.pop(knowledge_base_id, None)
 
     async def query(
         self,

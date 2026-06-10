@@ -32,6 +32,13 @@ class MinioStorageService(StorageService):
     async def get_bytes(self, object_key: str) -> bytes:
         return await asyncio.to_thread(self._get_bytes_sync, object_key)
 
+    async def delete_object(self, object_key: str) -> None:
+        if object_key:
+            await asyncio.to_thread(self.client.remove_object, self.bucket, object_key)
+
+    async def delete_prefix(self, prefix: str) -> None:
+        await asyncio.to_thread(self._delete_prefix_sync, prefix)
+
     def _put_bytes_sync(self, object_key: str, data: bytes, content_type: str | None) -> None:
         self._ensure_bucket()
         self.client.put_object(
@@ -49,6 +56,12 @@ class MinioStorageService(StorageService):
         finally:
             response.close()
             response.release_conn()
+
+    def _delete_prefix_sync(self, prefix: str) -> None:
+        if not self.client.bucket_exists(self.bucket):
+            return
+        for item in self.client.list_objects(self.bucket, prefix=prefix, recursive=True):
+            self.client.remove_object(self.bucket, item.object_name)
 
     def _ensure_bucket(self) -> None:
         try:
