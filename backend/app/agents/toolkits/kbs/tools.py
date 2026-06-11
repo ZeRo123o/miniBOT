@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from app.db.repositories import KnowledgeBaseRepository
 from app.db.session import AsyncSessionLocal
 from app.services.knowledge_retrieval_service import KnowledgeRetrievalService
-from app.tools.governance import (
+from app.agents.toolkits.governance import (
     context_value,
     fail_tool_call,
     finish_tool_call,
@@ -64,13 +64,11 @@ async def list_kbs(dummy: str = "", runtime: ToolRuntime = None) -> list[dict[st
         return "无法获取当前用户信息。"
     if not enabled_ids:
         return "当前会话没有启用知识库。"
-    event, limit_error = start_tool_call(
+    event = start_tool_call(
         runtime.context,
         tool_name="list_kbs",
         payload={},
     )
-    if limit_error:
-        return limit_error
 
     try:
         async with AsyncSessionLocal() as db:
@@ -115,7 +113,7 @@ async def query_kb(
         return "无法获取当前用户信息。"
     if int(kb_id) not in enabled_ids:
         return f"知识库资源 '{kb_id}' 不存在或当前会话未启用。"
-    event, limit_error = start_tool_call(
+    event = start_tool_call(
         runtime.context,
         tool_name="query_kb",
         payload={
@@ -124,8 +122,6 @@ async def query_kb(
             "file_name": file_name,
         },
     )
-    if limit_error:
-        return limit_error
 
     try:
         async with AsyncSessionLocal() as db:

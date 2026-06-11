@@ -77,9 +77,15 @@ async def resolve_selection(user_key: str, db: AsyncSession = Depends(get_db)) -
     return {
         "selection": data,
         "resources": {
-            "mcps": await resolve_resources_by_name(db, kind="mcp", names=data["mcps"]),
-            "skills": await resolve_resources_by_name(db, kind="skill", names=data["skills"]),
-            "subagents": await resolve_resources_by_name(db, kind="subagent", names=data["subagents"]),
+            "mcps": await resolve_resources_by_name(
+                db, kind="mcp", names=data["mcps"], user_key=user_key
+            ),
+            "skills": await resolve_resources_by_name(
+                db, kind="skill", names=data["skills"], user_key=user_key
+            ),
+            "subagents": await resolve_resources_by_name(
+                db, kind="subagent", names=data["subagents"], user_key=user_key
+            ),
             "tools": await list_enabled_resources(db, kind="tool"),
         },
     }

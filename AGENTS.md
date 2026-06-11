@@ -119,7 +119,10 @@ http://localhost:5173
 - 上下文压缩放在 `backend/app/agents/middlewares/summary.py`；默认按估算 token 达到 90K 触发，约等于 128K context window 的 70%，只做本轮请求内压缩，不持久化摘要。
 - 智能助手提示词组装放在 `backend/app/agents/buildin/chatbot/prompt.py`；基础 prompt 在 `create_agent` 时构建，资源、Skill 和工具策略由 middleware 在每次模型调用前增量追加，不要在 provider 中拼 prompt。
 - 大模型接入放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 agent graph。
-- 运行时工具放在 `backend/app/tools`，agent 初始只绑定工具路由能力，具体工具由 `dynamic_tool_call` 按名称加载执行。
+- 运行时工具统一放在 `backend/app/agents/toolkits`：`registry.py` 自动注册可信 Tool，`resolver.py` 将已授权资源解析为具体 LangChain Tool，`governance.py` 负责事件记录，`RuntimeConfigMiddleware` 在每次模型调用前按 `AgentContext.tools` 筛选并提供给模型，工具调用上限由统一的 `ToolCallLimitMiddleware` 负责。
+- 系统内置工具放在 `backend/app/agents/toolkits/buildin`，使用 `registry.py` 提供的 YUXI 风格 `@tool(category=..., tags=..., display_name=...)` 注册，模块导入时自动收集具体 LangChain Tool。
+- `seed_builtin_resources` 会从全局工具注册表自动同步 `category="buildin"` 的资源元数据；内置工具首次注册或默认策略版本迁移时开启，并保留管理员后续设置的启用状态。
+- 新增内置工具时必须定义独立输入 schema；`PluginResource.name` 必须与 Registry 中的稳定工具名一致，数据库配置不能直接指定任意 Python 执行器。
 - 模型用途通过 `model_use` 区分，当前支持 `chat_model`，预留 `deep_research_model`。
 - 数据库访问放在 `backend/app/db/repositories.py`。
 - SQLAlchemy 模型放在 `backend/app/db/models.py`。

@@ -5,6 +5,13 @@ export function listResources(kind) {
   return request(`/resources${query}`)
 }
 
+export function upsertResource(resource) {
+  return request('/resources', {
+    method: 'POST',
+    body: JSON.stringify(resource),
+  })
+}
+
 export function getSelection(userKey) {
   return request(`/selections/${encodeURIComponent(userKey)}`)
 }

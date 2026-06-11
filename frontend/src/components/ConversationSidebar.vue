@@ -116,7 +116,12 @@ async function openConversation(conversationId) {
           <BookOpenText :size="18" />
           <span>知识库</span>
         </button>
-        <button class="sidebar-nav-item" type="button">
+        <button
+          class="sidebar-nav-item"
+          type="button"
+          :class="{ active: activeView === 'extensions' }"
+          @click="emit('navigate', 'extensions')"
+        >
           <Blocks :size="18" />
           <span>扩展管理</span>
         </button>

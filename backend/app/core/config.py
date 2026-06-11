@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     tavily_max_results: int = 5
     tavily_search_depth: str = "basic"
     runtime_tool_call_limit: int = 3
+    runtime_outputs_dir: str = "./data/outputs"
+    runtime_skill_imports_dir: str = "./data/skill-imports"
+    runtime_skills_dir: str = "./data/skills"
     runtime_timezone: str = "Asia/Shanghai"
     summary_context_window_tokens: int = 128000
     summary_trigger_ratio: float = 0.7

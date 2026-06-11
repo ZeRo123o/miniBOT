@@ -45,6 +45,7 @@ class AgentRuntime(BaseChatRuntime):
                 "workflow": "agent",
                 "resources": resources,
                 "tool_events": context.tool_events,
+                "artifacts": result.get("artifacts") or [],
             }
         except ValueError as error:
             if str(error) != self.MISSING_OPENAI_API_KEY_ERROR:
@@ -59,7 +60,10 @@ class AgentRuntime(BaseChatRuntime):
         return RuntimeResult(
             answer=answer,
             metadata=assistant_metadata,
-            response_extra={"citations": self._collect_citations(context.tool_events)},
+            response_extra={
+                "citations": self._collect_citations(context.tool_events),
+                "artifacts": assistant_metadata.get("artifacts") or [],
+            },
         )
 
     def _collect_citations(self, tool_events: list[dict]) -> list[dict]:

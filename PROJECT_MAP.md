@@ -27,7 +27,7 @@ miniBOT
   -> 解析 MCP / Skill / Subagent
   -> 创建 AgentContext
   -> create_agent 构建基础 prompt + middleware 增量追加运行时提示词
-  -> dynamic_tool_call 按需加载运行时工具
+  -> RuntimeConfigMiddleware 按上下文提供具体 LangChain Tools
   -> chat_model
   -> 保存 assistant message
   -> 前端刷新当前会话
@@ -63,14 +63,20 @@ backend/app
 |   |       |-- context.py   AgentContext 运行时上下文
 |   |       |-- graph.py     create_agent 构建入口
 |   |       |-- prompt.py    基础提示词和运行时提示词片段组装
+|   |       |-- state.py     messages 与 artifacts Agent 状态
 |   |       `-- runtime.py   一次智能助手对话运行编排
 |   |-- middlewares/
 |   |   |-- knowledge_base.py  知识库工具注入中间件
+|   |   |-- runtime_config.py  运行时工具注册与模型可见性筛选
 |   |   |-- skill_prompt.py    Skill 提示词增量注入
 |   |   |-- runtime_prompt.py  资源和工具策略增量注入
 |   |   |-- summary.py         长上下文压缩
 |   |   `-- system_message.py  system message 追加工具
 |   `-- toolkits/
+|       |-- registry.py      YUXI 风格 @tool 注册与元数据
+|       |-- resolver.py      已授权资源到 Tool 的解析
+|       |-- governance.py    工具调用事件与结果记录
+|       |-- buildin/         系统内置工具
 |       `-- kbs/             知识库工具集
 |-- core/
 |   `-- config.py            环境变量与默认配置
@@ -113,10 +119,6 @@ backend/app
 |   |-- base.py              BaseChatModel 别名
 |   |-- chat_model.py        OpenAI-compatible / mock ChatModel
 |   `-- factory.py           chat_model / deep_research_model 工厂
-|-- tools/
-|   |-- factory.py           动态工具路由 LangChain tools
-|   |-- registry.py          运行时工具注册和调度
-|   `-- tavily.py            Tavily Search 工具实现
 `-- plugins/
     |-- types.py             资源类型和资源 schema
     `-- registry.py          内置资源种子数据与名称解析
@@ -142,6 +144,7 @@ frontend
     |-- components/
     |   |-- ChatBox.vue
     |   |-- ConversationSidebar.vue
+    |   |-- ExtensionManagementView.vue
     |   |-- MarkdownMessage.vue
     |   `-- WorkspaceSidebar.vue
     `-- views/
@@ -187,21 +190,33 @@ ResourceService      MCP / Skill / Subagent / Tool 资源解析
 选择模型用途 model_use
 加载对应 BaseChatModel
 挂载 AgentMiddleware
-绑定 list_available_tools / dynamic_tool_call
+由 RuntimeConfigMiddleware 注册并筛选具体运行时工具
 返回 compiled agent
 ```
 
-`tools/` 负责运行时动态工具：
+`agents/toolkits/` 统一负责系统工具：
 
 ```text
-list_available_tools  列出当前允许的工具
-dynamic_tool_call     按工具名称加载并执行工具
-tavily_search         Tavily 网页搜索执行器
+registry.py               YUXI 风格 @tool 装饰器、Tool 实例和展示元数据
+resolver.py               根据 AgentContext.tools 选择当前已授权 Tools
+governance.py             工具调用状态、结果和事件记录
+buildin/tools.py          ask_user_question / present_artifacts / tavily_search
+buildin/install_skill.py  install_skill
+kbs/tools.py              list_kbs / query_kb
 ```
+
+应用启动时 `seed_builtin_resources` 会从注册表自动同步 `category="buildin"` 的工具资源，
+因此新增内置工具不需要再手工维护另一份资源清单；首次注册或默认策略版本迁移时开启，
+前端显示“内置工具”标签，后续管理员开关不会被应用重启覆盖。
+
+`ask_user_question` 使用 LangGraph `interrupt` 语义；内置工具首次注册时统一默认开启。
+其中交互提问仍需要前端问题卡片和会话恢复协议配合，管理员可在扩展管理页按实际能力关闭。
 
 `agents/middlewares/` 统一负责供 Agent 模型调用使用的中间件：
 
 ```text
+RuntimeConfigMiddleware    按 AgentContext.tools 筛选模型本轮可见的具体工具
+ToolCallLimitMiddleware    统一限制单次 Agent 运行的工具调用总数
 KnowledgeBaseMiddleware    注册 list_kbs / query_kb 知识库工具
 SkillPromptMiddleware      每次模型调用前增量追加 Skill 元数据提示段
 SummaryMiddleware          估算 token 达到 90K 时压缩历史，只保留摘要和最近消息
@@ -286,7 +301,8 @@ DELETE /api/knowledge-documents/{document_id}?user_key=default
 - `.env.example`
 
 修改运行时工具：
-- `backend/app/tools/`
+- `backend/app/agents/toolkits/`
+- `backend/app/agents/middlewares/runtime_config.py`
 - `backend/app/plugins/registry.py`
 - `backend/app/agents/buildin/chatbot/prompt.py`
 
@@ -303,6 +319,11 @@ DELETE /api/knowledge-documents/{document_id}?user_key=default
 修改右侧工作区：
 - `frontend/src/components/WorkspaceSidebar.vue`
 - `frontend/src/stores/selectionStore.js`
+
+修改扩展管理：
+- `frontend/src/components/ExtensionManagementView.vue`
+- `frontend/src/components/ConversationSidebar.vue`
+- `frontend/src/apis/resources.js`
 
 修改知识库上传和解析：
 - `backend/app/api/routes/knowledge.py`

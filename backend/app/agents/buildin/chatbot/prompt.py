@@ -41,8 +41,8 @@ def build_runtime_prompt(context: Any) -> str:
         parts.append(
             "工具调用策略:\n"
             "- 不要假装已经访问网页或外部系统。\n"
-            "- 当问题涉及最新信息、网页资料、新闻、价格、版本变化或不确定事实时，使用 dynamic_tool_call 按名称调用运行时工具。\n"
-            "- 可先调用 list_available_tools 查看当前允许的工具。\n"
+            "- 当问题涉及最新信息、网页资料、新闻、价格、版本变化或不确定事实时，调用当前提供的具体工具。\n"
+            "- 严格按照工具参数说明构造调用参数，不要调用未提供的工具。\n"
             "- 工具结果只作为上下文，最终回答仍需要你归纳整理。"
         )
     if _get_value(context, "knowledge_base_ids", []):
@@ -66,7 +66,11 @@ def build_skill_prompt(context: Any) -> str:
             continue
         description = str(item.get("description") or "").strip()
         label = f"{name} (`{runtime_name}`)" if name != runtime_name else f"`{runtime_name}`"
-        lines.append(f"- {label}: {description}" if description else f"- {label}")
+        line = f"- {label}: {description}" if description else f"- {label}"
+        instructions = str((item.get("config") or {}).get("instructions") or "").strip()
+        if instructions:
+            line = f"{line}\n\n{instructions}"
+        lines.append(line)
     if not lines:
         return ""
     return "当前启用 Skills:\n" + "\n".join(lines)

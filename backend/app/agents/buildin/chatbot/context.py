@@ -16,7 +16,6 @@ class AgentContext:
     subagents: list[dict] = field(default_factory=list)
     tools: list[dict] = field(default_factory=list)
     knowledge_base_ids: list[int] = field(default_factory=list)
-    active_tool_names: list[str] = field(default_factory=list)
     tool_events: list[dict] = field(default_factory=list)
     max_tool_calls: int = 3
     summary: str = ""

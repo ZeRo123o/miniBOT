@@ -40,11 +40,13 @@ textarea {
   grid-template-columns: 56px minmax(0, 1fr) 56px;
 }
 
-.page.knowledge-page-active {
+.page.knowledge-page-active,
+.page.extension-page-active {
   grid-template-columns: 300px minmax(0, 1fr);
 }
 
-.page.sidebar-collapsed.knowledge-page-active {
+.page.sidebar-collapsed.knowledge-page-active,
+.page.sidebar-collapsed.extension-page-active {
   grid-template-columns: 56px minmax(0, 1fr);
 }
 
@@ -377,7 +379,8 @@ textarea {
   --chat-content-width: min(760px, calc(100% - 48px));
 }
 
-.page.knowledge-page-active .workspace {
+.page.knowledge-page-active .workspace,
+.page.extension-page-active .workspace {
   display: block;
   padding: 0;
 }
@@ -750,6 +753,284 @@ textarea {
   padding: 14px;
   cursor: pointer;
   text-align: left;
+}
+
+.extension-page {
+  width: 100%;
+  height: 100vh;
+  min-height: 0;
+  overflow-y: auto;
+  background:
+    radial-gradient(circle at top right, rgba(22, 147, 181, 0.08), transparent 30%),
+    #f7f9fb;
+  padding: 38px 40px 48px;
+}
+
+.extension-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 28px;
+  max-width: 1180px;
+  margin: 0 auto 28px;
+}
+
+.extension-eyebrow {
+  color: #1593b5;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.extension-header h1 {
+  margin: 6px 0 8px;
+  color: #111827;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.extension-header p,
+.extension-summary p {
+  margin: 0;
+  color: #7a8590;
+}
+
+.extension-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: min(340px, 40vw);
+  height: 42px;
+  border: 1px solid #dfe4ea;
+  border-radius: 10px;
+  background: #fff;
+  color: #98a2b3;
+  padding: 0 13px;
+  box-shadow: 0 8px 22px rgba(31, 42, 55, 0.04);
+}
+
+.extension-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #202124;
+}
+
+.extension-tabs {
+  display: flex;
+  gap: 8px;
+  max-width: 1180px;
+  margin: 0 auto 22px;
+  padding: 5px;
+  border: 1px solid #e4e8ed;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.extension-tabs button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 120px;
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #667085;
+  cursor: pointer;
+  font-weight: 650;
+}
+
+.extension-tabs button:hover {
+  color: #087f9f;
+}
+
+.extension-tabs button.active {
+  background: #e8f5f8;
+  color: #087f9f;
+}
+
+.extension-tabs em {
+  min-width: 21px;
+  border-radius: 999px;
+  background: #eef1f4;
+  padding: 2px 6px;
+  color: #667085;
+  font-size: 11px;
+  font-style: normal;
+}
+
+.extension-tabs button.active em {
+  background: #fff;
+  color: #087f9f;
+}
+
+.extension-summary {
+  display: flex;
+  justify-content: space-between;
+  max-width: 1180px;
+  margin: 0 auto 16px;
+}
+
+.extension-summary h2 {
+  margin: 0 0 4px;
+  color: #1d2939;
+  font-size: 18px;
+}
+
+.extension-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.extension-card {
+  min-height: 210px;
+  border: 1px solid #e1e6eb;
+  border-radius: 14px;
+  background: #fff;
+  padding: 18px;
+  box-shadow: 0 10px 28px rgba(31, 42, 55, 0.055);
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+}
+
+.extension-card:hover {
+  transform: translateY(-2px);
+  border-color: #b9dbe4;
+  box-shadow: 0 14px 34px rgba(31, 42, 55, 0.085);
+}
+
+.extension-card.disabled {
+  background: #fbfcfd;
+}
+
+.extension-card > header,
+.extension-name-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.extension-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  background: #eaf6f8;
+  color: #087f9f;
+}
+
+.extension-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  border: 0;
+  border-radius: 999px;
+  background: #d5dbe1;
+  cursor: pointer;
+  transition: background 150ms ease;
+}
+
+.extension-switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(16, 24, 40, 0.22);
+  transition: transform 150ms ease;
+}
+
+.extension-switch.active {
+  background: #1593b5;
+}
+
+.extension-switch.active span {
+  transform: translateX(18px);
+}
+
+.extension-switch:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.extension-card-body {
+  margin-top: 18px;
+}
+
+.extension-name-row h3 {
+  margin: 0;
+  color: #1d2939;
+  font-size: 17px;
+}
+
+.extension-badges {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.extension-badges span {
+  flex: none;
+  border-radius: 999px;
+  background: #f0f2f5;
+  color: #7a8590;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.extension-badges span.builtin {
+  background: #eaf2ff;
+  color: #2563eb;
+}
+
+.extension-badges span.enabled {
+  background: #e8f7ef;
+  color: #15803d;
+}
+
+.extension-card code {
+  display: inline-block;
+  margin-top: 7px;
+  color: #087f9f;
+  font-size: 12px;
+}
+
+.extension-card p {
+  margin: 15px 0 0;
+  color: #667085;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.extension-empty {
+  display: grid;
+  place-items: center;
+  max-width: 1180px;
+  min-height: 260px;
+  margin: 0 auto;
+  border: 1px dashed #d7dde4;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.68);
+  color: #7a8590;
+}
+
+.extension-error {
+  max-width: 1180px;
+  margin: 18px auto 0;
+  color: #b42318;
 }
 
 .knowledge-card-select {
@@ -1567,5 +1848,28 @@ textarea {
 
   .workspace-sidebar.collapsed {
     max-height: 56px;
+  }
+
+  .extension-page {
+    height: auto;
+    min-height: 100vh;
+    padding: 26px 20px 40px;
+  }
+
+  .extension-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .extension-search {
+    width: 100%;
+  }
+
+  .extension-tabs {
+    overflow-x: auto;
+  }
+
+  .extension-tabs button {
+    flex: none;
   }
 }

@@ -16,6 +16,7 @@ class ChatResponse(BaseModel):
     selection: SelectionOut
     resources: dict[str, list[PluginResourceOut]]
     citations: list[dict[str, Any]] = Field(default_factory=list)
+    artifacts: list[str] = Field(default_factory=list)
     conversation_id: int | None = None
     conversation: dict[str, Any] | None = None
     messages: list[dict[str, Any]] = Field(default_factory=list)
