@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 class ResourceKind(StrEnum):
     mcp = "mcp"
     skill = "skill"
-    subagent = "subagent"
     tool = "tool"
 
 
@@ -26,9 +25,6 @@ class PluginResourceOut(PluginResourceIn):
 
 class SelectionIn(BaseModel):
     user_key: str = Field(default="default", min_length=1, max_length=128)
-    mcps: list[str] = Field(default_factory=list)
-    skills: list[str] = Field(default_factory=list)
-    subagents: list[str] = Field(default_factory=list)
     knowledge_base_ids: list[int] = Field(default_factory=list)
 
 

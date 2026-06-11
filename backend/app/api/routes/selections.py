@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.repositories import KnowledgeBaseRepository, UserSelectionRepository
 from app.db.session import get_db
-from app.plugins.registry import list_enabled_resources, resolve_resources_by_name
+from app.plugins.registry import list_enabled_resources
 from app.plugins.types import SelectionIn
 
 logger = logging.getLogger(__name__)
@@ -19,9 +19,6 @@ async def get_selection(user_key: str, db: AsyncSession = Depends(get_db)) -> di
     if item is None:
         return {
             "user_key": user_key,
-            "mcps": [],
-            "skills": [],
-            "subagents": [],
             "knowledge_base_ids": [],
         }
     return item.to_dict()
@@ -47,9 +44,6 @@ async def save_selection(user_key: str, payload: SelectionIn, db: AsyncSession =
         )
     item = await UserSelectionRepository(db).save(
         user_key=payload.user_key,
-        mcps=payload.mcps,
-        skills=payload.skills,
-        subagents=payload.subagents,
         knowledge_base_ids=knowledge_base_ids,
     )
     logger.info(
@@ -68,24 +62,14 @@ async def resolve_selection(user_key: str, db: AsyncSession = Depends(get_db)) -
         if item
         else {
             "user_key": user_key,
-            "mcps": [],
-            "skills": [],
-            "subagents": [],
             "knowledge_base_ids": [],
         }
     )
     return {
         "selection": data,
         "resources": {
-            "mcps": await resolve_resources_by_name(
-                db, kind="mcp", names=data["mcps"], user_key=user_key
-            ),
-            "skills": await resolve_resources_by_name(
-                db, kind="skill", names=data["skills"], user_key=user_key
-            ),
-            "subagents": await resolve_resources_by_name(
-                db, kind="subagent", names=data["subagents"], user_key=user_key
-            ),
-            "tools": await list_enabled_resources(db, kind="tool"),
+            "mcps": await list_enabled_resources(db, kind="mcp", user_key=user_key),
+            "skills": await list_enabled_resources(db, kind="skill", user_key=user_key),
+            "tools": await list_enabled_resources(db, kind="tool", user_key=user_key),
         },
     }

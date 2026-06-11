@@ -173,9 +173,57 @@ textarea {
   background: #f5f8fa;
 }
 
+.sidebar-nav-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.sidebar-nav-item:disabled:hover {
+  background: transparent;
+}
+
 .sidebar-nav-item.active {
   background: #eaf4f7;
   color: #007995;
+}
+
+.collapsed-sidebar-nav {
+  display: grid;
+  width: 100%;
+  gap: 8px;
+  padding: 12px 8px;
+}
+
+.collapsed-sidebar-nav-item {
+  display: inline-grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #5f6368;
+  cursor: pointer;
+}
+
+.collapsed-sidebar-nav-item:hover {
+  background: #f5f8fa;
+  color: #202124;
+}
+
+.collapsed-sidebar-nav-item.active {
+  background: #eaf4f7;
+  color: #007995;
+}
+
+.collapsed-sidebar-nav-item:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+}
+
+.collapsed-sidebar-nav-item:disabled:hover {
+  background: transparent;
+  color: #5f6368;
 }
 
 .conversation-section {

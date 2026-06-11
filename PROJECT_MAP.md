@@ -23,8 +23,8 @@ miniBOT
   -> POST /api/chat
   -> AgentRuntime
   -> 保存 user message
-  -> 读取历史消息和资源选择
-  -> 解析 MCP / Skill / Subagent
+  -> 读取历史消息和知识库选择
+  -> 读取扩展管理中启用的 MCP / Skill / Tool
   -> 创建 AgentContext
   -> create_agent 构建基础 prompt + middleware 增量追加运行时提示词
   -> RuntimeConfigMiddleware 按上下文提供具体 LangChain Tools
@@ -95,7 +95,7 @@ backend/app
 |-- services/
 |   |-- conversation_service.py  会话和消息业务服务
 |   |-- knowledge_service.py     知识库、文档上传和解析编排服务
-|   |-- selection_service.py     用户资源选择服务
+|   |-- selection_service.py     用户知识库选择服务
 |   `-- resource_service.py      资源解析服务
 |-- knowledge/
 |   |-- backends/
@@ -165,7 +165,7 @@ frontend
 
 ```text
 调用 ConversationService 准备会话和消息
-调用 SelectionService 读取用户资源选择
+调用 SelectionService 读取用户知识库选择
 调用 ResourceService 解析资源
 构建 AgentContext
 调用 create_agent 生成的 agent
@@ -180,8 +180,8 @@ frontend
 
 ```text
 ConversationService  会话创建、消息保存、历史消息转换、聊天响应构造
-SelectionService     用户资源选择读取和默认值处理
-ResourceService      MCP / Skill / Subagent / Tool 资源解析
+SelectionService     用户知识库选择读取和默认值处理
+ResourceService      已启用 MCP / Skill / Tool 资源解析
 ```
 
 `agents/buildin/chatbot/graph.py` 只负责智能助手 agent 构建：
@@ -254,7 +254,7 @@ user_selections.knowledge_base_ids
 
 ```text
 GET    /api/health
-GET    /api/resources?kind=mcp|skill|subagent|tool
+GET    /api/resources?kind=mcp|skill|tool
 POST   /api/resources
 GET    /api/selections/{user_key}
 PUT    /api/selections/{user_key}

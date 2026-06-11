@@ -37,6 +37,19 @@ const emit = defineEmits(['navigate', 'toggle'])
 const openMenuId = ref(null)
 const pendingDelete = ref(null)
 
+const navigationItems = [
+  { key: 'chat', label: '工作区', icon: BriefcaseBusiness, enabled: true },
+  { key: 'knowledge', label: '知识库', icon: BookOpenText, enabled: true },
+  { key: 'extensions', label: '扩展管理', icon: Blocks, enabled: true },
+  { key: 'models', label: '模型配置', icon: Box, enabled: false },
+  { key: 'dashboard', label: 'Dashboard', icon: BarChart3, enabled: false },
+]
+
+function navigateTo(item) {
+  if (!item.enabled) return
+  emit('navigate', item.key)
+}
+
 function toggleMenu(conversationId) {
   openMenuId.value = openMenuId.value === conversationId ? null : conversationId
 }
@@ -99,39 +112,17 @@ async function openConversation(conversationId) {
 
       <nav class="sidebar-nav" aria-label="主导航">
         <button
+          v-for="item in navigationItems"
+          :key="item.key"
           class="sidebar-nav-item"
           type="button"
-          :class="{ active: activeView === 'chat' }"
-          @click="emit('navigate', 'chat')"
+          :class="{ active: activeView === item.key }"
+          :disabled="!item.enabled"
+          :title="item.label"
+          @click="navigateTo(item)"
         >
-          <BriefcaseBusiness :size="18" />
-          <span>工作区</span>
-        </button>
-        <button
-          class="sidebar-nav-item"
-          type="button"
-          :class="{ active: activeView === 'knowledge' }"
-          @click="emit('navigate', 'knowledge')"
-        >
-          <BookOpenText :size="18" />
-          <span>知识库</span>
-        </button>
-        <button
-          class="sidebar-nav-item"
-          type="button"
-          :class="{ active: activeView === 'extensions' }"
-          @click="emit('navigate', 'extensions')"
-        >
-          <Blocks :size="18" />
-          <span>扩展管理</span>
-        </button>
-        <button class="sidebar-nav-item" type="button">
-          <Box :size="18" />
-          <span>模型配置</span>
-        </button>
-        <button class="sidebar-nav-item" type="button">
-          <BarChart3 :size="18" />
-          <span>Dashboard</span>
+          <component :is="item.icon" :size="18" />
+          <span>{{ item.label }}</span>
         </button>
       </nav>
 
@@ -173,6 +164,22 @@ async function openConversation(conversationId) {
         </div>
       </section>
     </div>
+
+    <nav v-else class="collapsed-sidebar-nav" aria-label="折叠主导航">
+      <button
+        v-for="item in navigationItems"
+        :key="item.key"
+        class="collapsed-sidebar-nav-item"
+        type="button"
+        :class="{ active: activeView === item.key }"
+        :disabled="!item.enabled"
+        :title="item.label"
+        :aria-label="item.label"
+        @click="navigateTo(item)"
+      >
+        <component :is="item.icon" :size="19" />
+      </button>
+    </nav>
 
     <div v-if="pendingDelete" class="modal-backdrop" @click.self="pendingDelete = null">
       <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-title">

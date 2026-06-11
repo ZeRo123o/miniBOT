@@ -3,39 +3,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.repositories import PluginResourceRepository
 
 
-async def resolve_resources_by_name(
+async def list_enabled_resources(
     db: AsyncSession,
     *,
     kind: str,
-    names: list[str],
     user_key: str | None = None,
 ) -> list[dict]:
-    """按名称解析用户选择的资源，并过滤未启用或重复的资源。"""
+    """读取全局或当前用户拥有的已启用资源。"""
     repo = PluginResourceRepository(db)
-    resolved = []
-    seen = set()
-    for name in names:
-        if name in seen:
-            continue
-        seen.add(name)
-        item = await repo.get_by_name(kind, name)
-        owner_user_key = str((item.config or {}).get("owner_user_key") or "") if item else ""
-        if item and item.enabled and (not owner_user_key or owner_user_key == user_key):
-            resolved.append(item.to_dict())
-    return resolved
-
-
-async def list_enabled_resources(db: AsyncSession, *, kind: str) -> list[dict]:
-    """按资源类型读取所有启用资源，供运行时动态能力使用。"""
-    repo = PluginResourceRepository(db)
-    return [item.to_dict() for item in await repo.list(kind=kind, enabled_only=True)]
+    resources = []
+    for item in await repo.list(kind=kind, enabled_only=True):
+        owner_user_key = str((item.config or {}).get("owner_user_key") or "")
+        if not owner_user_key or owner_user_key == user_key:
+            resources.append(item.to_dict())
+    return resources
 
 
 async def seed_builtin_resources(db: AsyncSession) -> None:
-    """写入内置资源种子数据，包括示例 MCP、Skill、Subagent 和 Tool。"""
+    """写入内置资源种子数据，包括示例 MCP、Skill 和 Tool。"""
     repo = PluginResourceRepository(db)
     # 知识库工具由独立 middleware 注入，不作为通用运行时工具资源。
     await repo.delete_by_name("tool", "knowledge_query")
+    await repo.delete_by_kind("subagent")
     samples = [
         {
             "kind": "mcp",
@@ -50,13 +39,6 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
             "display_name": "Reporter Skill",
             "description": "Draft structured reports from gathered context.",
             "config": {"prompt_path": "skills/reporter/SKILL.md", "dependencies": {"mcps": [], "skills": []}},
-        },
-        {
-            "kind": "subagent",
-            "name": "researcher",
-            "display_name": "Researcher Subagent",
-            "description": "A focused helper for research and source synthesis.",
-            "config": {"system_prompt": "You are a concise research subagent.", "tools": []},
         },
     ]
     for item in samples:

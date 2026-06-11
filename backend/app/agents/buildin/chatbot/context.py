@@ -13,7 +13,6 @@ class AgentContext:
     timezone: str = "Asia/Shanghai"
     mcps: list[dict] = field(default_factory=list)
     skills: list[dict] = field(default_factory=list)
-    subagents: list[dict] = field(default_factory=list)
     tools: list[dict] = field(default_factory=list)
     knowledge_base_ids: list[int] = field(default_factory=list)
     tool_events: list[dict] = field(default_factory=list)

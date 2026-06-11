@@ -1,5 +1,5 @@
 <script setup>
-import { Blocks, Bot, Plug, Search, Wrench } from 'lucide-vue-next'
+import { Blocks, Plug, Search, Wrench } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { listResources, upsertResource } from '../apis/resources'
 
@@ -7,7 +7,6 @@ const categories = [
   { key: 'tool', label: '工具', icon: Wrench },
   { key: 'mcp', label: 'MCP', icon: Plug },
   { key: 'skill', label: 'Skill', icon: Blocks },
-  { key: 'subagent', label: 'Subagent', icon: Bot },
 ]
 
 const activeCategory = ref('tool')
@@ -15,7 +14,6 @@ const resourcesByKind = ref({
   tool: [],
   mcp: [],
   skill: [],
-  subagent: [],
 })
 const keyword = ref('')
 const loading = ref(false)

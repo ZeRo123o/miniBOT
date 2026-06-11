@@ -41,6 +41,11 @@ class PluginResourceRepository:
         )
         await self.db.commit()
 
+    async def delete_by_kind(self, kind: str) -> None:
+        """删除已经退出资源契约的整个资源类型。"""
+        await self.db.execute(delete(PluginResource).where(PluginResource.kind == kind))
+        await self.db.commit()
+
     async def upsert(self, data: dict) -> PluginResource:
         item = await self.get_by_name(data["kind"], data["name"])
         if item is None:
@@ -66,26 +71,23 @@ class UserSelectionRepository:
     async def save(
         self,
         user_key: str,
-        mcps: list[str],
-        skills: list[str],
-        subagents: list[str],
         knowledge_base_ids: list[int],
     ) -> UserSelection:
-        """保存用户启用的运行时资源和知识库范围。"""
+        """只保存用户选择的知识库范围，旧资源列固定清空以兼容现有数据库。"""
         item = await self.get(user_key)
         if item is None:
             item = UserSelection(
                 user_key=user_key,
-                mcps=mcps,
-                skills=skills,
-                subagents=subagents,
+                mcps=[],
+                skills=[],
+                subagents=[],
                 knowledge_base_ids=knowledge_base_ids,
             )
             self.db.add(item)
         else:
-            item.mcps = mcps
-            item.skills = skills
-            item.subagents = subagents
+            item.mcps = []
+            item.skills = []
+            item.subagents = []
             item.knowledge_base_ids = knowledge_base_ids
         await self.db.commit()
         await self.db.refresh(item)

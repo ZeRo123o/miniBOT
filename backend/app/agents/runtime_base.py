@@ -54,11 +54,10 @@ class BaseChatRuntime(ABC):
         selection = await self.selection_service.get_or_default(user_key)
         resources = await self.resource_service.resolve_for_selection(selection)
         logger.info(
-            "Runtime resources resolved: conversation_id=%s mcps=%s skills=%s subagents=%s tools=%s",
+            "Runtime resources resolved: conversation_id=%s mcps=%s skills=%s tools=%s",
             prepared_conversation_id,
             len(resources.get("mcps", [])),
             len(resources.get("skills", [])),
-            len(resources.get("subagents", [])),
             len(resources.get("tools", [])),
         )
         result = await self._generate_result(
@@ -128,11 +127,10 @@ class BaseChatRuntime(ABC):
         selection = await self.selection_service.get_or_default(user_key)
         resources = await self.resource_service.resolve_for_selection(selection)
         logger.info(
-            "Runtime stream resources resolved: conversation_id=%s mcps=%s skills=%s subagents=%s tools=%s",
+            "Runtime stream resources resolved: conversation_id=%s mcps=%s skills=%s tools=%s",
             prepared_conversation_id,
             len(resources.get("mcps", [])),
             len(resources.get("skills", [])),
-            len(resources.get("subagents", [])),
             len(resources.get("tools", [])),
         )
         result = await self._generate_result(

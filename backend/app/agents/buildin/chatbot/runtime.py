@@ -107,7 +107,6 @@ class AgentRuntime(BaseChatRuntime):
             timezone=settings.runtime_timezone,
             mcps=resources["mcps"],
             skills=resources["skills"],
-            subagents=resources["subagents"],
             tools=resources["tools"],
             knowledge_base_ids=knowledge_base_ids,
             max_tool_calls=settings.runtime_tool_call_limit,

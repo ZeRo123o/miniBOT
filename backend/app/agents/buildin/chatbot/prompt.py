@@ -18,12 +18,10 @@ def _resource_names(items: list[dict]) -> list[str]:
 def build_resource_context(context: Any) -> str:
     """生成由通用运行时中间件负责注入的资源摘要。"""
     mcps = _resource_names(_get_value(context, "mcps", []))
-    subagents = _resource_names(_get_value(context, "subagents", []))
     tools = _resource_names(_get_value(context, "tools", []))
     return (
         "当前启用资源:\n"
         f"- MCP: {mcps or '无'}\n"
-        f"- Subagent: {subagents or '无'}\n"
         f"- Tool: {tools or '无'}"
     )
 

@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.toolkits.registry import tool
 from app.core.config import get_settings
-from app.db.repositories import PluginResourceRepository, UserSelectionRepository
+from app.db.repositories import PluginResourceRepository
 from app.db.session import AsyncSessionLocal
 from app.agents.toolkits.governance import fail_tool_call, finish_tool_call, start_tool_call
 
@@ -146,7 +146,7 @@ async def _register_installed_skill(
     source: str,
     user_key: str,
 ) -> dict[str, Any]:
-    """复制 Skill 文件、注册资源并写入当前用户选择。"""
+    """复制 Skill 文件并注册为当前用户拥有的启用资源。"""
     slug, instructions = _validate_skill_dir(source_dir)
     settings = get_settings()
     user_root = (
@@ -176,22 +176,6 @@ async def _register_installed_skill(
             }
         )
 
-        selection_repo = UserSelectionRepository(db)
-        selection = await selection_repo.get(user_key)
-        current = selection.to_dict() if selection else {
-            "mcps": [],
-            "skills": [],
-            "subagents": [],
-            "knowledge_base_ids": [],
-        }
-        selected_skills = list(dict.fromkeys([*(current.get("skills") or []), runtime_name]))
-        await selection_repo.save(
-            user_key=user_key,
-            mcps=current.get("mcps") or [],
-            skills=selected_skills,
-            subagents=current.get("subagents") or [],
-            knowledge_base_ids=current.get("knowledge_base_ids") or [],
-        )
         return resource.to_dict()
 
 
@@ -237,7 +221,7 @@ async def install_skill(
     runtime: ToolRuntime | None = None,
     tool_call_id: Annotated[str, InjectedToolCallId] = "",
 ) -> Command:
-    """安装 Skill 并在当前用户的资源选择中激活。"""
+    """安装 Skill，并立即作为当前用户的启用扩展参与运行。"""
     context = _runtime_context(runtime)
     user_key = str(getattr(context, "user_key", "") or "").strip()
     event = start_tool_call(

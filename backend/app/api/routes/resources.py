@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("")
 async def list_resources(
-    kind: str | None = Query(default=None, pattern="^(mcp|skill|subagent|tool)$"),
+    kind: str | None = Query(default=None, pattern="^(mcp|skill|tool)$"),
     db: AsyncSession = Depends(get_db),
 ) -> list[dict]:
     items = await PluginResourceRepository(db).list(kind=kind)

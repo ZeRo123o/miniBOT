@@ -1,19 +1,13 @@
 import { reactive } from 'vue'
-import { getSelection, listKnowledgeBases, listResources, saveSelection } from '../apis/resources'
+import { getSelection, listKnowledgeBases, saveSelection } from '../apis/resources'
 
 export const selectionStore = reactive({
   userKey: 'default',
   resources: {
-    mcp: [],
-    skill: [],
-    subagent: [],
     knowledgeBase: [],
   },
   selection: {
     user_key: 'default',
-    mcps: [],
-    skills: [],
-    subagents: [],
     knowledge_base_ids: [],
   },
   loading: false,
@@ -25,19 +19,13 @@ export async function loadWorkspace() {
   selectionStore.loading = true
   selectionStore.error = ''
   try {
-    const [mcps, skills, subagents, knowledgeBases, selection] = await Promise.all([
-      listResources('mcp'),
-      listResources('skill'),
-      listResources('subagent'),
+    const [knowledgeBases, selection] = await Promise.all([
       listKnowledgeBases(selectionStore.userKey),
       getSelection(selectionStore.userKey),
     ])
-    selectionStore.resources.mcp = mcps
-    selectionStore.resources.skill = skills
-    selectionStore.resources.subagent = subagents
     selectionStore.resources.knowledgeBase = knowledgeBases
     selectionStore.selection = {
-      ...selection,
+      user_key: selection.user_key || selectionStore.userKey,
       knowledge_base_ids: selection.knowledge_base_ids || [],
     }
     selectionStore.hasUnsavedChanges = false

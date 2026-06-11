@@ -62,9 +62,6 @@ class UserSelection(Base, TimestampMixin):
     def to_dict(self) -> dict[str, Any]:
         return {
             "user_key": self.user_key,
-            "mcps": self.mcps or [],
-            "skills": self.skills or [],
-            "subagents": self.subagents or [],
             "knowledge_base_ids": self.knowledge_base_ids or [],
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,

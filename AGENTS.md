@@ -106,7 +106,7 @@ http://localhost:5173
 ## 4. 后端开发规范
 
 - 路由层保持轻量，主要负责参数接收、依赖注入和响应组织。
-- 业务流程放在 `backend/app/services`，包括会话、用户选择和资源解析；不要把业务流程堆进 API route。
+- 业务流程放在 `backend/app/services`，包括会话、知识库选择和资源解析；不要把业务流程堆进 API route。
 - 知识库文档上传、原始文件/Markdown 保存和解析状态更新放在 `backend/app/services/knowledge_service.py`。
 - 文件转 Markdown 的具体解析器放在 `backend/app/document_parsers`，不要把不同文件类型解析逻辑堆进 route。
 - 原始文件和 Markdown 文件通过 `backend/app/storage` 的对象存储抽象保存，业务层不要直接调用 MinIO SDK。
@@ -128,7 +128,7 @@ http://localhost:5173
 - SQLAlchemy 模型放在 `backend/app/db/models.py`。
 - 请求/响应 schema 放在 `backend/app/schemas.py` 或对应资源类型模块中。
 - 资源注册、种子数据和名称解析放在 `backend/app/plugins/registry.py`。
-- 资源 `kind` 当前允许 `mcp`、`skill`、`subagent`、`tool`；新增类型时必须同步更新模型、schema、校验、种子数据、API 和前端选择器。
+- 资源 `kind` 当前允许 `mcp`、`skill`、`tool`；新增类型时必须同步更新模型、schema、校验、种子数据、API 和前端选择器。
 - `PluginResource.name` 是稳定运行时 key，`display_name` 只用于 UI 展示。
 - 当前没有迁移系统，数据库表由 `Base.metadata.create_all` 在应用启动时创建；结构变更要注意已有数据库兼容性。
 
@@ -142,7 +142,7 @@ http://localhost:5173
 
 当前主要接口：
 
-- `GET /api/resources?kind=mcp|skill|subagent|tool`
+- `GET /api/resources?kind=mcp|skill|tool`
 - `POST /api/resources`
 - `GET /api/selections/{user_key}`
 - `PUT /api/selections/{user_key}`
@@ -164,9 +164,9 @@ http://localhost:5173
 
 1. 创建或校验会话。
 2. 保存用户消息。
-3. 读取用户资源选择。
-4. 解析 MCP、Skill、Subagent 资源。
-5. 读取启用的运行时工具资源。
+3. 读取用户选择的知识库范围。
+4. 读取扩展管理中启用的 MCP、Skill 和 Tool 资源。
+5. 按当前用户过滤私有 Skill。
 6. 构建 `AgentContext`。
 7. 调用 `create_agent` 生成的 agent。
 8. 保存 assistant 回复和工具调用事件。
@@ -176,9 +176,9 @@ http://localhost:5173
 
 当前核心表：
 
-- `plugin_resources`：MCP、Skill、Subagent 元数据。
+- `plugin_resources`：MCP、Skill、Tool 元数据。
 - `plugin_resources(kind=tool)`：运行时工具元数据，例如 `tavily_search`。
-- `user_selections`：用户选择的资源名称列表。
+- `user_selections`：用户选择的知识库 ID；旧 MCP、Skill、Subagent 列仅为现有数据库兼容保留。
 - `conversations`：对话会话元信息。
 - `conversation_messages`：对话消息明细。
 - `knowledge_bases`：知识库元信息。

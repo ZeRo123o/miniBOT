@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.plugins.registry import list_enabled_resources, resolve_resources_by_name
+from app.plugins.registry import list_enabled_resources
 
 
 class ResourceService:
@@ -9,17 +9,10 @@ class ResourceService:
         self.db = db
 
     async def resolve_for_selection(self, selection: dict) -> dict[str, list[dict]]:
-        """解析 MCP、Skill、Subagent，并读取所有启用的运行时工具。"""
+        """读取扩展管理中启用的 MCP、Skill 和运行时工具。"""
         user_key = selection.get("user_key")
         return {
-            "mcps": await resolve_resources_by_name(
-                self.db, kind="mcp", names=selection["mcps"], user_key=user_key
-            ),
-            "skills": await resolve_resources_by_name(
-                self.db, kind="skill", names=selection["skills"], user_key=user_key
-            ),
-            "subagents": await resolve_resources_by_name(
-                self.db, kind="subagent", names=selection["subagents"], user_key=user_key
-            ),
-            "tools": await list_enabled_resources(self.db, kind="tool"),
+            "mcps": await list_enabled_resources(self.db, kind="mcp", user_key=user_key),
+            "skills": await list_enabled_resources(self.db, kind="skill", user_key=user_key),
+            "tools": await list_enabled_resources(self.db, kind="tool", user_key=user_key),
         }
