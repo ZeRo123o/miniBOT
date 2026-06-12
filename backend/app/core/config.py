@@ -60,6 +60,14 @@ class Settings(BaseSettings):
     runtime_skill_imports_dir: str = "./data/skill-imports"
     runtime_skills_dir: str = "./data/skills"
     runtime_timezone: str = "Asia/Shanghai"
+    sandbox_enabled: bool = True
+    sandbox_provisioner_url: str = "http://localhost:8002"
+    sandbox_internal_token: str = "minibot-sandbox-dev-token"
+    sandbox_data_dir: str = "./data/runtime"
+    sandbox_exec_timeout_seconds: int = 180
+    sandbox_keepalive_interval_seconds: int = 30
+    sandbox_max_output_bytes: int = 262144
+    sandbox_max_write_bytes: int = 81920
     summary_context_window_tokens: int = 128000
     summary_trigger_ratio: float = 0.7
     summary_trigger_tokens: int = 90000

@@ -29,10 +29,10 @@ miniBOT 是一个受 YUXI 资源编排思路启发的小型全栈脚手架：前
 
 ## 2. 开发与调试流程
 
-启动 PostgreSQL 和 MinIO：
+启动 PostgreSQL、MinIO 和 Agent 沙盒 provisioner：
 
 ```powershell
-docker compose up -d postgres minio
+docker compose up -d postgres minio sandbox-provisioner
 ```
 
 启动后端：
@@ -78,6 +78,22 @@ MINIBOT_TAVILY_API_KEY=your_tavily_api_key
 MINIBOT_RUNTIME_TOOL_CALL_LIMIT=3
 ```
 
+沙盒配置：
+
+```env
+MINIBOT_SANDBOX_ENABLED=true
+MINIBOT_SANDBOX_PROVISIONER_URL=http://localhost:8002
+MINIBOT_SANDBOX_INTERNAL_TOKEN=minibot-sandbox-dev-token
+MINIBOT_SANDBOX_DATA_DIR=./data/runtime
+MINIBOT_SANDBOX_EXEC_TIMEOUT_SECONDS=180
+MINIBOT_SANDBOX_KEEPALIVE_INTERVAL_SECONDS=30
+MINIBOT_SANDBOX_MAX_OUTPUT_BYTES=262144
+MINIBOT_SANDBOX_MAX_WRITE_BYTES=81920
+```
+
+非本地开发环境必须替换默认 `MINIBOT_SANDBOX_INTERNAL_TOKEN`，并确保后端与
+`sandbox-provisioner` 使用相同值。
+
 启动前端：
 
 ```powershell
@@ -121,6 +137,13 @@ http://localhost:5173
 - 大模型接入放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 agent graph。
 - 运行时工具统一放在 `backend/app/agents/toolkits`：`registry.py` 自动注册可信 Tool，`resolver.py` 将已授权资源解析为具体 LangChain Tool，`governance.py` 负责事件记录，`RuntimeConfigMiddleware` 在每次模型调用前按 `AgentContext.tools` 筛选并提供给模型，工具调用上限由统一的 `ToolCallLimitMiddleware` 负责。
 - 系统内置工具放在 `backend/app/agents/toolkits/buildin`，使用 `registry.py` 提供的 YUXI 风格 `@tool(category=..., tags=..., display_name=...)` 注册，模块导入时自动收集具体 LangChain Tool。
+- Agent 沙盒抽象、路径和生命周期放在 `backend/app/agents/sandbox`；工具层不能直接调用 Docker SDK 或拼接宿主机路径。
+- 沙盒文件工具放在 `backend/app/agents/toolkits/sandbox`，当前只提供 `read_file`、`write_file`、`ls`、`glob`、`grep` 对应的受控能力，不提供宿主机执行模式。
+- 沙盒按 `user_key + conversation_id` 隔离并延迟创建；`workspace` 为用户级共享目录，`uploads`、`outputs` 和只读 `skills` 为会话级目录。
+- Agent 只使用 `/mnt/user-data/workspace`、`/mnt/user-data/uploads`、`/mnt/user-data/outputs`、`/mnt/skills` 虚拟路径，不得向模型暴露宿主机真实路径。
+- `uploads` 和 `skills` 必须只读挂载；只有 `workspace` 与 `outputs` 可写。最终交付物必须写入 outputs，再通过 `present_artifacts` 展示。
+- Docker 容器创建和回收由 `docker/sandbox_provisioner` 独立服务负责，后端只通过带内部 token 的 HTTP API 获取沙盒。
+- 当前沙盒不实现本地宿主机执行、通用 Bash、warm pool 或 Kubernetes backend；新增这些能力前必须单独评估权限、网络和资源限制。
 - `seed_builtin_resources` 会从全局工具注册表自动同步 `category="buildin"` 的资源元数据；内置工具首次注册或默认策略版本迁移时开启，并保留管理员后续设置的启用状态。
 - 新增内置工具时必须定义独立输入 schema；`PluginResource.name` 必须与 Registry 中的稳定工具名一致，数据库配置不能直接指定任意 Python 执行器。
 - 模型用途通过 `model_use` 区分，当前支持 `chat_model`，预留 `deep_research_model`。

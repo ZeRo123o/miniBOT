@@ -43,6 +43,19 @@ def build_runtime_prompt(context: Any) -> str:
             "- 严格按照工具参数说明构造调用参数，不要调用未提供的工具。\n"
             "- 工具结果只作为上下文，最终回答仍需要你归纳整理。"
         )
+    tool_names = {
+        str(item.get("name") or "")
+        for item in _get_value(context, "tools", [])
+    }
+    if any(name.startswith("sandbox_") for name in tool_names):
+        parts.append(
+            "沙盒文件策略:\n"
+            "- 只使用 /mnt/user-data/workspace、/mnt/user-data/uploads、"
+            "/mnt/user-data/outputs 和 /mnt/skills 虚拟路径。\n"
+            "- uploads 和 skills 只读；中间文件写入 workspace，最终交付物写入 outputs。\n"
+            "- 生成最终文件后，使用 present_artifacts 展示 outputs 中的文件。\n"
+            "- 不要猜测或泄漏宿主机真实路径。"
+        )
     if _get_value(context, "knowledge_base_ids", []):
         parts.append(
             "知识库工具调用策略:\n"

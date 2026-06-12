@@ -11,6 +11,7 @@ from app.agents.middlewares import (
     KnowledgeBaseMiddleware,
     RuntimeConfigMiddleware,
     RuntimePromptMiddleware,
+    SandboxMiddleware,
     SkillPromptMiddleware,
     SummaryMiddleware,
 )
@@ -27,6 +28,7 @@ def build_chat_agent(context: AgentContext | None = None) -> Any:
         system_prompt=build_system_prompt(agent_context),
         middleware=[
             RuntimeConfigMiddleware(runtime_tools),
+            SandboxMiddleware(),
             KnowledgeBaseMiddleware(),
             ToolCallLimitMiddleware(
                 run_limit=agent_context.max_tool_calls,

@@ -1,7 +1,5 @@
 import json
-import hashlib
 import logging
-from pathlib import Path
 from typing import Annotated, Any
 
 import httpx
@@ -13,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.toolkits.registry import get_tool_config, tool
 from app.agents.toolkits.governance import fail_tool_call, finish_tool_call, start_tool_call
+from app.agents.sandbox.paths import VIRTUAL_OUTPUTS_ROOT, resolve_host_path
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,9 @@ logger = logging.getLogger(__name__)
 class PresentArtifactsInput(BaseModel):
     """需要展示给用户的交付物路径。"""
 
-    filepaths: list[str] = Field(description="需要展示给用户的文件绝对路径列表")
+    filepaths: list[str] = Field(
+        description="位于 /mnt/user-data/outputs 下的沙盒绝对路径列表"
+    )
 
 
 class TavilySearchInput(BaseModel):
@@ -38,42 +39,36 @@ def _runtime_context(runtime: ToolRuntime | None) -> Any:
 
 
 def _normalize_presented_artifact_path(filepath: str, runtime: ToolRuntime) -> str:
-    """只允许展示当前用户和会话 outputs 目录下的普通文件。"""
+    """只允许展示当前会话沙盒 outputs 目录中的普通文件。"""
     context = _runtime_context(runtime)
     user_key = str(getattr(context, "user_key", "") or "").strip()
     conversation_id = getattr(context, "conversation_id", None)
     if not user_key or conversation_id is None:
         raise ValueError("当前运行时缺少用户或会话信息")
 
-    settings = get_settings()
-    user_segment = f"user-{hashlib.sha256(user_key.encode('utf-8')).hexdigest()[:12]}"
-    outputs_dir = (
-        Path(settings.runtime_outputs_dir)
-        .expanduser()
-        .resolve()
-        / user_segment
-        / str(conversation_id)
-    )
-    outputs_dir.mkdir(parents=True, exist_ok=True)
-
     normalized = str(filepath or "").strip()
     if not normalized:
         raise ValueError("文件路径不能为空")
 
-    actual_path = Path(normalized).expanduser().resolve()
+    if not (
+        normalized == VIRTUAL_OUTPUTS_ROOT
+        or normalized.startswith(f"{VIRTUAL_OUTPUTS_ROOT}/")
+    ):
+        raise ValueError(f"只允许展示 {VIRTUAL_OUTPUTS_ROOT} 下的文件")
+    actual_path = resolve_host_path(
+        user_key,
+        int(conversation_id),
+        normalized,
+    )
     if not actual_path.is_file():
         raise ValueError(f"文件不存在或不是普通文件: {normalized}")
-    try:
-        actual_path.relative_to(outputs_dir)
-    except ValueError as exc:
-        raise ValueError(f"只允许展示当前会话 outputs 目录下的文件: {outputs_dir}") from exc
     return str(actual_path)
 
 
 PRESENT_ARTIFACTS_DESCRIPTION = """
 将已经生成好的结果文件展示给用户。
 
-只能传入当前会话 outputs 目录下的最终交付物，不要传入中间过程文件。
+只能传入 /mnt/user-data/outputs 下的最终交付物，不要传入中间过程文件。
 """
 
 

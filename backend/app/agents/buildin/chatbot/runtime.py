@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from app.agents.buildin.chatbot.context import AgentContext
 from app.agents.buildin.chatbot.graph import build_chat_agent
 from app.agents.runtime_base import BaseChatRuntime, RuntimeResult
+from app.agents.skills import build_skill_runtime_snapshot
 from app.core.config import get_settings
 from app.llm.factory import CHAT_MODEL
 
@@ -98,6 +99,7 @@ class AgentRuntime(BaseChatRuntime):
             conversation_id,
             knowledge_base_ids,
         )
+        skill_snapshot = build_skill_runtime_snapshot(resources["skills"])
         return AgentContext(
             user_key=user_key,
             conversation_id=conversation_id,
@@ -107,6 +109,7 @@ class AgentRuntime(BaseChatRuntime):
             timezone=settings.runtime_timezone,
             mcps=resources["mcps"],
             skills=resources["skills"],
+            skill_snapshot=skill_snapshot,
             tools=resources["tools"],
             knowledge_base_ids=knowledge_base_ids,
             max_tool_calls=settings.runtime_tool_call_limit,

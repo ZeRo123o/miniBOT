@@ -98,6 +98,39 @@ services:
       timeout: 10s
       retries: 10
 
+  sandbox-provisioner:
+    build:
+      context: ./docker/sandbox_provisioner
+    container_name: minibot-sandbox-provisioner
+    restart: unless-stopped
+    environment:
+      SANDBOX_INTERNAL_TOKEN: ${MINIBOT_SANDBOX_INTERNAL_TOKEN:-minibot-sandbox-dev-token}
+      SANDBOX_IMAGE: ${MINIBOT_SANDBOX_IMAGE:-enterprise-public-cn-beijing.cr.volces.com/vefaas-public/all-in-one-sandbox:latest}
+      SANDBOX_ADVERTISE_HOST: ${MINIBOT_SANDBOX_ADVERTISE_HOST:-localhost}
+      SANDBOX_HEALTH_HOST: host.docker.internal
+      SANDBOX_BIND_HOST: 127.0.0.1
+      SANDBOX_DOCKER_NETWORK: minibot_default
+      SANDBOX_IDLE_TIMEOUT_SECONDS: ${MINIBOT_SANDBOX_IDLE_TIMEOUT_SECONDS:-600}
+      SANDBOX_MEMORY_LIMIT: ${MINIBOT_SANDBOX_MEMORY_LIMIT:-1g}
+      SANDBOX_CPU_LIMIT: ${MINIBOT_SANDBOX_CPU_LIMIT:-1}
+      SANDBOX_PIDS_LIMIT: ${MINIBOT_SANDBOX_PIDS_LIMIT:-256}
+    ports:
+      - "127.0.0.1:8002:8002"
+    volumes:
+      - ./backend/data/runtime:/app/runtime
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+networks:
+  default:
+    name: minibot_default
+
 volumes:
   minibot-postgres-data:
   minibot-minio-data:

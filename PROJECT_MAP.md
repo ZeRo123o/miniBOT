@@ -72,11 +72,17 @@ backend/app
 |   |   |-- runtime_prompt.py  资源和工具策略增量注入
 |   |   |-- summary.py         长上下文压缩
 |   |   `-- system_message.py  system message 追加工具
+|   |-- sandbox/
+|   |   |-- client.py          provisioner 与 agent-sandbox HTTP 客户端
+|   |   |-- middleware.py      延迟创建后的 sandbox_id 状态持久化
+|   |   |-- paths.py           虚拟路径、宿主目录和 Skill 同步
+|   |   `-- provider.py        按用户和会话获取、缓存、保活沙盒
 |   `-- toolkits/
 |       |-- registry.py      YUXI 风格 @tool 注册与元数据
 |       |-- resolver.py      已授权资源到 Tool 的解析
 |       |-- governance.py    工具调用事件与结果记录
 |       |-- buildin/         系统内置工具
+|       |-- sandbox/         受控沙盒文件工具
 |       `-- kbs/             知识库工具集
 |-- core/
 |   `-- config.py            环境变量与默认配置
@@ -123,6 +129,30 @@ backend/app
     |-- types.py             资源类型和资源 schema
     `-- registry.py          内置资源种子数据与名称解析
 ```
+
+沙盒调用链：
+
+```text
+模型调用 sandbox_read_file / sandbox_write_file / sandbox_ls / sandbox_glob / sandbox_grep
+  -> SandboxMiddleware 持久化 sandbox_id
+  -> ProvisionerSandboxProvider 按 user_key + conversation_id 获取沙盒
+  -> HTTP 调用 sandbox-provisioner
+  -> provisioner 动态创建或复用 Docker 容器
+  -> agent-sandbox 文件 API 执行受控文件操作
+  -> workspace/outputs 写入宿主持久化目录
+```
+
+沙盒虚拟文件系统：
+
+```text
+/mnt/user-data/workspace   用户级共享，可写
+/mnt/user-data/uploads     会话级，只读
+/mnt/user-data/outputs     会话级，可写
+/mnt/skills                当前会话可见 Skill，只读
+```
+
+`docker/sandbox_provisioner` 是独立 FastAPI 服务，默认监听宿主机
+`127.0.0.1:8002`。管理接口需要 `X-Sandbox-Token`，动态沙盒端口也只绑定回环地址。
 
 ## 3. 前端地图
 

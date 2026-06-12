@@ -8,6 +8,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal, init_db
 from app.plugins.registry import seed_builtin_resources
+from app.agents.sandbox import shutdown_sandbox_provider
 
 
 def configure_app_logging() -> None:
@@ -27,7 +28,10 @@ async def lifespan(app: FastAPI):
     await init_db()
     async with AsyncSessionLocal() as session:
         await seed_builtin_resources(session)
-    yield
+    try:
+        yield
+    finally:
+        shutdown_sandbox_provider()
 
 
 settings = get_settings()

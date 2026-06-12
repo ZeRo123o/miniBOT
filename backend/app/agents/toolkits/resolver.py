@@ -4,6 +4,7 @@ from langchain_core.tools import BaseTool
 
 from app.agents.buildin.chatbot.context import AgentContext
 from app.agents.toolkits.registry import get_tool_instance
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +17,8 @@ def resolve_runtime_tools(context: AgentContext) -> list[BaseTool]:
     for resource in context.tools:
         name = str(resource.get("name") or "").strip()
         if not name or name in seen:
+            continue
+        if name.startswith("sandbox_") and not get_settings().sandbox_enabled:
             continue
 
         tool_instance = get_tool_instance(name)

@@ -5,11 +5,13 @@ from app.agents.middlewares.runtime_config import RuntimeConfigMiddleware
 from app.agents.middlewares.runtime_prompt import RuntimePromptMiddleware
 from app.agents.middlewares.skill_prompt import SkillPromptMiddleware
 from app.agents.middlewares.summary import SummaryMiddleware
+from app.agents.sandbox.middleware import SandboxMiddleware
 
 __all__ = [
     "KnowledgeBaseMiddleware",
     "RuntimeConfigMiddleware",
     "RuntimePromptMiddleware",
+    "SandboxMiddleware",
     "SkillPromptMiddleware",
     "SummaryMiddleware",
 ]
