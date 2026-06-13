@@ -3,8 +3,7 @@ from __future__ import annotations
 import hashlib
 import shutil
 from pathlib import Path, PurePosixPath
-from typing import Any
-
+from app.agents.skills.service import resolve_skill_dir
 from app.core.config import get_settings
 
 VIRTUAL_USER_DATA_ROOT = "/mnt/user-data"
@@ -142,22 +141,20 @@ def resolve_host_path(
 def sync_readable_skills(
     user_key: str,
     conversation_id: int,
-    skills: list[dict[str, Any]],
+    skills: list[str],
 ) -> None:
     """复制本轮已授权 Skill 到会话目录，随后由容器只读挂载。"""
     target_root = conversation_skills_dir(user_key, conversation_id)
     target_root.mkdir(parents=True, exist_ok=True)
 
     expected: set[str] = set()
-    for resource in skills:
-        config = resource.get("config") or {}
-        prompt_path = str(config.get("prompt_path") or "").strip()
-        if not prompt_path:
+    for value in skills:
+        slug = str(value or "").strip()
+        if not slug:
             continue
-        source_dir = Path(prompt_path).expanduser().resolve().parent
+        source_dir = resolve_skill_dir(slug)
         if not source_dir.is_dir():
             continue
-        slug = source_dir.name
         expected.add(slug)
         target = target_root / slug
         if target.exists():

@@ -5,9 +5,9 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from app.agents.buildin.chatbot.context import AgentContext
 from app.agents.buildin.chatbot.graph import build_chat_agent
 from app.agents.runtime_base import BaseChatRuntime, RuntimeResult
-from app.agents.skills import build_skill_runtime_snapshot
 from app.core.config import get_settings
 from app.llm.factory import CHAT_MODEL
+from app.llm.chat_model import ModelRequestTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,10 @@ class AgentRuntime(BaseChatRuntime):
     MISSING_OPENAI_API_KEY_REPLY = (
         "当前未配置模型 API Key，暂时无法调用真实大模型。\n\n"
         "请在后端 .env 中配置 MINIBOT_OPENAI_API_KEY，或将模型 provider 切换为 mock 后重试。"
+    )
+    MODEL_TIMEOUT_REPLY = (
+        "模型服务响应超时，本次请求没有完成。请稍后重试；"
+        "如果任务较复杂，可以适当提高 MINIBOT_OPENAI_TIMEOUT_SECONDS。"
     )
 
     async def _generate_result(
@@ -42,11 +46,21 @@ class AgentRuntime(BaseChatRuntime):
                 context=context,
             )
             answer = result["messages"][-1].content
+            activated_skills = self._activated_skills_from_result(result)
+            logger.info(
+                "Agent Skill run summary: user_key=%s conversation_id=%s "
+                "selected_skills=%s activated_skills=%s",
+                user_key,
+                conversation_id,
+                context.skills,
+                activated_skills,
+            )
             assistant_metadata = {
                 "workflow": "agent",
                 "resources": resources,
                 "tool_events": context.tool_events,
                 "artifacts": result.get("artifacts") or [],
+                "activated_skills": activated_skills,
             }
         except ValueError as error:
             if str(error) != self.MISSING_OPENAI_API_KEY_ERROR:
@@ -58,6 +72,19 @@ class AgentRuntime(BaseChatRuntime):
                 "workflow": "agent",
                 "error": "missing_openai_api_key",
             }
+        except ModelRequestTimeoutError:
+            logger.warning(
+                "Agent model request timed out: user_key=%s conversation_id=%s",
+                user_key,
+                conversation_id,
+            )
+            answer = self.MODEL_TIMEOUT_REPLY
+            assistant_metadata = {
+                "resources": resources,
+                "tool_events": context.tool_events,
+                "workflow": "agent",
+                "error": "model_timeout",
+            }
         return RuntimeResult(
             answer=answer,
             metadata=assistant_metadata,
@@ -66,6 +93,18 @@ class AgentRuntime(BaseChatRuntime):
                 "artifacts": assistant_metadata.get("artifacts") or [],
             },
         )
+
+    @staticmethod
+    def _activated_skills_from_result(result: dict) -> list[str]:
+        """Return unique Skill slugs activated during this agent run."""
+        activated = result.get("activated_skills") or []
+        if not isinstance(activated, list):
+            return []
+        return list(dict.fromkeys(
+            slug.strip()
+            for slug in activated
+            if isinstance(slug, str) and slug.strip()
+        ))
 
     def _collect_citations(self, tool_events: list[dict]) -> list[dict]:
         """Return unique knowledge chunks actually retrieved during this agent run."""
@@ -99,7 +138,19 @@ class AgentRuntime(BaseChatRuntime):
             conversation_id,
             knowledge_base_ids,
         )
-        skill_snapshot = build_skill_runtime_snapshot(resources["skills"])
+        skill_slugs = [
+            str(item.get("slug") or "")
+            for item in resources["skills"]
+            if item.get("slug")
+        ]
+        logger.info(
+            "Agent runtime resources: user_key=%s conversation_id=%s skills=%s tools=%s mcps=%s",
+            user_key,
+            conversation_id,
+            skill_slugs,
+            [item.get("name") for item in resources["tools"]],
+            [item.get("name") for item in resources["mcps"]],
+        )
         return AgentContext(
             user_key=user_key,
             conversation_id=conversation_id,
@@ -108,8 +159,7 @@ class AgentRuntime(BaseChatRuntime):
             current_datetime=self._current_datetime(settings.runtime_timezone),
             timezone=settings.runtime_timezone,
             mcps=resources["mcps"],
-            skills=resources["skills"],
-            skill_snapshot=skill_snapshot,
+            skills=skill_slugs,
             tools=resources["tools"],
             knowledge_base_ids=knowledge_base_ids,
             max_tool_calls=settings.runtime_tool_call_limit,

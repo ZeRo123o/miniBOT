@@ -1063,6 +1063,23 @@ textarea {
   line-height: 1.65;
 }
 
+.extension-dependencies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+
+.extension-dependencies span {
+  border: 1px solid #dce7f5;
+  border-radius: 999px;
+  background: #f7faff;
+  color: #3b5f86;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 650;
+}
+
 .extension-empty {
   display: grid;
   place-items: center;

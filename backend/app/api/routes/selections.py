@@ -7,6 +7,7 @@ from app.db.repositories import KnowledgeBaseRepository, UserSelectionRepository
 from app.db.session import get_db
 from app.plugins.registry import list_enabled_resources
 from app.plugins.types import SelectionIn
+from app.repositories.skill_repository import SkillRepository
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,10 @@ async def resolve_selection(user_key: str, db: AsyncSession = Depends(get_db)) -
         "selection": data,
         "resources": {
             "mcps": await list_enabled_resources(db, kind="mcp", user_key=user_key),
-            "skills": await list_enabled_resources(db, kind="skill", user_key=user_key),
+            "skills": [
+                skill.to_dict()
+                for skill in await SkillRepository(db).list_all()
+            ],
             "tools": await list_enabled_resources(db, kind="tool", user_key=user_key),
         },
     }

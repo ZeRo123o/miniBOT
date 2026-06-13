@@ -74,6 +74,7 @@ MINIBOT_DEEP_RESEARCH_MODEL_NAME=qwen-plus
 MINIBOT_OPENAI_API_KEY=your_api_key
 MINIBOT_OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 MINIBOT_OPENAI_TEMPERATURE=0.2
+MINIBOT_OPENAI_TIMEOUT_SECONDS=180
 MINIBOT_TAVILY_API_KEY=your_tavily_api_key
 MINIBOT_RUNTIME_TOOL_CALL_LIMIT=3
 ```
@@ -134,6 +135,10 @@ http://localhost:5173
 - 知识库工具由 `backend/app/agents/middlewares/knowledge_base.py` 注册，工具实现继续放在 `backend/app/agents/toolkits/kbs`。
 - 上下文压缩放在 `backend/app/agents/middlewares/summary.py`；默认按估算 token 达到 90K 触发，约等于 128K context window 的 70%，只做本轮请求内压缩，不持久化摘要。
 - 智能助手提示词组装放在 `backend/app/agents/buildin/chatbot/prompt.py`；基础 prompt 在 `create_agent` 时构建，资源、Skill 和工具策略由 middleware 在每次模型调用前增量追加，不要在 provider 中拼 prompt。
+- Skill 元数据存放在独立 `skills` 表中，`AgentContext.skills` 只保存 slug；不在 runtime 中预加载或缓存 Skill 元数据。`SkillsMiddleware.abefore_agent` 直接通过 Repository 加载提示元数据和依赖图、展开 `skill_dependencies`，并将 Skill 提示段合并到 `AgentContext.system_prompt`；`awrap_model_call` 再次从数据库读取依赖图并处理动态依赖；读取可见 Skill 的 `/mnt/skills/<slug>/SKILL.md` 后由同步或异步 tool wrapper 写入 `activated_skills`。`RuntimeConfigMiddleware.awrap_model_call` 每次从 context 读取最新 system prompt 并覆盖模型请求。
+- Skill 依赖必须经过 `backend/app/agents/toolkits/dependencies.py` 的 provider 和统一工具 resolver，不得绕过资源启用状态与 `allow_skill_dependency` 权限；`expose_directly=false` 的工具只允许通过 Skill 激活后暴露。
+- 内置 Skill 放在 `backend/app/agents/skills/buildin/<slug>/SKILL.md`，应用启动时自动扫描并同步资源元数据；新增内置 Skill 不要在种子函数中重复硬编码。
+- 工具调用日志统一由 `backend/app/agents/toolkits/governance.py` 记录开始、完成和失败；Skill 可见范围、激活和依赖注入由 `SkillsMiddleware` 记录。日志不得输出文件内容、完整查询正文、API key 或其他敏感参数。
 - 大模型接入放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 agent graph。
 - 运行时工具统一放在 `backend/app/agents/toolkits`：`registry.py` 自动注册可信 Tool，`resolver.py` 将已授权资源解析为具体 LangChain Tool，`governance.py` 负责事件记录，`RuntimeConfigMiddleware` 在每次模型调用前按 `AgentContext.tools` 筛选并提供给模型，工具调用上限由统一的 `ToolCallLimitMiddleware` 负责。
 - 系统内置工具放在 `backend/app/agents/toolkits/buildin`，使用 `registry.py` 提供的 YUXI 风格 `@tool(category=..., tags=..., display_name=...)` 注册，模块导入时自动收集具体 LangChain Tool。
@@ -147,11 +152,11 @@ http://localhost:5173
 - `seed_builtin_resources` 会从全局工具注册表自动同步 `category="buildin"` 的资源元数据；内置工具首次注册或默认策略版本迁移时开启，并保留管理员后续设置的启用状态。
 - 新增内置工具时必须定义独立输入 schema；`PluginResource.name` 必须与 Registry 中的稳定工具名一致，数据库配置不能直接指定任意 Python 执行器。
 - 模型用途通过 `model_use` 区分，当前支持 `chat_model`，预留 `deep_research_model`。
-- 数据库访问放在 `backend/app/db/repositories.py`。
+- 通用数据库访问放在 `backend/app/db/repositories.py`；Skill 数据访问固定放在 `backend/app/repositories/skill_repository.py`。
 - SQLAlchemy 模型放在 `backend/app/db/models.py`。
 - 请求/响应 schema 放在 `backend/app/schemas.py` 或对应资源类型模块中。
 - 资源注册、种子数据和名称解析放在 `backend/app/plugins/registry.py`。
-- 资源 `kind` 当前允许 `mcp`、`skill`、`tool`；新增类型时必须同步更新模型、schema、校验、种子数据、API 和前端选择器。
+- `plugin_resources.kind` 当前只允许 `mcp`、`tool`；Skill 使用独立表和 `/api/skills`，新增类型时必须同步更新模型、schema、校验、种子数据、API 和前端选择器。
 - `PluginResource.name` 是稳定运行时 key，`display_name` 只用于 UI 展示。
 - 当前没有迁移系统，数据库表由 `Base.metadata.create_all` 在应用启动时创建；结构变更要注意已有数据库兼容性。
 
@@ -165,8 +170,9 @@ http://localhost:5173
 
 当前主要接口：
 
-- `GET /api/resources?kind=mcp|skill|tool`
+- `GET /api/resources?kind=mcp|tool`
 - `POST /api/resources`
+- `GET /api/skills`
 - `GET /api/selections/{user_key}`
 - `PUT /api/selections/{user_key}`
 - `GET /api/selections/{user_key}/resolved`
@@ -188,8 +194,8 @@ http://localhost:5173
 1. 创建或校验会话。
 2. 保存用户消息。
 3. 读取用户选择的知识库范围。
-4. 读取扩展管理中启用的 MCP、Skill 和 Tool 资源。
-5. 按当前用户过滤私有 Skill。
+4. 读取扩展管理中启用的 MCP、Tool，以及独立 `skills` 表中的 Skill。
+5. 根据 Skill slug 构建运行时提示元数据和依赖图。
 6. 构建 `AgentContext`。
 7. 调用 `create_agent` 生成的 agent。
 8. 保存 assistant 回复和工具调用事件。
@@ -199,7 +205,8 @@ http://localhost:5173
 
 当前核心表：
 
-- `plugin_resources`：MCP、Skill、Tool 元数据。
+- `plugin_resources`：MCP、Tool 元数据。
+- `skills`：Skill 名称、描述、依赖、目录、版本、内置标记和内容哈希。
 - `plugin_resources(kind=tool)`：运行时工具元数据，例如 `tavily_search`。
 - `user_selections`：用户选择的知识库 ID；旧 MCP、Skill、Subagent 列仅为现有数据库兼容保留。
 - `conversations`：对话会话元信息。

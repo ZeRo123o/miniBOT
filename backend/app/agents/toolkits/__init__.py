@@ -2,6 +2,12 @@
 
 from app.agents.toolkits import buildin
 from app.agents.toolkits import sandbox
+from app.agents.toolkits.dependencies import register_skill_dependency_provider
 from app.agents.toolkits.resolver import resolve_runtime_tools
 
-__all__ = ["buildin", "sandbox", "resolve_runtime_tools"]
+__all__ = [
+    "buildin",
+    "sandbox",
+    "register_skill_dependency_provider",
+    "resolve_runtime_tools",
+]

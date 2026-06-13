@@ -5,6 +5,10 @@ export function listResources(kind) {
   return request(`/resources${query}`)
 }
 
+export function listSkills() {
+  return request('/skills')
+}
+
 export function upsertResource(resource) {
   return request('/resources', {
     method: 'POST',

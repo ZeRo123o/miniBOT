@@ -1,12 +1,10 @@
 import asyncio
-import hashlib
 import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 from typing import Annotated, Any
-
 from langchain.tools import InjectedToolCallId
 from langchain_core.messages import ToolMessage
 from langgraph.prebuilt.tool_node import ToolRuntime
@@ -14,9 +12,14 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 
 from app.agents.toolkits.registry import tool
+from app.agents.skills.parser import (
+    parse_skill_frontmatter,
+    skill_dependency_names,
+)
+from app.agents.skills.service import hash_skill_directory
 from app.core.config import get_settings
-from app.db.repositories import PluginResourceRepository
 from app.db.session import AsyncSessionLocal
+from app.repositories.skill_repository import SkillRepository
 from app.agents.toolkits.governance import fail_tool_call, finish_tool_call, start_tool_call
 
 MAX_SKILL_FILES = 1000
@@ -43,13 +46,8 @@ def _runtime_context(runtime: ToolRuntime | None) -> Any:
     return runtime.context if runtime is not None else None
 
 
-def _safe_user_segment(user_key: str) -> str:
-    digest = hashlib.sha256(user_key.encode("utf-8")).hexdigest()[:12]
-    return f"user-{digest}"
-
-
-def _validate_skill_dir(source_dir: Path) -> tuple[str, str]:
-    """校验 Skill 目录并返回 slug 与受限大小的 SKILL.md 内容。"""
+def _validate_skill_dir(source_dir: Path) -> tuple[str, str, dict[str, Any]]:
+    """校验 Skill 目录并返回 slug、SKILL.md 内容与 frontmatter。"""
     slug = source_dir.name.strip().lower()
     if len(slug) > 80 or not SKILL_SLUG_PATTERN.fullmatch(slug):
         raise ValueError(f"Skill slug '{slug}' 不合法，仅允许小写字母、数字和连字符")
@@ -68,7 +66,8 @@ def _validate_skill_dir(source_dir: Path) -> tuple[str, str]:
     content = skill_file.read_bytes()
     if len(content) > MAX_SKILL_PROMPT_BYTES:
         raise ValueError(f"SKILL.md 超过 {MAX_SKILL_PROMPT_BYTES} 字节限制")
-    return slug, content.decode("utf-8", errors="replace").strip()
+    instructions = content.decode("utf-8", errors="replace").strip()
+    return slug, instructions, parse_skill_frontmatter(instructions)
 
 
 def _normalize_github_source(source: str) -> str | None:
@@ -143,37 +142,33 @@ def _next_target_dir(root: Path, slug: str) -> Path:
 async def _register_installed_skill(
     *,
     source_dir: Path,
-    source: str,
     user_key: str,
 ) -> dict[str, Any]:
-    """复制 Skill 文件并注册为当前用户拥有的启用资源。"""
-    slug, instructions = _validate_skill_dir(source_dir)
+    """复制 Skill 文件并在独立 skills 表中建立索引。"""
+    slug, _instructions, metadata = _validate_skill_dir(source_dir)
     settings = get_settings()
-    user_root = (
-        Path(settings.runtime_skills_dir).expanduser().resolve()
-        / _safe_user_segment(user_key)
-    )
-    user_root.mkdir(parents=True, exist_ok=True)
-    target_dir = _next_target_dir(user_root, slug)
+    skills_root = Path(settings.runtime_skills_dir).expanduser().resolve()
+    skills_root.mkdir(parents=True, exist_ok=True)
+    target_dir = _next_target_dir(skills_root, slug)
     shutil.copytree(source_dir, target_dir)
 
-    runtime_name = f"{_safe_user_segment(user_key)}-{target_dir.name}"
+    runtime_slug = target_dir.name
     async with AsyncSessionLocal() as db:
-        resource = await PluginResourceRepository(db).upsert(
-            {
-                "kind": "skill",
-                "name": runtime_name,
-                "display_name": target_dir.name,
-                "description": f"由用户 {user_key} 安装的 Skill",
-                "enabled": True,
-                "config": {
-                    "prompt_path": str(target_dir / "SKILL.md"),
-                    "instructions": instructions,
-                    "source": source,
-                    "owner_user_key": user_key,
-                    "dependencies": {"mcps": [], "skills": [], "tools": []},
-                },
-            }
+        resource = await SkillRepository(db).create(
+            slug=runtime_slug,
+            name=str(metadata.get("name") or runtime_slug),
+            description=str(
+                metadata.get("description")
+                or f"由用户 {user_key} 安装的 Skill"
+            ),
+            tool_dependencies=skill_dependency_names(metadata, "tools"),
+            mcp_dependencies=skill_dependency_names(metadata, "mcps"),
+            skill_dependencies=skill_dependency_names(metadata, "skills"),
+            dir_path=runtime_slug,
+            version=str(metadata.get("version") or "").strip() or None,
+            is_builtin=False,
+            content_hash=hash_skill_directory(target_dir),
+            created_by=user_key,
         )
 
         return resource.to_dict()
@@ -193,7 +188,6 @@ async def _prepare_and_install(
             return [
                 await _register_installed_skill(
                     source_dir=item,
-                    source=source,
                     user_key=user_key,
                 )
                 for item in sources
@@ -203,7 +197,6 @@ async def _prepare_and_install(
     return [
         await _register_installed_skill(
             source_dir=local_source,
-            source=source,
             user_key=user_key,
         )
     ]
@@ -249,13 +242,21 @@ async def install_skill(
         )
 
     if context is not None and isinstance(getattr(context, "skills", None), list):
-        existing = {item.get("name") for item in context.skills}
-        context.skills.extend(item for item in resources if item.get("name") not in existing)
+        existing = set(context.skills)
+        context.skills.extend(
+            item["slug"] for item in resources if item["slug"] not in existing
+        )
+        from app.agents.sandbox.paths import sync_readable_skills
 
-    installed_names = [item["name"] for item in resources]
+        conversation_id = getattr(context, "conversation_id", None)
+        if conversation_id is not None:
+            sync_readable_skills(user_key, int(conversation_id), context.skills)
+
+    installed_names = [item["slug"] for item in resources]
     finish_tool_call(event, installed_skills=installed_names)
     return Command(
         update={
+            "activated_skills": installed_names,
             "messages": [
                 ToolMessage(
                     content=f"成功安装并激活 Skill: {', '.join(installed_names)}",

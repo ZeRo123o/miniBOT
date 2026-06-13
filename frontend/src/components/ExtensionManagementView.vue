@@ -1,7 +1,7 @@
 <script setup>
 import { Blocks, Plug, Search, Wrench } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
-import { listResources, upsertResource } from '../apis/resources'
+import { listResources, listSkills, upsertResource } from '../apis/resources'
 
 const categories = [
   { key: 'tool', label: '工具', icon: Wrench },
@@ -20,6 +20,31 @@ const loading = ref(false)
 const updatingName = ref('')
 const errorMessage = ref('')
 
+function dependencyItems(resource) {
+  const dependencies = resource.kind === 'skill'
+    ? {
+        tools: resource.tool_dependencies || [],
+        mcps: resource.mcp_dependencies || [],
+        skills: resource.skill_dependencies || [],
+      }
+    : resource.config?.dependencies || {}
+  return [
+    ...(dependencies.tools || []).map((name) => ({ kind: 'Tool', name })),
+    ...(dependencies.mcps || []).map((name) => ({ kind: 'MCP', name })),
+    ...(dependencies.skills || []).map((name) => ({ kind: 'Skill', name })),
+  ]
+}
+
+function resourceKey(resource) {
+  return resource.kind === 'skill' ? resource.slug : resource.name
+}
+
+function resourceTitle(resource) {
+  return resource.kind === 'skill'
+    ? resource.name || resource.slug
+    : resource.display_name || resource.name
+}
+
 const activeConfig = computed(
   () => categories.find((category) => category.key === activeCategory.value) || categories[0],
 )
@@ -29,7 +54,7 @@ const filteredResources = computed(() => {
   const resources = resourcesByKind.value[activeCategory.value] || []
   if (!query) return resources
   return resources.filter((resource) =>
-    [resource.name, resource.display_name, resource.description]
+    [resourceKey(resource), resourceTitle(resource), resource.description]
       .some((value) => String(value || '').toLowerCase().includes(query)),
   )
 })
@@ -39,10 +64,16 @@ async function loadResources() {
   errorMessage.value = ''
   try {
     const results = await Promise.all(
-      categories.map((category) => listResources(category.key)),
+      categories.map((category) =>
+        category.key === 'skill' ? listSkills() : listResources(category.key),
+      ),
     )
     categories.forEach((category, index) => {
-      resourcesByKind.value[category.key] = results[index]
+      resourcesByKind.value[category.key] = results[index].map((resource) => ({
+        ...resource,
+        kind: category.key,
+        enabled: category.key === 'skill' ? true : resource.enabled,
+      }))
     })
   } catch (error) {
     errorMessage.value = error.message
@@ -52,6 +83,7 @@ async function loadResources() {
 }
 
 async function toggleResource(resource) {
+  if (resource.kind === 'skill') return
   if (updatingName.value) return
   updatingName.value = resource.name
   errorMessage.value = ''
@@ -117,7 +149,7 @@ onMounted(loadResources)
     <div v-else class="extension-grid">
       <article
         v-for="resource in filteredResources"
-        :key="`${resource.kind}:${resource.name}`"
+        :key="`${resource.kind}:${resourceKey(resource)}`"
         class="extension-card"
         :class="{ disabled: !resource.enabled }"
       >
@@ -126,11 +158,12 @@ onMounted(loadResources)
             <component :is="activeConfig.icon" :size="20" />
           </div>
           <button
+            v-if="resource.kind !== 'skill'"
             class="extension-switch"
             type="button"
             role="switch"
             :aria-checked="resource.enabled"
-            :aria-label="`${resource.enabled ? '停用' : '启用'} ${resource.display_name}`"
+            :aria-label="`${resource.enabled ? '停用' : '启用'} ${resourceTitle(resource)}`"
             :disabled="updatingName === resource.name"
             :class="{ active: resource.enabled }"
             @click="toggleResource(resource)"
@@ -140,7 +173,7 @@ onMounted(loadResources)
         </header>
         <div class="extension-card-body">
           <div class="extension-name-row">
-            <h3>{{ resource.display_name || resource.name }}</h3>
+            <h3>{{ resourceTitle(resource) }}</h3>
             <div class="extension-badges">
               <span
                 v-if="resource.kind === 'tool' && resource.config?.category === 'buildin'"
@@ -148,13 +181,30 @@ onMounted(loadResources)
               >
                 内置工具
               </span>
+              <span
+                v-if="resource.kind === 'skill' && resource.is_builtin"
+                class="builtin"
+              >
+                内置 Skill
+              </span>
               <span :class="{ enabled: resource.enabled }">
-                {{ resource.enabled ? '已启用' : '已停用' }}
+                {{ resource.kind === 'skill' ? '可用' : (resource.enabled ? '已启用' : '已停用') }}
               </span>
             </div>
           </div>
-          <code>{{ resource.name }}</code>
+          <code>{{ resourceKey(resource) }}</code>
           <p>{{ resource.description || '暂无描述。' }}</p>
+          <div
+            v-if="resource.kind === 'skill' && dependencyItems(resource).length"
+            class="extension-dependencies"
+          >
+            <span
+              v-for="dependency in dependencyItems(resource)"
+              :key="`${dependency.kind}:${dependency.name}`"
+            >
+              {{ dependency.kind }} · {{ dependency.name }}
+            </span>
+          </div>
         </div>
       </article>
     </div>

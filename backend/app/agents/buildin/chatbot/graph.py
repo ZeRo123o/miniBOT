@@ -12,7 +12,7 @@ from app.agents.middlewares import (
     RuntimeConfigMiddleware,
     RuntimePromptMiddleware,
     SandboxMiddleware,
-    SkillPromptMiddleware,
+    SkillsMiddleware,
     SummaryMiddleware,
 )
 from app.llm import get_model
@@ -21,7 +21,16 @@ from app.llm import get_model
 def build_chat_agent(context: AgentContext | None = None) -> Any:
     """根据运行时上下文创建 chat agent，并通过 middleware 提供具体工具。"""
     agent_context = context or AgentContext()
-    runtime_tools = resolve_runtime_tools(agent_context)
+    candidate_tool_names = [
+        str(resource.get("name") or "")
+        for resource in agent_context.tools
+        if resource.get("name")
+        and (resource.get("config") or {}).get("allow_skill_dependency", True) is not False
+    ]
+    runtime_tools = resolve_runtime_tools(
+        agent_context,
+        extra_tool_names=candidate_tool_names,
+    )
     return create_agent(
         model=get_model(agent_context.model_use),
         tools=[],
@@ -34,7 +43,7 @@ def build_chat_agent(context: AgentContext | None = None) -> Any:
                 run_limit=agent_context.max_tool_calls,
                 exit_behavior="continue",
             ),
-            SkillPromptMiddleware(),
+            SkillsMiddleware(skills_context_name="skills"),
             SummaryMiddleware(),
             RuntimePromptMiddleware(),
         ],

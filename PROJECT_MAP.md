@@ -24,7 +24,7 @@ miniBOT
   -> AgentRuntime
   -> 保存 user message
   -> 读取历史消息和知识库选择
-  -> 读取扩展管理中启用的 MCP / Skill / Tool
+  -> 读取扩展管理中启用的 MCP / Tool 和独立 skills 表
   -> 创建 AgentContext
   -> create_agent 构建基础 prompt + middleware 增量追加运行时提示词
   -> RuntimeConfigMiddleware 按上下文提供具体 LangChain Tools
@@ -68,10 +68,14 @@ backend/app
 |   |-- middlewares/
 |   |   |-- knowledge_base.py  知识库工具注入中间件
 |   |   |-- runtime_config.py  运行时工具注册与模型可见性筛选
-|   |   |-- skill_prompt.py    Skill 提示词增量注入
+|   |   |-- Skills_middleware.py  Skill DB 加载、摘要注入、读取激活和依赖按需加载
 |   |   |-- runtime_prompt.py  资源和工具策略增量注入
 |   |   |-- summary.py         长上下文压缩
 |   |   `-- system_message.py  system message 追加工具
+|   |-- skills/
+|   |   |-- parser.py          SKILL.md frontmatter 与依赖解析
+|   |   |-- service.py         Skill 目录校验、哈希、安装和内置同步
+|   |   `-- buildin/           随应用发布并在启动时自动同步的内置 Skills
 |   |-- sandbox/
 |   |   |-- client.py          provisioner 与 agent-sandbox HTTP 客户端
 |   |   |-- middleware.py      延迟创建后的 sandbox_id 状态持久化
@@ -80,6 +84,7 @@ backend/app
 |   `-- toolkits/
 |       |-- registry.py      YUXI 风格 @tool 注册与元数据
 |       |-- resolver.py      已授权资源到 Tool 的解析
+|       |-- dependencies.py  Skill Tool/MCP 依赖 provider 注册与解析
 |       |-- governance.py    工具调用事件与结果记录
 |       |-- buildin/         系统内置工具
 |       |-- sandbox/         受控沙盒文件工具
@@ -91,6 +96,7 @@ backend/app
 |   `-- routes/
 |       |-- health.py
 |       |-- resources.py
+|       |-- skills.py
 |       |-- selections.py
 |       |-- conversations.py
 |       `-- chat.py
@@ -98,6 +104,8 @@ backend/app
 |   |-- session.py           async engine、session、create_all
 |   |-- models.py            SQLAlchemy 模型
 |   `-- repositories.py      数据访问层
+|-- repositories/
+|   `-- skill_repository.py  独立 skills 表的数据访问
 |-- services/
 |   |-- conversation_service.py  会话和消息业务服务
 |   |-- knowledge_service.py     知识库、文档上传和解析编排服务
@@ -211,7 +219,7 @@ frontend
 ```text
 ConversationService  会话创建、消息保存、历史消息转换、聊天响应构造
 SelectionService     用户知识库选择读取和默认值处理
-ResourceService      已启用 MCP / Skill / Tool 资源解析
+ResourceService      已启用 MCP / Tool 与独立 Skill 资源解析
 ```
 
 `agents/buildin/chatbot/graph.py` 只负责智能助手 agent 构建：
@@ -248,10 +256,20 @@ kbs/tools.py              list_kbs / query_kb
 RuntimeConfigMiddleware    按 AgentContext.tools 筛选模型本轮可见的具体工具
 ToolCallLimitMiddleware    统一限制单次 Agent 运行的工具调用总数
 KnowledgeBaseMiddleware    注册 list_kbs / query_kb 知识库工具
-SkillPromptMiddleware      每次模型调用前增量追加 Skill 元数据提示段
+SkillsMiddleware          生命周期内直接查询 Skill Repository，注入 prompt、展开依赖并处理动态激活
+RuntimeConfigMiddleware   每次模型调用读取 context.system_prompt，并覆盖本次模型请求
 SummaryMiddleware          估算 token 达到 90K 时压缩历史，只保留摘要和最近消息
 RuntimePromptMiddleware    每次模型调用前增量追加资源和工具策略
 ```
+
+Skill 依赖工具配置：
+
+```text
+allow_skill_dependency=false  禁止该 Tool 被 Skill 依赖激活
+expose_directly=false         不直接暴露给模型，仅在 Skill 激活后按需暴露
+```
+
+旧 Tool 未配置这两个字段时均按 `true` 处理，保持原有运行行为。
 
 `llm/` 负责模型管理：
 
@@ -262,6 +280,9 @@ mock                   本地开发默认模型
 openai-compatible      兼容 OpenAI Chat Completions 的模型服务
 ```
 
+OpenAI-compatible 模型读取超时由 `MINIBOT_OPENAI_TIMEOUT_SECONDS` 控制，
+默认 180 秒；超时会转换为可保存、可返回的 `model_timeout` 结果。
+
 ## 5. 数据库地图
 
 模型定义：`backend/app/db/models.py`
@@ -270,6 +291,7 @@ openai-compatible      兼容 OpenAI Chat Completions 的模型服务
 
 ```text
 plugin_resources
+skills
 user_selections
 conversations
 conversation_messages
@@ -284,8 +306,9 @@ user_selections.knowledge_base_ids
 
 ```text
 GET    /api/health
-GET    /api/resources?kind=mcp|skill|tool
+GET    /api/resources?kind=mcp|tool
 POST   /api/resources
+GET    /api/skills
 GET    /api/selections/{user_key}
 PUT    /api/selections/{user_key}
 GET    /api/selections/{user_key}/resolved

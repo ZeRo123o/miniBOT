@@ -1,9 +1,6 @@
 from dataclasses import dataclass, field
 
 from app.agents.buildin.chatbot.prompt import DEFAULT_SYSTEM_PROMPT
-from app.agents.skills import SkillRuntimeSnapshot
-
-
 @dataclass(kw_only=True)
 class AgentContext:
     user_key: str = "default"
@@ -13,8 +10,7 @@ class AgentContext:
     current_datetime: str = ""
     timezone: str = "Asia/Shanghai"
     mcps: list[dict] = field(default_factory=list)
-    skills: list[dict] = field(default_factory=list)
-    skill_snapshot: SkillRuntimeSnapshot = field(default_factory=SkillRuntimeSnapshot)
+    skills: list[str] = field(default_factory=list)
     tools: list[dict] = field(default_factory=list)
     knowledge_base_ids: list[int] = field(default_factory=list)
     tool_events: list[dict] = field(default_factory=list)

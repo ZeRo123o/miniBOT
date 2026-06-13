@@ -66,27 +66,6 @@ def build_runtime_prompt(context: Any) -> str:
     return "\n\n".join(parts)
 
 
-def build_skill_prompt(context: Any) -> str:
-    """生成 Skill 元数据提示段，具体能力仍由对应运行时资源提供。"""
-    skills = _get_value(context, "skills", [])
-    lines = []
-    for item in skills:
-        name = item.get("display_name") or item.get("name", "")
-        runtime_name = item.get("name", "")
-        if not runtime_name:
-            continue
-        description = str(item.get("description") or "").strip()
-        label = f"{name} (`{runtime_name}`)" if name != runtime_name else f"`{runtime_name}`"
-        line = f"- {label}: {description}" if description else f"- {label}"
-        instructions = str((item.get("config") or {}).get("instructions") or "").strip()
-        if instructions:
-            line = f"{line}\n\n{instructions}"
-        lines.append(line)
-    if not lines:
-        return ""
-    return "当前启用 Skills:\n" + "\n".join(lines)
-
-
 def build_time_context(context: Any) -> str:
     """根据运行时上下文生成当前时间说明，约束模型处理相对时间。"""
     current_datetime = _get_value(context, "current_datetime", "")

@@ -47,6 +47,45 @@ class PluginResource(Base, TimestampMixin):
         }
 
 
+class Skill(Base, TimestampMixin):
+    """Skill metadata index; complete Skill content remains on disk."""
+
+    __tablename__ = "skills"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    slug: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    tool_dependencies: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    mcp_dependencies: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    skill_dependencies: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    dir_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    content_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "slug": self.slug,
+            "name": self.name,
+            "description": self.description,
+            "tool_dependencies": self.tool_dependencies or [],
+            "mcp_dependencies": self.mcp_dependencies or [],
+            "skill_dependencies": self.skill_dependencies or [],
+            "dir_path": self.dir_path,
+            "version": self.version,
+            "is_builtin": self.is_builtin,
+            "content_hash": self.content_hash,
+            "created_by": self.created_by,
+            "updated_by": self.updated_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class UserSelection(Base, TimestampMixin):
     __tablename__ = "user_selections"
 

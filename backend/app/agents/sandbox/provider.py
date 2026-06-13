@@ -50,7 +50,7 @@ class ProvisionerSandboxProvider:
         *,
         user_key: str,
         conversation_id: int,
-        skills: list[dict] | None = None,
+        skills: list[str] | None = None,
     ) -> SandboxConnection:
         if not self._settings.sandbox_enabled:
             raise RuntimeError("sandbox is disabled")

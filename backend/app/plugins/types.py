@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 
 class ResourceKind(StrEnum):
     mcp = "mcp"
-    skill = "skill"
     tool = "tool"
 
 

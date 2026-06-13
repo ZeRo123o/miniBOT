@@ -2,7 +2,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from app.plugins.types import PluginResourceOut, SelectionOut
+from app.plugins.types import SelectionOut
 
 
 class ChatRequest(BaseModel):
@@ -14,7 +14,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     selection: SelectionOut
-    resources: dict[str, list[PluginResourceOut]]
+    resources: dict[str, list[dict[str, Any]]]
     citations: list[dict[str, Any]] = Field(default_factory=list)
     artifacts: list[str] = Field(default_factory=list)
     conversation_id: int | None = None

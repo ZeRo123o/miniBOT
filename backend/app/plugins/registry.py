@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.skills.buildin import sync_builtin_skills
 from app.db.repositories import PluginResourceRepository
 
 
@@ -20,7 +21,7 @@ async def list_enabled_resources(
 
 
 async def seed_builtin_resources(db: AsyncSession) -> None:
-    """写入内置资源种子数据，包括示例 MCP、Skill 和 Tool。"""
+    """同步内置 MCP、Tool 以及独立表中的 Skill 元数据。"""
     repo = PluginResourceRepository(db)
     # 知识库工具由独立 middleware 注入，不作为通用运行时工具资源。
     await repo.delete_by_name("tool", "knowledge_query")
@@ -33,16 +34,12 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
             "description": "Example MCP server placeholder.",
             "config": {"transport": "stdio", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"]},
         },
-        {
-            "kind": "skill",
-            "name": "reporter",
-            "display_name": "Reporter Skill",
-            "description": "Draft structured reports from gathered context.",
-            "config": {"prompt_path": "skills/reporter/SKILL.md", "dependencies": {"mcps": [], "skills": []}},
-        },
     ]
     for item in samples:
         await repo.upsert({"enabled": True, **item})
+
+    # Skill 不再写入 plugin_resources，而是同步到独立 skills 表和运行时目录。
+    await sync_builtin_skills(db)
 
     # 导入工具包触发 @tool 注册，再从代码注册表自动同步内置工具资源。
     import app.agents.toolkits  # noqa: F401
@@ -71,6 +68,8 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
         }
         default_config = {
             **tool_configs.get(tool_instance.name, {}),
+            "allow_skill_dependency": True,
+            "expose_directly": True,
             **metadata_config,
         }
         existing = await repo.get_by_name("tool", tool_instance.name)

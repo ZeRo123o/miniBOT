@@ -3,10 +3,10 @@ from __future__ import annotations
 import asyncio
 import re
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Annotated, Any
 
 from langgraph.prebuilt.tool_node import ToolRuntime
-from pydantic import BaseModel, Field
+from pydantic import Field
 
 from app.agents.sandbox.paths import (
     can_list,
@@ -24,26 +24,43 @@ from app.agents.toolkits.registry import tool
 from app.core.config import get_settings
 
 
-class SandboxPathInput(BaseModel):
-    path: str = Field(description="沙盒绝对路径，例如 /mnt/user-data/workspace")
-
-
-class SandboxWriteInput(SandboxPathInput):
-    content: str = Field(description="要写入文件的 UTF-8 文本内容")
-
-
-class SandboxGlobInput(SandboxPathInput):
-    pattern: str = Field(description="相对于 path 的 glob，例如 **/*.py")
-
-
-class SandboxGrepInput(SandboxPathInput):
-    pattern: str = Field(description="要搜索的文本或正则表达式")
-    glob: str = Field(default="**/*", description="候选文件 glob")
-    literal: bool = Field(default=True, description="是否按普通文本匹配")
+SandboxPath = Annotated[
+    str,
+    Field(description="沙盒绝对路径，例如 /mnt/user-data/workspace"),
+]
+SandboxContent = Annotated[
+    str,
+    Field(description="要写入文件的 UTF-8 文本内容"),
+]
+SandboxGlobPattern = Annotated[
+    str,
+    Field(description="相对于 path 的 glob，例如 **/*.py"),
+]
+SandboxSearchPattern = Annotated[
+    str,
+    Field(description="要搜索的文本或正则表达式"),
+]
 
 
 def _runtime_context(runtime: ToolRuntime | None) -> Any:
     return runtime.context if runtime is not None else None
+
+
+def _readable_skill_slugs(context: Any) -> list[str]:
+    """Return the Skill dependency closure prepared by SkillsMiddleware."""
+    visible_skills = getattr(context, "_visible_skills", None)
+    source = (
+        visible_skills
+        if isinstance(visible_skills, list)
+        else getattr(context, "skills", [])
+    )
+    return list(
+        dict.fromkeys(
+            slug.strip()
+            for slug in source or []
+            if isinstance(slug, str) and slug.strip()
+        )
+    )
 
 
 def _ensure_sandbox(runtime: ToolRuntime) -> SandboxConnection:
@@ -55,22 +72,14 @@ def _ensure_sandbox(runtime: ToolRuntime) -> SandboxConnection:
         raise ValueError("sandbox requires user_key and conversation_id")
 
     state = runtime.state
-    sandbox_state = state.get("sandbox") if isinstance(state, dict) else None
-    sandbox_id = (
-        sandbox_state.get("sandbox_id")
-        if isinstance(sandbox_state, dict)
-        else None
-    )
     provider = get_sandbox_provider()
-    if isinstance(sandbox_id, str):
-        current = provider.get(sandbox_id)
-        if current is not None:
-            return current
 
+    # acquire() synchronizes the latest readable Skill closure before reusing
+    # or creating the conversation-scoped sandbox.
     connection = provider.acquire(
         user_key=user_key,
         conversation_id=int(conversation_id),
-        skills=list(getattr(context, "skills", []) or []),
+        skills=_readable_skill_slugs(context),
     )
     if isinstance(state, dict):
         state["sandbox"] = {"sandbox_id": connection.sandbox_id}
@@ -104,9 +113,8 @@ def _truncate(text: str, limit: int) -> tuple[str, bool]:
     category="buildin",
     tags=["沙盒", "文件", "只读"],
     display_name="读取沙盒文件",
-    args_schema=SandboxPathInput,
 )
-async def sandbox_read_file(path: str, runtime: ToolRuntime) -> str:
+async def sandbox_read_file(path: SandboxPath, runtime: ToolRuntime) -> str:
     """读取 workspace、uploads、outputs 或 skills 中的 UTF-8 文本文件。"""
     context = _runtime_context(runtime)
     event = start_tool_call(context, tool_name="sandbox_read_file", payload={"path": path})
@@ -131,9 +139,12 @@ async def sandbox_read_file(path: str, runtime: ToolRuntime) -> str:
     category="buildin",
     tags=["沙盒", "文件", "写入"],
     display_name="写入沙盒文件",
-    args_schema=SandboxWriteInput,
 )
-async def sandbox_write_file(path: str, content: str, runtime: ToolRuntime) -> str:
+async def sandbox_write_file(
+    path: SandboxPath,
+    content: SandboxContent,
+    runtime: ToolRuntime,
+) -> str:
     """将文本写入 workspace 或 outputs，已存在文件会被覆盖。"""
     context = _runtime_context(runtime)
     content_bytes = len(content.encode("utf-8"))
@@ -165,9 +176,8 @@ async def sandbox_write_file(path: str, content: str, runtime: ToolRuntime) -> s
     category="buildin",
     tags=["沙盒", "文件", "目录"],
     display_name="列出沙盒目录",
-    args_schema=SandboxPathInput,
 )
-async def sandbox_ls(path: str, runtime: ToolRuntime) -> str:
+async def sandbox_ls(path: SandboxPath, runtime: ToolRuntime) -> str:
     """列出受控沙盒目录的直接子项。"""
     context = _runtime_context(runtime)
     event = start_tool_call(context, tool_name="sandbox_ls", payload={"path": path})
@@ -200,9 +210,12 @@ async def sandbox_ls(path: str, runtime: ToolRuntime) -> str:
     category="buildin",
     tags=["沙盒", "文件", "搜索"],
     display_name="匹配沙盒文件",
-    args_schema=SandboxGlobInput,
 )
-async def sandbox_glob(path: str, pattern: str, runtime: ToolRuntime) -> str:
+async def sandbox_glob(
+    path: SandboxPath,
+    pattern: SandboxGlobPattern,
+    runtime: ToolRuntime,
+) -> str:
     """在受控目录下按 glob 查找文件。"""
     context = _runtime_context(runtime)
     event = start_tool_call(
@@ -237,18 +250,15 @@ async def sandbox_glob(path: str, pattern: str, runtime: ToolRuntime) -> str:
     category="buildin",
     tags=["沙盒", "文件", "搜索"],
     display_name="搜索沙盒文件内容",
-    args_schema=SandboxGrepInput,
 )
 async def sandbox_grep(
-    path: str,
-    pattern: str,
-    glob: str = "**/*",
-    literal: bool = True,
-    runtime: ToolRuntime | None = None,
+    path: SandboxPath,
+    pattern: SandboxSearchPattern,
+    runtime: ToolRuntime,
+    glob: Annotated[str, Field(description="候选文件 glob")] = "**/*",
+    literal: Annotated[bool, Field(description="是否按普通文本匹配")] = True,
 ) -> str:
     """搜索受控目录中的文本文件，最多返回 100 行匹配。"""
-    if runtime is None:
-        return "Error: tool runtime is unavailable"
     context = _runtime_context(runtime)
     event = start_tool_call(
         context,

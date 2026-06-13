@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any
 
 import httpx
@@ -12,6 +13,12 @@ from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import Field
 
+logger = logging.getLogger(__name__)
+
+
+class ModelRequestTimeoutError(RuntimeError):
+    """OpenAI-compatible 模型服务在配置的读取超时内未返回。"""
+
 
 class MiniBotChatModel(BaseChatModel):
     provider: str = "mock"
@@ -19,6 +26,7 @@ class MiniBotChatModel(BaseChatModel):
     api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
     temperature: float = 0.2
+    timeout_seconds: float = 180.0
     tools: list[dict[str, Any]] = Field(default_factory=list)
     tool_choice: str | dict[str, Any] | None = None
 
@@ -92,27 +100,53 @@ class MiniBotChatModel(BaseChatModel):
 
     def _openai_compatible_result(self, messages: list[BaseMessage]) -> ChatResult:
         """同步调用 OpenAI-compatible chat completions 接口。"""
-        with httpx.Client(timeout=60) as client:
-            response = client.post(
-                f"{self.base_url.rstrip('/')}/chat/completions",
-                json=self._openai_payload(messages),
-                headers=self._openai_headers(),
-            )
-            response.raise_for_status()
-            data = response.json()
+        try:
+            with httpx.Client(timeout=self._http_timeout()) as client:
+                response = client.post(
+                    f"{self.base_url.rstrip('/')}/chat/completions",
+                    json=self._openai_payload(messages),
+                    headers=self._openai_headers(),
+                )
+                response.raise_for_status()
+                data = response.json()
+        except httpx.TimeoutException as error:
+            self._raise_timeout(error)
         return self._result_from_openai_data(data)
 
     async def _aopenai_compatible_result(self, messages: list[BaseMessage]) -> ChatResult:
         """异步调用 OpenAI-compatible chat completions 接口。"""
-        async with httpx.AsyncClient(timeout=60) as client:
-            response = await client.post(
-                f"{self.base_url.rstrip('/')}/chat/completions",
-                json=self._openai_payload(messages),
-                headers=self._openai_headers(),
-            )
-            response.raise_for_status()
-            data = response.json()
+        try:
+            async with httpx.AsyncClient(timeout=self._http_timeout()) as client:
+                response = await client.post(
+                    f"{self.base_url.rstrip('/')}/chat/completions",
+                    json=self._openai_payload(messages),
+                    headers=self._openai_headers(),
+                )
+                response.raise_for_status()
+                data = response.json()
+        except httpx.TimeoutException as error:
+            self._raise_timeout(error)
         return self._result_from_openai_data(data)
+
+    def _http_timeout(self) -> httpx.Timeout:
+        """连接超时保持较短，模型生成阶段使用可配置读取超时。"""
+        return httpx.Timeout(
+            connect=min(20.0, self.timeout_seconds),
+            read=self.timeout_seconds,
+            write=30.0,
+            pool=30.0,
+        )
+
+    def _raise_timeout(self, error: httpx.TimeoutException) -> None:
+        logger.warning(
+            "Model request timed out: provider=%s model=%s timeout_seconds=%s",
+            self.provider,
+            self.model_name,
+            self.timeout_seconds,
+        )
+        raise ModelRequestTimeoutError(
+            f"模型服务在 {self.timeout_seconds:g} 秒内未返回结果"
+        ) from error
 
     def _result_from_openai_data(self, data: dict[str, Any]) -> ChatResult:
         """把 OpenAI-compatible 响应转换为 LangChain ChatResult。"""

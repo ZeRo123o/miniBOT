@@ -45,6 +45,7 @@ def get_model(model_use: str = CHAT_MODEL) -> BaseChatModel:
         api_key=settings.openai_api_key,
         base_url=settings.openai_base_url,
         temperature=settings.openai_temperature,
+        timeout_seconds=settings.openai_timeout_seconds,
     )
 
 
