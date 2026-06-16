@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.agents.toolkits.registry import get_tool_config, tool
 from app.agents.toolkits.governance import fail_tool_call, finish_tool_call, start_tool_call
-from app.agents.sandbox.paths import VIRTUAL_OUTPUTS_ROOT, resolve_host_path
+from app.agents.backends.sandbox.paths import VIRTUAL_OUTPUTS_ROOT, resolve_host_path
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)

@@ -163,11 +163,13 @@ class AgentRuntime(BaseChatRuntime):
             tools=resources["tools"],
             knowledge_base_ids=knowledge_base_ids,
             max_tool_calls=settings.runtime_tool_call_limit,
-            summary_context_window_tokens=settings.summary_context_window_tokens,
-            summary_trigger_ratio=settings.summary_trigger_ratio,
             summary_trigger_tokens=settings.summary_trigger_tokens,
+            summary_trigger_messages=settings.summary_trigger_messages,
             summary_keep_messages=settings.summary_keep_messages,
-            summary_max_chars=settings.summary_max_chars,
+            summary_trim_tokens_to_summarize=settings.summary_trim_tokens_to_summarize,
+            summary_offload_threshold_tokens=settings.summary_offload_threshold_tokens,
+            summary_offload_preview_lines=settings.summary_offload_preview_lines,
+            summary_max_retention_ratio=settings.summary_max_retention_ratio,
         )
 
     def _current_datetime(self, timezone_name: str) -> str:

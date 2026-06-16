@@ -16,8 +16,8 @@ from app.agents.middlewares.Skills_middleware import (
     _activated_skills_reducer,
     expand_skill_closure,
 )
-from app.agents.middlewares.runtime_config import RuntimeConfigMiddleware
-from app.agents.sandbox.paths import sync_readable_skills
+from app.agents.middlewares.runtime_config_middleware import RuntimeConfigMiddleware
+from app.agents.backends.sandbox.paths import sync_readable_skills
 from app.agents.skills.buildin import discover_builtin_skill_dirs
 from app.agents.skills import (
     parse_skill_frontmatter,
@@ -124,10 +124,10 @@ class SkillRuntimeTests(unittest.TestCase):
             (source / "SKILL.md").write_text("# Test", encoding="utf-8")
             target = root / "mounted"
             with patch(
-                "app.agents.sandbox.paths.conversation_skills_dir",
+                "app.agents.backends.sandbox.paths.conversation_skills_dir",
                 return_value=target,
             ), patch(
-                "app.agents.sandbox.paths.resolve_skill_dir",
+                "app.agents.backends.sandbox.paths.resolve_skill_dir",
                 return_value=source,
             ):
                 sync_readable_skills("user", 1, ["user-runtime-name"])

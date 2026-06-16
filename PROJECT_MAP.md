@@ -58,6 +58,13 @@ backend/app
 |-- schemas.py               通用请求/响应 Pydantic schema
 |-- agent/                   旧兼容入口，转发到 agents/buildin
 |-- agents/
+|   |-- backends/
+|   |   |-- filesystem.py    Agent 虚拟文件系统 backend，统一处理 `/mnt/...` 写入
+|   |   `-- sandbox/
+|   |       |-- client.py     provisioner 与 agent-sandbox HTTP 客户端
+|   |       |-- middleware.py 延迟创建后的 sandbox_id 状态持久化
+|   |       |-- paths.py      虚拟路径、宿主目录和 Skill 同步
+|   |       `-- provider.py   按用户和会话获取、缓存、保活沙盒
 |   |-- buildin/
 |   |   `-- chatbot/         智能助手
 |   |       |-- context.py   AgentContext 运行时上下文
@@ -70,17 +77,12 @@ backend/app
 |   |   |-- runtime_config.py  运行时工具注册与模型可见性筛选
 |   |   |-- Skills_middleware.py  Skill DB 加载、摘要注入、读取激活和依赖按需加载
 |   |   |-- runtime_prompt.py  资源和工具策略增量注入
-|   |   |-- summary.py         长上下文压缩
+|   |   |-- summary.py         长上下文压缩与工具结果卸载
 |   |   `-- system_message.py  system message 追加工具
 |   |-- skills/
 |   |   |-- parser.py          SKILL.md frontmatter 与依赖解析
 |   |   |-- service.py         Skill 目录校验、哈希、安装和内置同步
 |   |   `-- buildin/           随应用发布并在启动时自动同步的内置 Skills
-|   |-- sandbox/
-|   |   |-- client.py          provisioner 与 agent-sandbox HTTP 客户端
-|   |   |-- middleware.py      延迟创建后的 sandbox_id 状态持久化
-|   |   |-- paths.py           虚拟路径、宿主目录和 Skill 同步
-|   |   `-- provider.py        按用户和会话获取、缓存、保活沙盒
 |   `-- toolkits/
 |       |-- registry.py      YUXI 风格 @tool 注册与元数据
 |       |-- resolver.py      已授权资源到 Tool 的解析
@@ -258,7 +260,7 @@ ToolCallLimitMiddleware    统一限制单次 Agent 运行的工具调用总数
 KnowledgeBaseMiddleware    注册 list_kbs / query_kb 知识库工具
 SkillsMiddleware          生命周期内直接查询 Skill Repository，注入 prompt、展开依赖并处理动态激活
 RuntimeConfigMiddleware   每次模型调用读取 context.system_prompt，并覆盖本次模型请求
-SummaryMiddleware          估算 token 达到 90K 时压缩历史，只保留摘要和最近消息
+SummaryMiddleware          估算 token 达到 90K 时先卸载大 ToolMessage，必要时再生成滚动摘要并裁剪历史
 RuntimePromptMiddleware    每次模型调用前增量追加资源和工具策略
 ```
 

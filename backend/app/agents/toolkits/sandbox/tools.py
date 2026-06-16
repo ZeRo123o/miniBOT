@@ -8,13 +8,13 @@ from typing import Annotated, Any
 from langgraph.prebuilt.tool_node import ToolRuntime
 from pydantic import Field
 
-from app.agents.sandbox.paths import (
+from app.agents.backends.sandbox.paths import (
     can_list,
     can_read,
     can_write,
     normalize_virtual_path,
 )
-from app.agents.sandbox.provider import SandboxConnection, get_sandbox_provider
+from app.agents.backends.sandbox.provider import SandboxConnection, get_sandbox_provider
 from app.agents.toolkits.governance import (
     fail_tool_call,
     finish_tool_call,

@@ -8,7 +8,7 @@ from app.api.router import api_router
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal, init_db
 from app.plugins.registry import seed_builtin_resources
-from app.agents.sandbox import shutdown_sandbox_provider
+from app.agents.backends.sandbox import shutdown_sandbox_provider
 
 
 def configure_app_logging() -> None:

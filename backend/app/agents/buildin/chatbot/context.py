@@ -17,8 +17,11 @@ class AgentContext:
     sandbox_id: str = ""
     max_tool_calls: int = 3
     summary: str = ""
-    summary_context_window_tokens: int = 128000
-    summary_trigger_ratio: float = 0.7
     summary_trigger_tokens: int = 90000
-    summary_keep_messages: int = 8
-    summary_max_chars: int = 3000
+    summary_trigger_messages: int = 0
+    summary_keep_messages: int = 20
+    summary_trim_tokens_to_summarize: int | None = 4000
+    summary_offload_threshold_tokens: int = 1000
+    summary_offload_preview_lines: int = 10
+    summary_max_retention_ratio: float = 0.6
+    summary_prompt: str = ""

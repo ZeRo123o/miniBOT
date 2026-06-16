@@ -5,8 +5,8 @@ import threading
 import time
 from dataclasses import dataclass
 
-from app.agents.sandbox.client import AgentSandbox, ProvisionerClient
-from app.agents.sandbox.paths import (
+from app.agents.backends.sandbox.client import AgentSandbox, ProvisionerClient
+from app.agents.backends.sandbox.paths import (
     ensure_scope_dirs,
     safe_user_segment,
     sandbox_id_for_scope,

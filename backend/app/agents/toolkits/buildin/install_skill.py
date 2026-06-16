@@ -246,7 +246,7 @@ async def install_skill(
         context.skills.extend(
             item["slug"] for item in resources if item["slug"] not in existing
         )
-        from app.agents.sandbox.paths import sync_readable_skills
+        from app.agents.backends.sandbox.paths import sync_readable_skills
 
         conversation_id = getattr(context, "conversation_id", None)
         if conversation_id is not None:
