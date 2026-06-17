@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 logger = logging.getLogger(__name__)
+MAX_LOGGED_ERROR_CHARS = 500
 
 
 def context_value(context: Any, name: str, default: Any) -> Any:
@@ -50,8 +51,12 @@ def fail_tool_call(event: dict[str, Any] | None, error: Any) -> None:
         return
     event["status"] = "failed"
     event["error"] = str(error)
+    error_text = str(error)
+    if len(error_text) > MAX_LOGGED_ERROR_CHARS:
+        error_text = f"{error_text[:MAX_LOGGED_ERROR_CHARS]}..."
     logger.warning(
-        "Agent tool call failed: tool=%s error_type=%s",
+        "Agent tool call failed: tool=%s error_type=%s error=%s",
         event.get("tool_name", ""),
         type(error).__name__,
+        error_text,
     )

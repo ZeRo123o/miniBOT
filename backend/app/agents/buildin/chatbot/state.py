@@ -8,3 +8,5 @@ class ChatBotState(AgentState):
 
     artifacts: NotRequired[list[str]]
     sandbox: NotRequired[dict | None]
+    uploads: NotRequired[list[dict]]
+    files: NotRequired[dict]

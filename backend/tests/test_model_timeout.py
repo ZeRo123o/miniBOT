@@ -5,7 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import httpx
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
 from app.agents.buildin.chatbot.runtime import AgentRuntime
 from app.llm.chat_model import MiniBotChatModel, ModelRequestTimeoutError
@@ -69,9 +69,57 @@ class ModelTimeoutTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.metadata["error"], "model_timeout")
         self.assertIn("响应超时", result.answer)
 
+    async def test_runtime_passes_attachment_state_to_agent(self):
+        runtime = AgentRuntime.__new__(AgentRuntime)
+        upload_state = [
+            {
+                "status": "parsed",
+                "path": "/mnt/user-data/uploads/demo.extracted.md",
+                "file_path": "/mnt/user-data/uploads/demo.extracted.md",
+                "markdown": "line1\nline2",
+            }
+        ]
+        file_state = {
+            "/mnt/user-data/uploads/demo.extracted.md": {
+                "content": ["line1", "line2"],
+            }
+        }
+        runtime.conversation_service = SimpleNamespace(
+            load_langchain_messages=self._load_messages,
+            load_attachment_state=lambda _conversation_id: self._load_attachment_state(upload_state, file_state),
+        )
+        resources = {"skills": [], "tools": [], "mcps": []}
+        captured = {}
+
+        class CaptureAgent:
+            async def ainvoke(self, state, *args, **kwargs):
+                captured["state"] = state
+                return {"messages": [*state["messages"], AIMessage(content="ok")]}
+
+        with patch(
+            "app.agents.buildin.chatbot.runtime.build_chat_agent",
+            return_value=CaptureAgent(),
+        ):
+            result = await runtime._generate_result(
+                user_id="default",
+                message="hello",
+                conversation_id=7,
+                selection={"knowledge_base_ids": []},
+                resources=resources,
+                uploads=[],
+            )
+
+        self.assertEqual(result.answer, "ok")
+        self.assertEqual(captured["state"]["uploads"], upload_state)
+        self.assertEqual(captured["state"]["files"], file_state)
+
     @staticmethod
     async def _load_messages(_conversation_id):
         return [HumanMessage(content="hello")]
+
+    @staticmethod
+    async def _load_attachment_state(uploads, files):
+        return uploads, files
 
 
 if __name__ == "__main__":

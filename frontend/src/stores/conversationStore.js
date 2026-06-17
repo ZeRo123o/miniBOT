@@ -119,7 +119,7 @@ export async function removeConversation(conversationId, userId) {
   }
 }
 
-export function addPendingChatMessage(content) {
+export function addPendingChatMessage(content, uploads = []) {
   const conversationId = conversationStore.activeId || createTemporaryId('pending-conversation')
   const now = new Date().toISOString()
 
@@ -131,7 +131,7 @@ export function addPendingChatMessage(content) {
       role: 'user',
       content,
       created_at: now,
-      metadata: { pending: true },
+      metadata: { pending: true, uploads },
     },
     {
       id: createTemporaryId('pending-assistant'),

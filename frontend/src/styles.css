@@ -1686,6 +1686,45 @@ textarea {
   padding: 18px 0 0;
 }
 
+.message-attachments,
+.selected-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.selected-attachments {
+  width: var(--chat-content-width);
+  margin: 0 auto 10px;
+}
+
+.attachment-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border: 1px solid #dfe4ea;
+  border-radius: 999px;
+  background: #fff;
+  color: #475467;
+  padding: 5px 9px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.remove-attachment {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: #eef0f3;
+  color: #667085;
+  cursor: pointer;
+}
+
 .typing-indicator {
   display: inline-flex;
   align-items: center;
@@ -1823,7 +1862,7 @@ textarea {
 
 .chat-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-columns: 40px minmax(0, 1fr) 44px;
   align-items: center;
   gap: 10px;
   margin: 0 auto;
@@ -1833,6 +1872,10 @@ textarea {
   background: #fff;
   padding: 10px 12px 10px 20px;
   box-shadow: 0 2px 12px rgba(60, 64, 67, 0.12);
+}
+
+.file-input {
+  display: none;
 }
 
 .chat-form textarea {
@@ -1937,4 +1980,9 @@ textarea {
   .extension-tabs button {
     flex: none;
   }
+}
+
+.chat-form button[type="button"] {
+  background: #eef0f3;
+  color: #667085;
 }

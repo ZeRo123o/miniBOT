@@ -5,10 +5,18 @@ from pydantic import BaseModel, Field
 from app.plugins.types import SelectionOut
 
 
+class ChatUpload(BaseModel):
+    file_name: str
+    path: str
+    content_type: str = ""
+    size: int = 0
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
     user_id: str = "default"
     conversation_id: int | None = None
+    uploads: list[ChatUpload] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):

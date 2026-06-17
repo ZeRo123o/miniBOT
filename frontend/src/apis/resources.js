@@ -104,12 +104,20 @@ export function deleteKnowledgeDocument(documentId, userId) {
   )
 }
 
-export async function sendChatStream(message, userId, conversationId = null, handlers = {}) {
-  const response = await fetch(`${API_BASE}/chat/stream`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, user_id: userId, conversation_id: conversationId }),
-  })
+export async function sendChatStream(message, userId, conversationId = null, handlers = {}, files = []) {
+  const hasFiles = Array.isArray(files) && files.length > 0
+  const requestOptions = hasFiles
+    ? {
+        method: 'POST',
+        body: buildChatFormData(message, userId, conversationId, files),
+      }
+    : {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, user_id: userId, conversation_id: conversationId }),
+      }
+
+  const response = await fetch(`${API_BASE}/chat/stream`, requestOptions)
 
   if (!response.ok || !response.body) {
     const text = await response.text()
@@ -142,6 +150,19 @@ export async function sendChatStream(message, userId, conversationId = null, han
     const event = parseStreamEvent(buffer)
     if (event) handlers[event.type]?.(event)
   }
+}
+
+function buildChatFormData(message, userId, conversationId, files) {
+  const formData = new FormData()
+  formData.append('message', message)
+  formData.append('user_id', userId)
+  if (conversationId !== null && conversationId !== undefined) {
+    formData.append('conversation_id', String(conversationId))
+  }
+  for (const file of files) {
+    formData.append('files', file)
+  }
+  return formData
 }
 
 function parseStreamEvent(rawEvent) {

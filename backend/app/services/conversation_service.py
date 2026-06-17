@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Conversation, ConversationMessage
 from app.db.repositories import ConversationMessageRepository, ConversationRepository
+from app.services.attachment_service import build_attachment_state_files
 
 
 class ConversationService:
@@ -32,9 +33,16 @@ class ConversationService:
             conversation = await self.conversation_repo.update(conversation, title=title)
         return conversation
 
-    async def save_user_message(self, conversation_id: int, content: str) -> None:
+    async def save_user_message(
+        self,
+        conversation_id: int,
+        content: str,
+        *,
+        uploads: list[dict] | None = None,
+    ) -> None:
         """保存用户消息。"""
-        await self.message_repo.create(conversation_id, role="user", content=content)
+        metadata = {"uploads": uploads or []} if uploads else None
+        await self.message_repo.create(conversation_id, role="user", content=content, metadata=metadata)
 
     async def save_assistant_message(
         self,
@@ -59,6 +67,26 @@ class ConversationService:
             for message in persisted_messages
             if (converted := self._to_langchain_message(message)) is not None
         ]
+
+    async def load_attachment_state(self, conversation_id: int) -> tuple[list[dict], dict]:
+        """Rebuild graph upload/file state from persisted user message metadata."""
+        persisted_messages = await self.message_repo.list(conversation_id)
+        uploads: list[dict] = []
+        seen_paths: set[str] = set()
+        for message in persisted_messages:
+            if message.role != "user":
+                continue
+            metadata = message.metadata_ or {}
+            for item in metadata.get("uploads") or []:
+                if not isinstance(item, dict):
+                    continue
+                path = item.get("path")
+                if isinstance(path, str) and path in seen_paths:
+                    continue
+                if isinstance(path, str):
+                    seen_paths.add(path)
+                uploads.append(item)
+        return uploads, build_attachment_state_files(uploads)
 
     def _to_langchain_message(self, message: ConversationMessage) -> BaseMessage | None:
         """把数据库消息转换成模型可消费的 LangChain message。"""

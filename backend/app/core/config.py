@@ -61,6 +61,8 @@ class Settings(BaseSettings):
     runtime_skill_imports_dir: str = "./data/skill-imports"
     runtime_skills_dir: str = "./data/skills"
     runtime_timezone: str = "Asia/Shanghai"
+    chat_upload_max_bytes: int = 20 * 1024 * 1024
+    chat_attachment_markdown_max_chars: int = 32000
     sandbox_enabled: bool = True
     sandbox_provisioner_url: str = "http://localhost:8002"
     sandbox_internal_token: str = "minibot-sandbox-dev-token"

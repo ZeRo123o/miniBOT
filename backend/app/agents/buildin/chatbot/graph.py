@@ -8,6 +8,7 @@ from app.agents.buildin.chatbot.prompt import build_system_prompt
 from app.agents.buildin.chatbot.state import ChatBotState
 from app.agents.toolkits import resolve_runtime_tools
 from app.agents.middlewares import (
+    AttachmentMiddleware,
     KnowledgeBaseMiddleware,
     RuntimeConfigMiddleware,
     RuntimePromptMiddleware,
@@ -38,6 +39,7 @@ def build_chat_agent(context: AgentContext | None = None) -> Any:
         middleware=[
             RuntimeConfigMiddleware(runtime_tools),
             SandboxMiddleware(),
+            AttachmentMiddleware(),
             KnowledgeBaseMiddleware(),
             ToolCallLimitMiddleware(
                 run_limit=agent_context.max_tool_calls,

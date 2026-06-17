@@ -1,5 +1,9 @@
 from app.agents.backends.filesystem import (
     AgentFilesystemBackend,
+    BackendGlobResult,
+    BackendGrepResult,
+    BackendListResult,
+    BackendReadResult,
     BackendWriteResult,
     create_agent_filesystem_backend,
 )
@@ -11,6 +15,10 @@ from app.agents.backends.sandbox import (
 
 __all__ = [
     "AgentFilesystemBackend",
+    "BackendGlobResult",
+    "BackendGrepResult",
+    "BackendListResult",
+    "BackendReadResult",
     "BackendWriteResult",
     "SandboxMiddleware",
     "create_agent_filesystem_backend",

@@ -1,5 +1,5 @@
 <script setup>
-import { SendHorizontal } from 'lucide-vue-next'
+import { Paperclip, SendHorizontal, X } from 'lucide-vue-next'
 import { nextTick, ref } from 'vue'
 import { sendChatStream } from '../apis/resources'
 import {
@@ -16,9 +16,11 @@ import MarkdownMessage from './MarkdownMessage.vue'
 
 const input = ref('')
 const inputEl = ref(null)
+const fileInputEl = ref(null)
 const messagesEl = ref(null)
 const sending = ref(false)
 const errorMessage = ref('')
+const selectedFiles = ref([])
 
 async function resizeInput() {
   await nextTick()
@@ -38,29 +40,42 @@ async function submit() {
   if (!text || sending.value) return
 
   input.value = ''
+  const filesToSend = [...selectedFiles.value]
+  selectedFiles.value = []
   sending.value = true
   errorMessage.value = ''
   const conversationId = conversationStore.activeId
-  const optimisticConversationId = addPendingChatMessage(text)
+  const optimisticUploads = filesToSend.map((file) => ({
+    file_name: file.name,
+    size: file.size,
+    content_type: file.type || '',
+  }))
+  const optimisticConversationId = addPendingChatMessage(text, optimisticUploads)
   let streamConversationId = optimisticConversationId
   scrollToBottom()
 
   try {
-    await sendChatStream(text, selectionStore.userId, conversationId, {
-      conversation(event) {
-        applyStreamConversation(event, optimisticConversationId)
-        streamConversationId = event.conversation_id
-        scrollToBottom()
+    await sendChatStream(
+      text,
+      selectionStore.userId,
+      conversationId,
+      {
+        conversation(event) {
+          applyStreamConversation(event, optimisticConversationId)
+          streamConversationId = event.conversation_id
+          scrollToBottom()
+        },
+        token(event) {
+          appendPendingAssistantContent(streamConversationId, event.content || '')
+          scrollToBottom()
+        },
+        done(event) {
+          applyChatResponse(event, optimisticConversationId)
+          scrollToBottom()
+        },
       },
-      token(event) {
-        appendPendingAssistantContent(streamConversationId, event.content || '')
-        scrollToBottom()
-      },
-      done(event) {
-        applyChatResponse(event, optimisticConversationId)
-        scrollToBottom()
-      },
-    })
+      filesToSend,
+    )
   } catch (error) {
     removePendingAssistantMessage(streamConversationId)
     errorMessage.value = error.message
@@ -68,6 +83,21 @@ async function submit() {
     sending.value = false
     resizeInput()
   }
+}
+
+function openFilePicker() {
+  if (sending.value) return
+  fileInputEl.value?.click()
+}
+
+function onFilesSelected(event) {
+  const files = Array.from(event.target.files || [])
+  selectedFiles.value = files.slice(0, 10)
+  event.target.value = ''
+}
+
+function removeSelectedFile(index) {
+  selectedFiles.value.splice(index, 1)
 }
 </script>
 
@@ -87,11 +117,31 @@ async function submit() {
           <span />
         </div>
         <MarkdownMessage v-else :content="message.content" />
+        <div v-if="message.metadata?.uploads?.length" class="message-attachments">
+          <span v-for="upload in message.metadata.uploads" :key="upload.path || upload.file_name" class="attachment-pill">
+            <Paperclip :size="13" />
+            {{ upload.file_name || upload.path }}
+          </span>
+        </div>
       </article>
       <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
     </div>
 
+    <div v-if="selectedFiles.length" class="selected-attachments">
+      <span v-for="(file, index) in selectedFiles" :key="`${file.name}-${file.size}-${index}`" class="attachment-pill">
+        <Paperclip :size="13" />
+        {{ file.name }}
+        <button type="button" class="remove-attachment" @click="removeSelectedFile(index)" title="移除附件">
+          <X :size="12" />
+        </button>
+      </span>
+    </div>
+
     <form class="chat-form" @submit.prevent="submit">
+      <input ref="fileInputEl" class="file-input" type="file" multiple @change="onFilesSelected" />
+      <button type="button" :disabled="sending" title="添加附件" @click="openFilePicker">
+        <Paperclip :size="18" />
+      </button>
       <textarea
         ref="inputEl"
         v-model="input"

@@ -27,7 +27,14 @@ class BaseChatRuntime(ABC):
         self.selection_service = SelectionService(db)
         self.resource_service = ResourceService(db)
 
-    async def run(self, *, user_id: str, message: str, conversation_id: int | None = None) -> dict:
+    async def run(
+        self,
+        *,
+        user_id: str,
+        message: str,
+        conversation_id: int | None = None,
+        uploads: list[dict] | None = None,
+    ) -> dict:
         logger.info(
             "Runtime run started: user_id=%s conversation_id=%s message_chars=%s",
             user_id,
@@ -45,7 +52,12 @@ class BaseChatRuntime(ABC):
             user_id,
             prepared_conversation_id,
         )
-        await self.conversation_service.save_user_message(prepared_conversation_id, message)
+        upload_items = list(uploads or [])
+        await self.conversation_service.save_user_message(
+            prepared_conversation_id,
+            message,
+            uploads=upload_items,
+        )
         logger.info(
             "Runtime user message saved: conversation_id=%s",
             prepared_conversation_id,
@@ -66,6 +78,7 @@ class BaseChatRuntime(ABC):
             conversation_id=prepared_conversation_id,
             selection=selection,
             resources=resources,
+            uploads=upload_items,
         )
 
         await self.conversation_service.save_assistant_message(
@@ -94,6 +107,7 @@ class BaseChatRuntime(ABC):
         user_id: str,
         message: str,
         conversation_id: int | None = None,
+        uploads: list[dict] | None = None,
     ) -> AsyncIterator[dict]:
         logger.info(
             "Runtime stream started: user_id=%s conversation_id=%s message_chars=%s",
@@ -113,7 +127,12 @@ class BaseChatRuntime(ABC):
             user_id,
             prepared_conversation_id,
         )
-        await self.conversation_service.save_user_message(prepared_conversation_id, message)
+        upload_items = list(uploads or [])
+        await self.conversation_service.save_user_message(
+            prepared_conversation_id,
+            message,
+            uploads=upload_items,
+        )
         logger.info(
             "Runtime stream user message saved: conversation_id=%s",
             prepared_conversation_id,
@@ -139,6 +158,7 @@ class BaseChatRuntime(ABC):
             conversation_id=prepared_conversation_id,
             selection=selection,
             resources=resources,
+            uploads=upload_items,
         )
 
         for token in self._chunk_answer(result.answer):
@@ -174,6 +194,7 @@ class BaseChatRuntime(ABC):
         conversation_id: int,
         selection: dict,
         resources: dict[str, list[dict]],
+        uploads: list[dict],
     ) -> RuntimeResult:
         """Generate the assistant answer."""
 

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import asyncio
-import re
 from pathlib import PurePosixPath
 from typing import Annotated, Any
 
 from langgraph.prebuilt.tool_node import ToolRuntime
 from pydantic import Field
 
+from app.agents.backends.filesystem import create_agent_filesystem_backend
 from app.agents.backends.sandbox.paths import (
     can_list,
     can_read,
@@ -102,6 +102,13 @@ def _validate_path(path: str, *, operation: str) -> str:
     return normalized
 
 
+def _filesystem_backend(runtime: ToolRuntime):
+    backend = create_agent_filesystem_backend(runtime)
+    if backend is None:
+        raise ValueError("filesystem backend requires AgentContext runtime")
+    return backend
+
+
 def _truncate(text: str, limit: int) -> tuple[str, bool]:
     encoded = text.encode("utf-8")
     if len(encoded) <= limit:
@@ -120,12 +127,13 @@ async def sandbox_read_file(path: SandboxPath, runtime: ToolRuntime) -> str:
     event = start_tool_call(context, tool_name="sandbox_read_file", payload={"path": path})
     try:
         normalized = _validate_path(path, operation="read")
-        connection = await asyncio.to_thread(_ensure_sandbox, runtime)
-        content = await asyncio.to_thread(connection.sandbox.read_text, normalized)
-        output, truncated = _truncate(content, get_settings().sandbox_max_output_bytes)
+        backend = _filesystem_backend(runtime)
+        result = await backend.aread(normalized)
+        if result.error:
+            raise ValueError(result.error)
+        output, truncated = _truncate(result.content, get_settings().sandbox_max_output_bytes)
         finish_tool_call(
             event,
-            sandbox_id=connection.sandbox_id,
             virtual_path=normalized,
             truncated=truncated,
         )
@@ -158,11 +166,12 @@ async def sandbox_write_file(
         max_bytes = get_settings().sandbox_max_write_bytes
         if content_bytes > max_bytes:
             raise ValueError(f"content exceeds sandbox write limit of {max_bytes} bytes")
-        connection = await asyncio.to_thread(_ensure_sandbox, runtime)
-        await asyncio.to_thread(connection.sandbox.write_text, normalized, content)
+        backend = _filesystem_backend(runtime)
+        result = await backend.awrite(normalized, content)
+        if result.error:
+            raise ValueError(result.error)
         finish_tool_call(
             event,
-            sandbox_id=connection.sandbox_id,
             virtual_path=normalized,
             content_bytes=content_bytes,
         )
@@ -183,10 +192,12 @@ async def sandbox_ls(path: SandboxPath, runtime: ToolRuntime) -> str:
     event = start_tool_call(context, tool_name="sandbox_ls", payload={"path": path})
     try:
         normalized = _validate_path(path, operation="list")
-        connection = await asyncio.to_thread(_ensure_sandbox, runtime)
-        entries = await asyncio.to_thread(connection.sandbox.list_path, normalized)
+        backend = _filesystem_backend(runtime)
+        result = await backend.als(normalized)
+        if result.error:
+            raise ValueError(result.error)
         lines = []
-        for entry in entries[:200]:
+        for entry in result.entries[:200]:
             suffix = "/" if entry["is_dir"] else ""
             size = (
                 f" ({entry['size']} bytes)"
@@ -196,7 +207,6 @@ async def sandbox_ls(path: SandboxPath, runtime: ToolRuntime) -> str:
             lines.append(f"{entry['path']}{suffix}{size}")
         finish_tool_call(
             event,
-            sandbox_id=connection.sandbox_id,
             virtual_path=normalized,
             result_count=len(lines),
         )
@@ -227,16 +237,13 @@ async def sandbox_glob(
         normalized = _validate_path(path, operation="read")
         if ".." in PurePosixPath(pattern).parts:
             raise ValueError("glob traversal is not allowed")
-        connection = await asyncio.to_thread(_ensure_sandbox, runtime)
-        matches = await asyncio.to_thread(
-            connection.sandbox.find_files,
-            normalized,
-            pattern,
-        )
-        matches = matches[:200]
+        backend = _filesystem_backend(runtime)
+        result = await backend.aglob(normalized, pattern)
+        if result.error:
+            raise ValueError(result.error)
+        matches = result.matches[:200]
         finish_tool_call(
             event,
-            sandbox_id=connection.sandbox_id,
             virtual_path=normalized,
             result_count=len(matches),
         )
@@ -269,31 +276,17 @@ async def sandbox_grep(
         normalized = _validate_path(path, operation="read")
         if ".." in PurePosixPath(glob).parts:
             raise ValueError("glob traversal is not allowed")
-        matcher = None if literal else re.compile(pattern, flags=re.IGNORECASE)
-        connection = await asyncio.to_thread(_ensure_sandbox, runtime)
-        files = await asyncio.to_thread(
-            connection.sandbox.find_files,
+        backend = _filesystem_backend(runtime)
+        result = await backend.agrep(
             normalized,
-            glob,
+            pattern,
+            glob=glob,
+            literal=literal,
+            limit=100,
         )
-        matches: list[str] = []
-        for file_path in files[:200]:
-            try:
-                content = await asyncio.to_thread(connection.sandbox.read_text, file_path)
-            except Exception:  # noqa: BLE001
-                continue
-            for line_number, line in enumerate(content.splitlines(), start=1):
-                found = (
-                    pattern.lower() in line.lower()
-                    if literal
-                    else bool(matcher and matcher.search(line))
-                )
-                if found:
-                    matches.append(f"{file_path}:{line_number}: {line}")
-                    if len(matches) >= 100:
-                        break
-            if len(matches) >= 100:
-                break
+        if result.error:
+            raise ValueError(result.error)
+        matches = result.matches
 
         output, truncated = _truncate(
             "\n".join(matches) or "(no matches)",
@@ -301,7 +294,6 @@ async def sandbox_grep(
         )
         finish_tool_call(
             event,
-            sandbox_id=connection.sandbox_id,
             virtual_path=normalized,
             result_count=len(matches),
             truncated=truncated,

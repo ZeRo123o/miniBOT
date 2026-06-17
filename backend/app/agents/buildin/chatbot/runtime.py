@@ -8,6 +8,7 @@ from app.agents.runtime_base import BaseChatRuntime, RuntimeResult
 from app.core.config import get_settings
 from app.llm.factory import CHAT_MODEL
 from app.llm.chat_model import ModelRequestTimeoutError
+from app.services.attachment_service import build_attachment_state_files
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,14 @@ class AgentRuntime(BaseChatRuntime):
         conversation_id: int,
         selection: dict,
         resources: dict[str, list[dict]],
+        uploads: list[dict] | None = None,
     ) -> RuntimeResult:
         graph_messages = await self.conversation_service.load_langchain_messages(conversation_id)
+        if hasattr(self.conversation_service, "load_attachment_state"):
+            state_uploads, state_files = await self.conversation_service.load_attachment_state(conversation_id)
+        else:
+            state_uploads = list(uploads or [])
+            state_files = build_attachment_state_files(state_uploads)
         context = self._build_context(
             user_id=user_id,
             conversation_id=conversation_id,
@@ -42,7 +49,7 @@ class AgentRuntime(BaseChatRuntime):
         agent = build_chat_agent(context)
         try:
             result = await agent.ainvoke(
-                {"messages": graph_messages},
+                {"messages": graph_messages, "uploads": state_uploads, "files": state_files},
                 context=context,
             )
             answer = result["messages"][-1].content

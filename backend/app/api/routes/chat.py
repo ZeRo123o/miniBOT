@@ -2,12 +2,14 @@ import json
 import logging
 from collections.abc import AsyncIterator
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from starlette.datastructures import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.buildin.chatbot.runtime import AgentRuntime
 from app.db.session import get_db
+from app.services.attachment_service import save_chat_uploads
 from app.schemas import ChatRequest
 
 router = APIRouter()
@@ -32,6 +34,7 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> dict
             user_id=payload.user_id,
             message=payload.message,
             conversation_id=payload.conversation_id,
+            uploads=[item.model_dump() for item in payload.uploads],
         )
         logger.info(
             "Chat request completed: user_id=%s conversation_id=%s",
@@ -56,8 +59,38 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> dict
         raise
 
 
+async def _parse_stream_payload(
+    request: Request,
+) -> tuple[ChatRequest, list[UploadFile]]:
+    content_type = request.headers.get("content-type", "")
+    if content_type.startswith("multipart/form-data"):
+        form = await request.form()
+        message = form.get("message")
+        user_id = str(form.get("user_id") or "default")
+        raw_conversation_id = form.get("conversation_id")
+        conversation_id = int(raw_conversation_id) if str(raw_conversation_id or "").strip() else None
+        files = [
+            value
+            for key, value in form.multi_items()
+            if key == "files" and isinstance(value, UploadFile)
+        ]
+        if not message or not message.strip():
+            raise HTTPException(status_code=422, detail="message is required")
+        return (
+            ChatRequest(message=str(message), user_id=user_id, conversation_id=conversation_id),
+            files,
+        )
+    payload = ChatRequest.model_validate(await request.json())
+    return payload, []
+
+
 @router.post("/stream")
-async def chat_stream(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> StreamingResponse:
+async def chat_stream(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    payload, upload_files = await _parse_stream_payload(request)
+
     async def event_generator() -> AsyncIterator[str]:
         logger.info(
             "Chat stream opened: user_id=%s conversation_id=%s message_chars=%s",
@@ -67,10 +100,22 @@ async def chat_stream(payload: ChatRequest, db: AsyncSession = Depends(get_db)) 
         )
         runtime = AgentRuntime(db)
         try:
+            conversation = await runtime.conversation_service.prepare_conversation(
+                user_id=payload.user_id,
+                message=payload.message,
+                conversation_id=payload.conversation_id,
+            )
+            uploads = await save_chat_uploads(
+                user_id=payload.user_id,
+                conversation_id=conversation.id,
+                files=upload_files,
+            )
+            payload.conversation_id = conversation.id
             async for event in runtime.run_stream(
                 user_id=payload.user_id,
                 message=payload.message,
                 conversation_id=payload.conversation_id,
+                uploads=[item.model_dump() for item in payload.uploads] + uploads,
             ):
                 yield sse_event(event)
             logger.info(
@@ -85,6 +130,14 @@ async def chat_stream(payload: ChatRequest, db: AsyncSession = Depends(get_db)) 
                 error,
             )
             yield sse_event({"type": "error", "detail": str(error)})
+        except HTTPException as error:
+            logger.warning(
+                "Chat stream rejected: user_id=%s conversation_id=%s error=%s",
+                payload.user_id,
+                payload.conversation_id,
+                error.detail,
+            )
+            yield sse_event({"type": "error", "detail": str(error.detail)})
         except Exception as error:
             logger.exception(
                 "Chat stream failed: user_id=%s conversation_id=%s",
