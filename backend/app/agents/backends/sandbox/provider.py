@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 @dataclass(slots=True)
 class SandboxConnection:
     sandbox_id: str
-    user_key: str
+    user_id: str
     conversation_id: int
     sandbox_url: str
     sandbox: AgentSandbox
@@ -48,16 +48,16 @@ class ProvisionerSandboxProvider:
     def acquire(
         self,
         *,
-        user_key: str,
+        user_id: str,
         conversation_id: int,
         skills: list[str] | None = None,
     ) -> SandboxConnection:
         if not self._settings.sandbox_enabled:
             raise RuntimeError("sandbox is disabled")
 
-        ensure_scope_dirs(user_key, conversation_id)
-        sync_readable_skills(user_key, conversation_id, skills or [])
-        sandbox_id = sandbox_id_for_scope(user_key, conversation_id)
+        ensure_scope_dirs(user_id, conversation_id)
+        sync_readable_skills(user_id, conversation_id, skills or [])
+        sandbox_id = sandbox_id_for_scope(user_id, conversation_id)
 
         with self._scope_lock(sandbox_id):
             current = self._connections.get(sandbox_id)
@@ -73,12 +73,12 @@ class ProvisionerSandboxProvider:
 
             record = self._client.create(
                 sandbox_id=sandbox_id,
-                user_segment=safe_user_segment(user_key),
+                user_segment=safe_user_segment(user_id),
                 conversation_id=conversation_id,
             )
             connection = SandboxConnection(
                 sandbox_id=sandbox_id,
-                user_key=user_key,
+                user_id=user_id,
                 conversation_id=conversation_id,
                 sandbox_url=record.sandbox_url,
                 sandbox=AgentSandbox(

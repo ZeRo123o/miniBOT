@@ -18,7 +18,7 @@ class KnowledgeRetrievalService:
     async def query(
         self,
         *,
-        user_key: str,
+        user_id: str,
         query: str,
         knowledge_base_ids: list[int] | None = None,
         search_mode: str = "hybrid",
@@ -41,7 +41,7 @@ class KnowledgeRetrievalService:
         recall_top_k = min(max(int(recall_top_k), final_top_k), 200)
         bm25_top_k = min(max(int(bm25_top_k), 1), 200)
         vector_weight, bm25_weight = self._normalize_weights(vector_weight, bm25_weight)
-        bases = await self._resolve_bases(user_key, knowledge_base_ids)
+        bases = await self._resolve_bases(user_id, knowledge_base_ids)
         if not bases:
             return {
                 "query": clean_query,
@@ -79,8 +79,8 @@ class KnowledgeRetrievalService:
             "searched_knowledge_base_ids": [base.id for base in bases],
         }
 
-    async def _resolve_bases(self, user_key: str, requested_ids: list[int] | None) -> list[Any]:
-        bases = await self.base_repo.list(user_key)
+    async def _resolve_bases(self, user_id: str, requested_ids: list[int] | None) -> list[Any]:
+        bases = await self.base_repo.list(user_id)
         if not requested_ids:
             return bases
         allowed_ids = {int(item) for item in requested_ids}

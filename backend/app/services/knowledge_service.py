@@ -41,9 +41,9 @@ class KnowledgeService:
         self.chunk_repo = KnowledgeChunkRepository(db)
         self.storage = get_storage()
 
-    async def list_knowledge_bases(self, user_key: str) -> list[dict]:
-        items = await self.base_repo.list(user_key)
-        logger.info("Knowledge service listed bases: user_key=%s count=%s", user_key, len(items))
+    async def list_knowledge_bases(self, user_id: str) -> list[dict]:
+        items = await self.base_repo.list(user_id)
+        logger.info("Knowledge service listed bases: user_id=%s count=%s", user_id, len(items))
         return [self._knowledge_base_to_dict(item) for item in items]
 
     async def create_knowledge_base(
@@ -51,7 +51,7 @@ class KnowledgeService:
         *,
         name: str,
         description: str = "",
-        user_key: str = "default",
+        user_id: str = "default",
         kb_type: str = "milvus",
         chunk_preset_id: str = "general",
         chunk_parser_config: dict | None = None,
@@ -61,15 +61,15 @@ class KnowledgeService:
         item = await self.base_repo.create(
             name=name,
             description=description,
-            user_key=user_key,
+            user_id=user_id,
             metadata={
                 **chunk_params,
                 "kb_type": normalized_kb_type,
             },
         )
         logger.info(
-            "Knowledge service created base: user_key=%s knowledge_base_id=%s name=%s kb_type=%s chunk_preset_id=%s",
-            user_key,
+            "Knowledge service created base: user_id=%s knowledge_base_id=%s name=%s kb_type=%s chunk_preset_id=%s",
+            user_id,
             item.id,
             item.name,
             normalized_kb_type,
@@ -77,42 +77,42 @@ class KnowledgeService:
         )
         return self._knowledge_base_to_dict(item)
 
-    async def list_documents(self, *, knowledge_base_id: int, user_key: str) -> list[dict]:
-        knowledge_base = await self.base_repo.get(knowledge_base_id, user_key=user_key)
+    async def list_documents(self, *, knowledge_base_id: int, user_id: str) -> list[dict]:
+        knowledge_base = await self.base_repo.get(knowledge_base_id, user_id=user_id)
         if knowledge_base is None:
             raise KnowledgeBaseNotFoundError("Knowledge base not found.")
         documents = await self.document_repo.list(knowledge_base_id)
         logger.info(
-            "Knowledge service listed documents: user_key=%s knowledge_base_id=%s count=%s",
-            user_key,
+            "Knowledge service listed documents: user_id=%s knowledge_base_id=%s count=%s",
+            user_id,
             knowledge_base_id,
             len(documents),
         )
         return [document.to_dict() for document in documents]
 
-    async def list_chunks(self, *, document_id: int, user_key: str) -> list[dict]:
+    async def list_chunks(self, *, document_id: int, user_id: str) -> list[dict]:
         document = await self.document_repo.get(document_id)
         if document is None:
             raise ValueError("Knowledge document not found.")
-        knowledge_base = await self.base_repo.get(document.knowledge_base_id, user_key=user_key)
+        knowledge_base = await self.base_repo.get(document.knowledge_base_id, user_id=user_id)
         if knowledge_base is None:
             raise ValueError("Knowledge document not found.")
 
         chunks = await self.chunk_repo.list_by_document(document_id)
         logger.info(
-            "Knowledge service listed chunks: user_key=%s document_id=%s count=%s",
-            user_key,
+            "Knowledge service listed chunks: user_id=%s document_id=%s count=%s",
+            user_id,
             document_id,
             len(chunks),
         )
         return [chunk.to_dict() for chunk in chunks]
 
-    async def delete_document(self, *, document_id: int, user_key: str) -> None:
+    async def delete_document(self, *, document_id: int, user_id: str) -> None:
         """按知识库类型删除后端索引，再删除 PostgreSQL 文档元数据。"""
         document = await self.document_repo.get(document_id)
         if document is None:
             raise ValueError("Knowledge document not found.")
-        knowledge_base = await self.base_repo.get(document.knowledge_base_id, user_key=user_key)
+        knowledge_base = await self.base_repo.get(document.knowledge_base_id, user_id=user_id)
         if knowledge_base is None:
             raise ValueError("Knowledge document not found.")
         if document.status in PROCESSING_DOCUMENT_STATUSES:
@@ -128,16 +128,16 @@ class KnowledgeService:
         await self.storage.delete_object(document.markdown_object_key)
         await self.document_repo.delete(document)
         logger.info(
-            "Knowledge document deleted: user_key=%s knowledge_base_id=%s document_id=%s backend=%s",
-            user_key,
+            "Knowledge document deleted: user_id=%s knowledge_base_id=%s document_id=%s backend=%s",
+            user_id,
             knowledge_base.id,
             document.id,
             kb_type,
         )
 
-    async def delete_knowledge_base(self, *, knowledge_base_id: int, user_key: str) -> None:
+    async def delete_knowledge_base(self, *, knowledge_base_id: int, user_id: str) -> None:
         """Delete backend indexes, stored files, selections, and relational metadata."""
-        knowledge_base = await self.base_repo.get(knowledge_base_id, user_key=user_key)
+        knowledge_base = await self.base_repo.get(knowledge_base_id, user_id=user_id)
         if knowledge_base is None:
             raise KnowledgeBaseNotFoundError("Knowledge base not found.")
 
@@ -157,8 +157,8 @@ class KnowledgeService:
         await self.storage.delete_prefix(f"knowledge-bases/{knowledge_base.id}/")
         await self.base_repo.delete_with_selection_cleanup(knowledge_base)
         logger.info(
-            "Knowledge base deleted: user_key=%s knowledge_base_id=%s documents=%s backend=%s",
-            user_key,
+            "Knowledge base deleted: user_id=%s knowledge_base_id=%s documents=%s backend=%s",
+            user_id,
             knowledge_base.id,
             len(documents),
             kb_type,
@@ -168,10 +168,10 @@ class KnowledgeService:
         self,
         *,
         knowledge_base_id: int,
-        user_key: str,
+        user_id: str,
         file: UploadFile,
     ) -> dict:
-        knowledge_base = await self.base_repo.get(knowledge_base_id, user_key=user_key)
+        knowledge_base = await self.base_repo.get(knowledge_base_id, user_id=user_id)
         if knowledge_base is None:
             raise KnowledgeBaseNotFoundError("Knowledge base not found.")
         if not file.filename:
@@ -184,8 +184,8 @@ class KnowledgeService:
         filename = Path(file.filename).name
         file_hash = hashlib.sha256(content).hexdigest()
         logger.info(
-            "Knowledge document file read: user_key=%s knowledge_base_id=%s filename=%s size=%s hash_prefix=%s",
-            user_key,
+            "Knowledge document file read: user_id=%s knowledge_base_id=%s filename=%s size=%s hash_prefix=%s",
+            user_id,
             knowledge_base_id,
             filename,
             len(content),

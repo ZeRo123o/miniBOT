@@ -7,7 +7,7 @@ from app.plugins.types import SelectionOut
 
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
-    user_key: str = "default"
+    user_id: str = "default"
     conversation_id: int | None = None
 
 
@@ -23,7 +23,7 @@ class ChatResponse(BaseModel):
 
 
 class ConversationCreate(BaseModel):
-    user_key: str = Field(default="default", min_length=1, max_length=128)
+    user_id: str = Field(default="default", min_length=1, max_length=128)
     title: str = Field(default="新对话", min_length=1, max_length=255)
 
 
@@ -35,7 +35,7 @@ class ConversationUpdate(BaseModel):
 class KnowledgeBaseCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str = ""
-    user_key: str = Field(default="default", min_length=1, max_length=128)
+    user_id: str = Field(default="default", min_length=1, max_length=128)
     kb_type: Literal["milvus", "lightrag"] = "milvus"
     chunk_preset_id: str = Field(default="general", min_length=1, max_length=32)
     chunk_parser_config: dict[str, Any] = Field(default_factory=dict)

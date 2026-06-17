@@ -21,15 +21,15 @@ READABLE_ROOTS = (
 WRITABLE_ROOTS = (VIRTUAL_WORKSPACE_ROOT, VIRTUAL_OUTPUTS_ROOT)
 
 
-def safe_user_segment(user_key: str) -> str:
-    """把客户端 user_key 转为不会泄漏原值的稳定目录名。"""
-    digest = hashlib.sha256(user_key.encode("utf-8")).hexdigest()[:12]
+def safe_user_segment(user_id: str) -> str:
+    """把客户端 user_id 转为不会泄漏原值的稳定目录名。"""
+    digest = hashlib.sha256(user_id.encode("utf-8")).hexdigest()[:12]
     return f"user-{digest}"
 
 
-def sandbox_id_for_scope(user_key: str, conversation_id: int) -> str:
+def sandbox_id_for_scope(user_id: str, conversation_id: int) -> str:
     """生成与用户和会话绑定的稳定沙盒 ID。"""
-    identity = f"{user_key}:{conversation_id}"
+    identity = f"{user_id}:{conversation_id}"
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
 
 
@@ -37,39 +37,39 @@ def runtime_root() -> Path:
     return Path(get_settings().sandbox_data_dir).expanduser().resolve()
 
 
-def user_workspace_dir(user_key: str) -> Path:
-    return runtime_root() / "users" / safe_user_segment(user_key) / "workspace"
+def user_workspace_dir(user_id: str) -> Path:
+    return runtime_root() / "users" / safe_user_segment(user_id) / "workspace"
 
 
-def conversation_root(user_key: str, conversation_id: int) -> Path:
+def conversation_root(user_id: str, conversation_id: int) -> Path:
     return (
         runtime_root()
         / "users"
-        / safe_user_segment(user_key)
+        / safe_user_segment(user_id)
         / "conversations"
         / str(conversation_id)
     )
 
 
-def conversation_uploads_dir(user_key: str, conversation_id: int) -> Path:
-    return conversation_root(user_key, conversation_id) / "uploads"
+def conversation_uploads_dir(user_id: str, conversation_id: int) -> Path:
+    return conversation_root(user_id, conversation_id) / "uploads"
 
 
-def conversation_outputs_dir(user_key: str, conversation_id: int) -> Path:
-    return conversation_root(user_key, conversation_id) / "outputs"
+def conversation_outputs_dir(user_id: str, conversation_id: int) -> Path:
+    return conversation_root(user_id, conversation_id) / "outputs"
 
 
-def conversation_skills_dir(user_key: str, conversation_id: int) -> Path:
-    return conversation_root(user_key, conversation_id) / "skills"
+def conversation_skills_dir(user_id: str, conversation_id: int) -> Path:
+    return conversation_root(user_id, conversation_id) / "skills"
 
 
-def ensure_scope_dirs(user_key: str, conversation_id: int) -> None:
+def ensure_scope_dirs(user_id: str, conversation_id: int) -> None:
     """创建沙盒允许持久化的最小目录集合。"""
     for path in (
-        user_workspace_dir(user_key),
-        conversation_uploads_dir(user_key, conversation_id),
-        conversation_outputs_dir(user_key, conversation_id),
-        conversation_skills_dir(user_key, conversation_id),
+        user_workspace_dir(user_id),
+        conversation_uploads_dir(user_id, conversation_id),
+        conversation_outputs_dir(user_id, conversation_id),
+        conversation_skills_dir(user_id, conversation_id),
     ):
         path.mkdir(parents=True, exist_ok=True)
 
@@ -106,7 +106,7 @@ def can_write(path: str) -> bool:
 
 
 def resolve_host_path(
-    user_key: str,
+    user_id: str,
     conversation_id: int,
     virtual_path: str,
     *,
@@ -119,10 +119,10 @@ def resolve_host_path(
         raise ValueError(f"path is outside allowed sandbox roots: {normalized}")
 
     mappings = (
-        (VIRTUAL_WORKSPACE_ROOT, user_workspace_dir(user_key)),
-        (VIRTUAL_UPLOADS_ROOT, conversation_uploads_dir(user_key, conversation_id)),
-        (VIRTUAL_OUTPUTS_ROOT, conversation_outputs_dir(user_key, conversation_id)),
-        (VIRTUAL_SKILLS_ROOT, conversation_skills_dir(user_key, conversation_id)),
+        (VIRTUAL_WORKSPACE_ROOT, user_workspace_dir(user_id)),
+        (VIRTUAL_UPLOADS_ROOT, conversation_uploads_dir(user_id, conversation_id)),
+        (VIRTUAL_OUTPUTS_ROOT, conversation_outputs_dir(user_id, conversation_id)),
+        (VIRTUAL_SKILLS_ROOT, conversation_skills_dir(user_id, conversation_id)),
     )
     for virtual_root, host_root in mappings:
         if not is_same_or_child(normalized, virtual_root):
@@ -139,12 +139,12 @@ def resolve_host_path(
 
 
 def sync_readable_skills(
-    user_key: str,
+    user_id: str,
     conversation_id: int,
     skills: list[str],
 ) -> None:
     """复制本轮已授权 Skill 到会话目录，随后由容器只读挂载。"""
-    target_root = conversation_skills_dir(user_key, conversation_id)
+    target_root = conversation_skills_dir(user_id, conversation_id)
     target_root.mkdir(parents=True, exist_ok=True)
 
     expected: set[str] = set()

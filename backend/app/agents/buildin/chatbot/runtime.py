@@ -26,7 +26,7 @@ class AgentRuntime(BaseChatRuntime):
     async def _generate_result(
         self,
         *,
-        user_key: str,
+        user_id: str,
         message: str,
         conversation_id: int,
         selection: dict,
@@ -34,7 +34,7 @@ class AgentRuntime(BaseChatRuntime):
     ) -> RuntimeResult:
         graph_messages = await self.conversation_service.load_langchain_messages(conversation_id)
         context = self._build_context(
-            user_key=user_key,
+            user_id=user_id,
             conversation_id=conversation_id,
             selection=selection,
             resources=resources,
@@ -48,9 +48,9 @@ class AgentRuntime(BaseChatRuntime):
             answer = result["messages"][-1].content
             activated_skills = self._activated_skills_from_result(result)
             logger.info(
-                "Agent Skill run summary: user_key=%s conversation_id=%s "
+                "Agent Skill run summary: user_id=%s conversation_id=%s "
                 "selected_skills=%s activated_skills=%s",
-                user_key,
+                user_id,
                 conversation_id,
                 context.skills,
                 activated_skills,
@@ -74,8 +74,8 @@ class AgentRuntime(BaseChatRuntime):
             }
         except ModelRequestTimeoutError:
             logger.warning(
-                "Agent model request timed out: user_key=%s conversation_id=%s",
-                user_key,
+                "Agent model request timed out: user_id=%s conversation_id=%s",
+                user_id,
                 conversation_id,
             )
             answer = self.MODEL_TIMEOUT_REPLY
@@ -124,7 +124,7 @@ class AgentRuntime(BaseChatRuntime):
     def _build_context(
         self,
         *,
-        user_key: str,
+        user_id: str,
         conversation_id: int,
         selection: dict,
         resources: dict[str, list[dict]],
@@ -133,8 +133,8 @@ class AgentRuntime(BaseChatRuntime):
         settings = get_settings()
         knowledge_base_ids = selection.get("knowledge_base_ids", []) or []
         logger.info(
-            "Knowledge bases enabled for agent run: user_key=%s conversation_id=%s knowledge_base_ids=%s",
-            user_key,
+            "Knowledge bases enabled for agent run: user_id=%s conversation_id=%s knowledge_base_ids=%s",
+            user_id,
             conversation_id,
             knowledge_base_ids,
         )
@@ -144,15 +144,15 @@ class AgentRuntime(BaseChatRuntime):
             if item.get("slug")
         ]
         logger.info(
-            "Agent runtime resources: user_key=%s conversation_id=%s skills=%s tools=%s mcps=%s",
-            user_key,
+            "Agent runtime resources: user_id=%s conversation_id=%s skills=%s tools=%s mcps=%s",
+            user_id,
             conversation_id,
             skill_slugs,
             [item.get("name") for item in resources["tools"]],
             [item.get("name") for item in resources["mcps"]],
         )
         return AgentContext(
-            user_key=user_key,
+            user_id=user_id,
             conversation_id=conversation_id,
             system_prompt=settings.default_system_prompt,
             model_use=CHAT_MODEL,

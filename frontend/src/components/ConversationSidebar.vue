@@ -58,7 +58,7 @@ async function handleRename(conversation) {
   openMenuId.value = null
   const title = window.prompt('重命名对话', conversation.title)
   if (title === null || title.trim() === conversation.title) return
-  await renameConversation(conversation.id, selectionStore.userKey, title)
+  await renameConversation(conversation.id, selectionStore.userId, title)
 }
 
 function requestDelete(conversation) {
@@ -70,7 +70,7 @@ async function confirmDelete() {
   if (!pendingDelete.value) return
   const conversationId = pendingDelete.value.id
   pendingDelete.value = null
-  await removeConversation(conversationId, selectionStore.userKey)
+  await removeConversation(conversationId, selectionStore.userId)
 }
 
 function startNewConversation() {
@@ -80,7 +80,7 @@ function startNewConversation() {
 
 async function openConversation(conversationId) {
   emit('navigate', 'chat')
-  await selectConversation(conversationId, selectionStore.userKey)
+  await selectConversation(conversationId, selectionStore.userId)
 }
 </script>
 

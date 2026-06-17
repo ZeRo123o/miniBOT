@@ -189,8 +189,8 @@ class SkillsMiddleware(AgentMiddleware):
         # 存储 visible_skills 供后续使用
         setattr(runtime_context, "_visible_skills", visible_skills)
         logger.info(
-            "Agent Skill prompt injected: user_key=%s conversation_id=%s skills=%s",
-            runtime_context.user_key,
+            "Agent Skill prompt injected: user_id=%s conversation_id=%s skills=%s",
+            runtime_context.user_id,
             runtime_context.conversation_id,
             visible_skills,
         )
@@ -242,9 +242,9 @@ class SkillsMiddleware(AgentMiddleware):
                 tools=self._merge_tools(list(request.tools or []), enabled_tools)
             )
             logger.info(
-                "Agent Skill dependencies exposed: user_key=%s conversation_id=%s "
+                "Agent Skill dependencies exposed: user_id=%s conversation_id=%s "
                 "activated_skills=%s tools=%s mcps=%s",
-                runtime_context.user_key,
+                runtime_context.user_id,
                 runtime_context.conversation_id,
                 activated,
                 [tool.name for tool in enabled_tools],
@@ -277,9 +277,9 @@ class SkillsMiddleware(AgentMiddleware):
 
         runtime_context = request.runtime.context
         logger.info(
-            "Agent Skill activated: user_key=%s conversation_id=%s skill=%s "
+            "Agent Skill activated: user_id=%s conversation_id=%s skill=%s "
             "source=sandbox_read_file",
-            runtime_context.user_key,
+            runtime_context.user_id,
             runtime_context.conversation_id,
             slug,
         )

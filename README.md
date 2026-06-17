@@ -56,7 +56,7 @@ Open `http://localhost:5173`.
 1. Backend seeds example MCP, Skill, and Subagent records into PostgreSQL on startup.
 2. Frontend loads resource lists from `/api/resources`.
 3. User checks MCP, Skill, and Subagent names.
-4. Frontend saves names to `/api/selections/{user_key}`.
+4. Frontend saves names to `/api/selections/{user_id}`.
 5. Chat runtime resolves selected names back to PostgreSQL resource records.
 6. LangGraph receives resolved resources and passes them through middleware before the assistant node.
 

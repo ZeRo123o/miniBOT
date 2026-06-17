@@ -8,14 +8,14 @@ async def list_enabled_resources(
     db: AsyncSession,
     *,
     kind: str,
-    user_key: str | None = None,
+    user_id: str | None = None,
 ) -> list[dict]:
     """读取全局或当前用户拥有的已启用资源。"""
     repo = PluginResourceRepository(db)
     resources = []
     for item in await repo.list(kind=kind, enabled_only=True):
-        owner_user_key = str((item.config or {}).get("owner_user_key") or "")
-        if not owner_user_key or owner_user_key == user_key:
+        owner_user_id = str((item.config or {}).get("owner_user_id") or "")
+        if not owner_user_id or owner_user_id == user_id:
             resources.append(item.to_dict())
     return resources
 

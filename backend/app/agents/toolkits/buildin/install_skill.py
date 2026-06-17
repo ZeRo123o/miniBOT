@@ -142,7 +142,7 @@ def _next_target_dir(root: Path, slug: str) -> Path:
 async def _register_installed_skill(
     *,
     source_dir: Path,
-    user_key: str,
+    user_id: str,
 ) -> dict[str, Any]:
     """复制 Skill 文件并在独立 skills 表中建立索引。"""
     slug, _instructions, metadata = _validate_skill_dir(source_dir)
@@ -159,7 +159,7 @@ async def _register_installed_skill(
             name=str(metadata.get("name") or runtime_slug),
             description=str(
                 metadata.get("description")
-                or f"由用户 {user_key} 安装的 Skill"
+                or f"由用户 {user_id} 安装的 Skill"
             ),
             tool_dependencies=skill_dependency_names(metadata, "tools"),
             mcp_dependencies=skill_dependency_names(metadata, "mcps"),
@@ -168,7 +168,7 @@ async def _register_installed_skill(
             version=str(metadata.get("version") or "").strip() or None,
             is_builtin=False,
             content_hash=hash_skill_directory(target_dir),
-            created_by=user_key,
+            created_by=user_id,
         )
 
         return resource.to_dict()
@@ -177,7 +177,7 @@ async def _register_installed_skill(
 async def _prepare_and_install(
     source: str,
     skill_names: list[str] | None,
-    user_key: str,
+    user_id: str,
 ) -> list[dict[str, Any]]:
     github_url = _normalize_github_source(source)
     if github_url:
@@ -188,7 +188,7 @@ async def _prepare_and_install(
             return [
                 await _register_installed_skill(
                     source_dir=item,
-                    user_key=user_key,
+                    user_id=user_id,
                 )
                 for item in sources
             ]
@@ -197,7 +197,7 @@ async def _prepare_and_install(
     return [
         await _register_installed_skill(
             source_dir=local_source,
-            user_key=user_key,
+            user_id=user_id,
         )
     ]
 
@@ -216,13 +216,13 @@ async def install_skill(
 ) -> Command:
     """安装 Skill，并立即作为当前用户的启用扩展参与运行。"""
     context = _runtime_context(runtime)
-    user_key = str(getattr(context, "user_key", "") or "").strip()
+    user_id = str(getattr(context, "user_id", "") or "").strip()
     event = start_tool_call(
         context,
         tool_name="install_skill",
         payload={"source": source, "skill_names": skill_names or []},
     )
-    if not user_key:
+    if not user_id:
         error = "无法获取当前用户信息"
         fail_tool_call(event, error)
         return Command(
@@ -230,7 +230,7 @@ async def install_skill(
         )
 
     try:
-        resources = await _prepare_and_install(source.strip(), skill_names, user_key)
+        resources = await _prepare_and_install(source.strip(), skill_names, user_id)
     except Exception as error:
         fail_tool_call(event, error)
         return Command(
@@ -250,7 +250,7 @@ async def install_skill(
 
         conversation_id = getattr(context, "conversation_id", None)
         if conversation_id is not None:
-            sync_readable_skills(user_key, int(conversation_id), context.skills)
+            sync_readable_skills(user_id, int(conversation_id), context.skills)
 
     installed_names = [item["slug"] for item in resources]
     finish_tool_call(event, installed_skills=installed_names)

@@ -27,22 +27,22 @@ class BaseChatRuntime(ABC):
         self.selection_service = SelectionService(db)
         self.resource_service = ResourceService(db)
 
-    async def run(self, *, user_key: str, message: str, conversation_id: int | None = None) -> dict:
+    async def run(self, *, user_id: str, message: str, conversation_id: int | None = None) -> dict:
         logger.info(
-            "Runtime run started: user_key=%s conversation_id=%s message_chars=%s",
-            user_key,
+            "Runtime run started: user_id=%s conversation_id=%s message_chars=%s",
+            user_id,
             conversation_id,
             len(message),
         )
         conversation = await self.conversation_service.prepare_conversation(
-            user_key=user_key,
+            user_id=user_id,
             message=message,
             conversation_id=conversation_id,
         )
         prepared_conversation_id = conversation.id
         logger.info(
-            "Runtime conversation prepared: user_key=%s conversation_id=%s",
-            user_key,
+            "Runtime conversation prepared: user_id=%s conversation_id=%s",
+            user_id,
             prepared_conversation_id,
         )
         await self.conversation_service.save_user_message(prepared_conversation_id, message)
@@ -51,7 +51,7 @@ class BaseChatRuntime(ABC):
             prepared_conversation_id,
         )
 
-        selection = await self.selection_service.get_or_default(user_key)
+        selection = await self.selection_service.get_or_default(user_id)
         resources = await self.resource_service.resolve_for_selection(selection)
         logger.info(
             "Runtime resources resolved: conversation_id=%s mcps=%s skills=%s tools=%s",
@@ -61,7 +61,7 @@ class BaseChatRuntime(ABC):
             len(resources.get("tools", [])),
         )
         result = await self._generate_result(
-            user_key=user_key,
+            user_id=user_id,
             message=message,
             conversation_id=prepared_conversation_id,
             selection=selection,
@@ -80,7 +80,7 @@ class BaseChatRuntime(ABC):
         )
         response = await self.conversation_service.build_chat_response(
             conversation_id=prepared_conversation_id,
-            user_key=user_key,
+            user_id=user_id,
             answer=result.answer,
             selection=selection,
             resources=resources,
@@ -91,26 +91,26 @@ class BaseChatRuntime(ABC):
     async def run_stream(
         self,
         *,
-        user_key: str,
+        user_id: str,
         message: str,
         conversation_id: int | None = None,
     ) -> AsyncIterator[dict]:
         logger.info(
-            "Runtime stream started: user_key=%s conversation_id=%s message_chars=%s",
-            user_key,
+            "Runtime stream started: user_id=%s conversation_id=%s message_chars=%s",
+            user_id,
             conversation_id,
             len(message),
         )
         conversation = await self.conversation_service.prepare_conversation(
-            user_key=user_key,
+            user_id=user_id,
             message=message,
             conversation_id=conversation_id,
         )
         prepared_conversation_id = conversation.id
         prepared_conversation = conversation.to_dict()
         logger.info(
-            "Runtime stream conversation prepared: user_key=%s conversation_id=%s",
-            user_key,
+            "Runtime stream conversation prepared: user_id=%s conversation_id=%s",
+            user_id,
             prepared_conversation_id,
         )
         await self.conversation_service.save_user_message(prepared_conversation_id, message)
@@ -124,7 +124,7 @@ class BaseChatRuntime(ABC):
             "conversation": prepared_conversation,
         }
 
-        selection = await self.selection_service.get_or_default(user_key)
+        selection = await self.selection_service.get_or_default(user_id)
         resources = await self.resource_service.resolve_for_selection(selection)
         logger.info(
             "Runtime stream resources resolved: conversation_id=%s mcps=%s skills=%s tools=%s",
@@ -134,7 +134,7 @@ class BaseChatRuntime(ABC):
             len(resources.get("tools", [])),
         )
         result = await self._generate_result(
-            user_key=user_key,
+            user_id=user_id,
             message=message,
             conversation_id=prepared_conversation_id,
             selection=selection,
@@ -157,7 +157,7 @@ class BaseChatRuntime(ABC):
         )
         response = await self.conversation_service.build_chat_response(
             conversation_id=prepared_conversation_id,
-            user_key=user_key,
+            user_id=user_id,
             answer=result.answer,
             selection=selection,
             resources=resources,
@@ -169,7 +169,7 @@ class BaseChatRuntime(ABC):
     async def _generate_result(
         self,
         *,
-        user_key: str,
+        user_id: str,
         message: str,
         conversation_id: int,
         selection: dict,

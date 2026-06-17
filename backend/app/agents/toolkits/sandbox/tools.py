@@ -66,10 +66,10 @@ def _readable_skill_slugs(context: Any) -> list[str]:
 def _ensure_sandbox(runtime: ToolRuntime) -> SandboxConnection:
     """从运行时状态复用沙盒，缺失时按用户和会话延迟创建。"""
     context = _runtime_context(runtime)
-    user_key = str(getattr(context, "user_key", "") or "").strip()
+    user_id = str(getattr(context, "user_id", "") or "").strip()
     conversation_id = getattr(context, "conversation_id", None)
-    if not user_key or conversation_id is None:
-        raise ValueError("sandbox requires user_key and conversation_id")
+    if not user_id or conversation_id is None:
+        raise ValueError("sandbox requires user_id and conversation_id")
 
     state = runtime.state
     provider = get_sandbox_provider()
@@ -77,7 +77,7 @@ def _ensure_sandbox(runtime: ToolRuntime) -> SandboxConnection:
     # acquire() synchronizes the latest readable Skill closure before reusing
     # or creating the conversation-scoped sandbox.
     connection = provider.acquire(
-        user_key=user_key,
+        user_id=user_id,
         conversation_id=int(conversation_id),
         skills=_readable_skill_slugs(context),
     )

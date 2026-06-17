@@ -145,7 +145,7 @@ backend/app
 ```text
 模型调用 sandbox_read_file / sandbox_write_file / sandbox_ls / sandbox_glob / sandbox_grep
   -> SandboxMiddleware 持久化 sandbox_id
-  -> ProvisionerSandboxProvider 按 user_key + conversation_id 获取沙盒
+  -> ProvisionerSandboxProvider 按 user_id + conversation_id 获取沙盒
   -> HTTP 调用 sandbox-provisioner
   -> provisioner 动态创建或复用 Docker 容器
   -> agent-sandbox 文件 API 执行受控文件操作
@@ -214,7 +214,7 @@ frontend
 
 右侧工作区选择知识库后，通过 selections API 将 `knowledge_base_ids` 保存到
 `user_selections`。聊天运行时读取该字段并写入 `AgentContext.knowledge_base_ids`，
-知识库工具只允许查询这个 ID 列表内且属于当前 `user_key` 的知识库。
+知识库工具只允许查询这个 ID 列表内且属于当前 `user_id` 的知识库。
 
 `services/` 负责业务流程：
 
@@ -311,22 +311,22 @@ GET    /api/health
 GET    /api/resources?kind=mcp|tool
 POST   /api/resources
 GET    /api/skills
-GET    /api/selections/{user_key}
-PUT    /api/selections/{user_key}
-GET    /api/selections/{user_key}/resolved
-GET    /api/conversations?user_key=default
+GET    /api/selections/{user_id}
+PUT    /api/selections/{user_id}
+GET    /api/selections/{user_id}/resolved
+GET    /api/conversations?user_id=default
 POST   /api/conversations
-PATCH  /api/conversations/{conversation_id}?user_key=default
-DELETE /api/conversations/{conversation_id}?user_key=default
-GET    /api/conversations/{conversation_id}/messages?user_key=default
+PATCH  /api/conversations/{conversation_id}?user_id=default
+DELETE /api/conversations/{conversation_id}?user_id=default
+GET    /api/conversations/{conversation_id}/messages?user_id=default
 POST   /api/chat
 POST   /api/chat/stream
-GET    /api/knowledge-bases?user_key=default
+GET    /api/knowledge-bases?user_id=default
 POST   /api/knowledge-bases
 GET    /api/knowledge-chunk-presets
-GET    /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
-POST   /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default
-DELETE /api/knowledge-documents/{document_id}?user_key=default
+GET    /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default
+POST   /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default
+DELETE /api/knowledge-documents/{document_id}?user_id=default
 ```
 
 ## 7. 常见任务定位
@@ -477,7 +477,7 @@ Milvus 查询层参考 Yuxi 实现，支持 `search_mode`、`final_top_k`、`rec
 `citation_id`。`KnowledgeRetrievalService` 根据知识库 `kb_type` 调用对应 backend，
 不把 LightRAG 逻辑写入 `MilvusVectorStore`。
 
-知识库工具只根据 `ToolRuntime.context` 中的 `user_key` 和 `knowledge_base_ids` 确定访问范围，
+知识库工具只根据 `ToolRuntime.context` 中的 `user_id` 和 `knowledge_base_ids` 确定访问范围，
 不接受模型传入的用户身份或 collection 名称。
 
 可由 Agent middleware 直接注入的知识库工具位于：
@@ -493,14 +493,14 @@ list_kbs   列出当前会话启用且用户有权访问的知识库
 query_kb   按 kb_id、query_text 和可选 file_name 查询知识库
 ```
 
-`query_kb` 使用 LangGraph `ToolRuntime` 从 `AgentContext` 获取 `user_key` 和
+`query_kb` 使用 LangGraph `ToolRuntime` 从 `AgentContext` 获取 `user_id` 和
 `knowledge_base_ids`，不会把用户身份暴露为模型工具参数。`KnowledgeBaseMiddleware`
 通过 `get_kb_tools()` 将工具注册到 agent，访问范围仍由 `AgentContext` 控制。
 
 新增接口：
 
 ```text
-GET /api/knowledge-documents/{document_id}/chunks?user_key=default
+GET /api/knowledge-documents/{document_id}/chunks?user_id=default
 ```
 - `backend/app/db/repositories.py`
 

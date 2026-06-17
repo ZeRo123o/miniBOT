@@ -145,7 +145,7 @@ http://localhost:5173
 - Agent 沙盒抽象、路径和生命周期放在 `backend/app/agents/backends/sandbox`；工具层不能直接调用 Docker SDK 或拼接宿主机路径。
 - Agent 中间件写入 `/mnt/...` 虚拟路径时优先通过 `backend/app/agents/backends` 的文件系统 backend，不在 middleware 中直接解析宿主机路径。
 - 沙盒文件工具放在 `backend/app/agents/toolkits/sandbox`，当前只提供 `read_file`、`write_file`、`ls`、`glob`、`grep` 对应的受控能力，不提供宿主机执行模式。
-- 沙盒按 `user_key + conversation_id` 隔离并延迟创建；`workspace` 为用户级共享目录，`uploads`、`outputs` 和只读 `skills` 为会话级目录。
+- 沙盒按 `user_id + conversation_id` 隔离并延迟创建；`workspace` 为用户级共享目录，`uploads`、`outputs` 和只读 `skills` 为会话级目录。
 - Agent 只使用 `/mnt/user-data/workspace`、`/mnt/user-data/uploads`、`/mnt/user-data/outputs`、`/mnt/skills` 虚拟路径，不得向模型暴露宿主机真实路径。
 - `uploads` 和 `skills` 必须只读挂载；只有 `workspace` 与 `outputs` 可写。最终交付物必须写入 outputs，再通过 `present_artifacts` 展示。
 - Docker 容器创建和回收由 `docker/sandbox_provisioner` 独立服务负责，后端只通过带内部 token 的 HTTP API 获取沙盒。
@@ -174,21 +174,21 @@ http://localhost:5173
 - `GET /api/resources?kind=mcp|tool`
 - `POST /api/resources`
 - `GET /api/skills`
-- `GET /api/selections/{user_key}`
-- `PUT /api/selections/{user_key}`
-- `GET /api/selections/{user_key}/resolved`
-- `GET /api/conversations?user_key=default`
+- `GET /api/selections/{user_id}`
+- `PUT /api/selections/{user_id}`
+- `GET /api/selections/{user_id}/resolved`
+- `GET /api/conversations?user_id=default`
 - `POST /api/conversations`
-- `PATCH /api/conversations/{conversation_id}?user_key=default`
-- `DELETE /api/conversations/{conversation_id}?user_key=default`
-- `GET /api/conversations/{conversation_id}/messages?user_key=default`
+- `PATCH /api/conversations/{conversation_id}?user_id=default`
+- `DELETE /api/conversations/{conversation_id}?user_id=default`
+- `GET /api/conversations/{conversation_id}/messages?user_id=default`
 - `POST /api/chat`
-- `GET /api/knowledge-bases?user_key=default`
+- `GET /api/knowledge-bases?user_id=default`
 - `POST /api/knowledge-bases`
-- `DELETE /api/knowledge-bases/{knowledge_base_id}?user_key=default`
-- `GET /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default`
-- `POST /api/knowledge-bases/{knowledge_base_id}/documents?user_key=default`
-- `DELETE /api/knowledge-documents/{document_id}?user_key=default`
+- `DELETE /api/knowledge-bases/{knowledge_base_id}?user_id=default`
+- `GET /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default`
+- `POST /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default`
+- `DELETE /api/knowledge-documents/{document_id}?user_id=default`
 
 `/api/chat` 负责：
 
@@ -217,8 +217,8 @@ http://localhost:5173
 
 约定：
 
-- 继续沿用 `user_key` 作为当前无认证阶段的用户标识。
-- `user_selections.knowledge_base_ids` 保存右侧工作区启用的知识库 ID，写入时必须按 `user_key` 过滤访问范围。
+- 继续沿用 `user_id` 作为当前无认证阶段的用户标识。
+- `user_selections.knowledge_base_ids` 保存右侧工作区启用的知识库 ID，写入时必须按 `user_id` 过滤访问范围。
 - 会话删除默认采用归档语义，避免误删历史数据。
 - 消息 `role` 只使用 `user`、`assistant`、`system`、`tool`。
 - 消息扩展信息放在 JSONB `metadata` 中，不要把运行时上下文硬编码进文本字段。
@@ -243,7 +243,7 @@ http://localhost:5173
 
 - 项目还没有正式测试套件。
 - 项目还没有数据库迁移系统。
-- 当前没有认证系统，`user_key` 仍是客户端传入的简单标识。
+- 当前没有认证系统，`user_id` 仍是客户端传入的简单标识。
 - 当前真实模型能力取决于运行时配置；默认模型仍可使用 `mock`。
 
 ## 11. 知识库分块补充
@@ -251,10 +251,10 @@ http://localhost:5173
 - 多策略 Markdown 分块实现放在 `backend/app/knowledge/chunking/ragflow_like`，由 `dispatcher.py` 统一调度；通用策略位于 `parsers/general.py`，按分隔符形成 section，再按 token 上限合并，超长 chunk 兜底硬切。
 - 文档上传解析成功后由 `backend/app/services/knowledge_service.py` 串联分块、embedding 和 Milvus 入库。
 - `knowledge_chunks` 只保存 chunk 元数据；chunk 正文和向量保存在 Milvus collection 中。
-- chunk 查询接口为 `GET /api/knowledge-documents/{document_id}/chunks?user_key=default`。
+- chunk 查询接口为 `GET /api/knowledge-documents/{document_id}/chunks?user_id=default`。
 - 知识库通过 `knowledge_bases.metadata.kb_type` 区分 `milvus` 与 `lightrag`；旧数据默认按 `milvus` 处理。
 - LightRAG 作为与 Milvus 平级的知识库 backend，使用独立 Milvus database 保存内部向量集合，并使用 Neo4j 保存图谱；具体实现放在 `backend/app/knowledge/backends`。
-- 文档删除接口为 `DELETE /api/knowledge-documents/{document_id}?user_key=default`，必须先清理对应 backend 索引，再删除 PostgreSQL 元数据。
+- 文档删除接口为 `DELETE /api/knowledge-documents/{document_id}?user_id=default`，必须先清理对应 backend 索引，再删除 PostgreSQL 元数据。
 - 知识库删除必须清理对应 backend、MinIO 前缀和 `user_selections.knowledge_base_ids` 引用，再删除 PostgreSQL 元数据；存在 `uploaded`、`parsing`、`chunking`、`embedding` 或 `indexing` 文档时返回 409。
 
 

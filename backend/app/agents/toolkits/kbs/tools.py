@@ -42,7 +42,7 @@ def _resolve_runtime_scope(runtime: ToolRuntime | None) -> tuple[str | None, lis
         return None, []
 
     context = runtime.context
-    user_key = context_value(context, "user_key", None)
+    user_id = context_value(context, "user_id", None)
     raw_ids = context_value(context, "knowledge_base_ids", []) or []
     knowledge_base_ids = []
     for item in raw_ids:
@@ -50,7 +50,7 @@ def _resolve_runtime_scope(runtime: ToolRuntime | None) -> tuple[str | None, lis
             knowledge_base_ids.append(int(item))
         except (TypeError, ValueError):
             continue
-    return user_key, list(dict.fromkeys(knowledge_base_ids))
+    return user_id, list(dict.fromkeys(knowledge_base_ids))
 
 
 @tool("list_kbs", args_schema=ListKBsInput)
@@ -59,8 +59,8 @@ async def list_kbs(dummy: str = "", runtime: ToolRuntime = None) -> list[dict[st
 
     当需要确定可查询的 kb_id、知识库名称或描述时使用。
     """
-    user_key, enabled_ids = _resolve_runtime_scope(runtime)
-    if not user_key:
+    user_id, enabled_ids = _resolve_runtime_scope(runtime)
+    if not user_id:
         return "无法获取当前用户信息。"
     if not enabled_ids:
         return "当前会话没有启用知识库。"
@@ -75,7 +75,7 @@ async def list_kbs(dummy: str = "", runtime: ToolRuntime = None) -> list[dict[st
             repo = KnowledgeBaseRepository(db)
             visible = []
             for kb_id in enabled_ids:
-                knowledge_base = await repo.get(kb_id, user_key=user_key)
+                knowledge_base = await repo.get(kb_id, user_id=user_id)
                 if knowledge_base is not None:
                     visible.append(
                         {
@@ -86,7 +86,7 @@ async def list_kbs(dummy: str = "", runtime: ToolRuntime = None) -> list[dict[st
                     )
     except Exception as error:
         fail_tool_call(event, error)
-        logger.exception("知识库列表工具调用失败: user_key=%s", user_key)
+        logger.exception("知识库列表工具调用失败: user_id=%s", user_id)
         return f"知识库列表查询失败: {error}"
 
     finish_tool_call(event, result_count=len(visible))
@@ -108,8 +108,8 @@ async def query_kb(
     if not clean_query:
         return "请提供查询内容。"
 
-    user_key, enabled_ids = _resolve_runtime_scope(runtime)
-    if not user_key:
+    user_id, enabled_ids = _resolve_runtime_scope(runtime)
+    if not user_id:
         return "无法获取当前用户信息。"
     if int(kb_id) not in enabled_ids:
         return f"知识库资源 '{kb_id}' 不存在或当前会话未启用。"
@@ -125,20 +125,20 @@ async def query_kb(
 
     try:
         async with AsyncSessionLocal() as db:
-            knowledge_base = await KnowledgeBaseRepository(db).get(int(kb_id), user_key=user_key)
+            knowledge_base = await KnowledgeBaseRepository(db).get(int(kb_id), user_id=user_id)
             if knowledge_base is None:
                 fail_tool_call(event, "knowledge_base_not_found")
                 return f"知识库资源 '{kb_id}' 不存在或当前用户无权访问。"
 
             result = await KnowledgeRetrievalService(db).query(
-                user_key=user_key,
+                user_id=user_id,
                 query=clean_query,
                 knowledge_base_ids=[int(kb_id)],
                 search_mode="hybrid",
                 file_name=file_name,
             )
     except Exception as error:
-        logger.exception("知识库工具查询失败: user_key=%s kb_id=%s", user_key, kb_id)
+        logger.exception("知识库工具查询失败: user_id=%s kb_id=%s", user_id, kb_id)
         fail_tool_call(event, error)
         return f"知识库检索失败: {error}"
 

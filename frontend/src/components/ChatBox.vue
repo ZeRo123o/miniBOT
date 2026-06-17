@@ -46,7 +46,7 @@ async function submit() {
   scrollToBottom()
 
   try {
-    await sendChatStream(text, selectionStore.userKey, conversationId, {
+    await sendChatStream(text, selectionStore.userId, conversationId, {
       conversation(event) {
         applyStreamConversation(event, optimisticConversationId)
         streamConversationId = event.conversation_id

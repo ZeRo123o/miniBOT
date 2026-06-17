@@ -2,12 +2,12 @@ import { reactive } from 'vue'
 import { getSelection, listKnowledgeBases, saveSelection } from '../apis/resources'
 
 export const selectionStore = reactive({
-  userKey: 'default',
+  userId: 'default',
   resources: {
     knowledgeBase: [],
   },
   selection: {
-    user_key: 'default',
+    user_id: 'default',
     knowledge_base_ids: [],
   },
   loading: false,
@@ -20,12 +20,12 @@ export async function loadWorkspace() {
   selectionStore.error = ''
   try {
     const [knowledgeBases, selection] = await Promise.all([
-      listKnowledgeBases(selectionStore.userKey),
-      getSelection(selectionStore.userKey),
+      listKnowledgeBases(selectionStore.userId),
+      getSelection(selectionStore.userId),
     ])
     selectionStore.resources.knowledgeBase = knowledgeBases
     selectionStore.selection = {
-      user_key: selection.user_key || selectionStore.userKey,
+      user_id: selection.user_id || selectionStore.userId,
       knowledge_base_ids: selection.knowledge_base_ids || [],
     }
     selectionStore.hasUnsavedChanges = false
@@ -41,9 +41,9 @@ export async function persistSelection() {
 
   selectionStore.loading = true
   selectionStore.error = ''
-  selectionStore.selection.user_key = selectionStore.userKey
+  selectionStore.selection.user_id = selectionStore.userId
   try {
-    selectionStore.selection = await saveSelection(selectionStore.userKey, selectionStore.selection)
+    selectionStore.selection = await saveSelection(selectionStore.userId, selectionStore.selection)
     selectionStore.hasUnsavedChanges = false
   } catch (error) {
     selectionStore.error = error.message

@@ -23,7 +23,7 @@ class PluginResourceOut(PluginResourceIn):
 
 
 class SelectionIn(BaseModel):
-    user_key: str = Field(default="default", min_length=1, max_length=128)
+    user_id: str = Field(default="default", min_length=1, max_length=128)
     knowledge_base_ids: list[int] = Field(default_factory=list)
 
 

@@ -35,7 +35,7 @@ class SandboxToolRuntimeTests(unittest.TestCase):
 
     def test_sandbox_mounts_visible_skill_dependency_closure(self):
         context = AgentContext(
-            user_key="default",
+            user_id="default",
             conversation_id=43,
             skills=["reporter"],
         )
@@ -56,7 +56,7 @@ class SandboxToolRuntimeTests(unittest.TestCase):
 
         self.assertIs(result, connection)
         provider.acquire.assert_called_once_with(
-            user_key="default",
+            user_id="default",
             conversation_id=43,
             skills=["reporter", "writer"],
         )

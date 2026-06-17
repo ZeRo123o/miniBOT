@@ -16,42 +16,42 @@ export function upsertResource(resource) {
   })
 }
 
-export function getSelection(userKey) {
-  return request(`/selections/${encodeURIComponent(userKey)}`)
+export function getSelection(userId) {
+  return request(`/selections/${encodeURIComponent(userId)}`)
 }
 
-export function saveSelection(userKey, selection) {
-  return request(`/selections/${encodeURIComponent(userKey)}`, {
+export function saveSelection(userId, selection) {
+  return request(`/selections/${encodeURIComponent(userId)}`, {
     method: 'PUT',
     body: JSON.stringify(selection),
   })
 }
 
-export function listConversations(userKey) {
-  return request(`/conversations?user_key=${encodeURIComponent(userKey)}`)
+export function listConversations(userId) {
+  return request(`/conversations?user_id=${encodeURIComponent(userId)}`)
 }
 
-export function updateConversation(conversationId, userKey, payload) {
-  return request(`/conversations/${encodeURIComponent(conversationId)}?user_key=${encodeURIComponent(userKey)}`, {
+export function updateConversation(conversationId, userId, payload) {
+  return request(`/conversations/${encodeURIComponent(conversationId)}?user_id=${encodeURIComponent(userId)}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
 }
 
-export function deleteConversation(conversationId, userKey) {
-  return request(`/conversations/${encodeURIComponent(conversationId)}?user_key=${encodeURIComponent(userKey)}`, {
+export function deleteConversation(conversationId, userId) {
+  return request(`/conversations/${encodeURIComponent(conversationId)}?user_id=${encodeURIComponent(userId)}`, {
     method: 'DELETE',
   })
 }
 
-export function listConversationMessages(conversationId, userKey) {
+export function listConversationMessages(conversationId, userId) {
   return request(
-    `/conversations/${encodeURIComponent(conversationId)}/messages?user_key=${encodeURIComponent(userKey)}`,
+    `/conversations/${encodeURIComponent(conversationId)}/messages?user_id=${encodeURIComponent(userId)}`,
   )
 }
 
-export function listKnowledgeBases(userKey) {
-  return request(`/knowledge-bases?user_key=${encodeURIComponent(userKey)}`)
+export function listKnowledgeBases(userId) {
+  return request(`/knowledge-bases?user_id=${encodeURIComponent(userId)}`)
 }
 
 export function listKnowledgeChunkPresets() {
@@ -65,25 +65,25 @@ export function createKnowledgeBase(payload) {
   })
 }
 
-export function deleteKnowledgeBase(knowledgeBaseId, userKey) {
+export function deleteKnowledgeBase(knowledgeBaseId, userId) {
   return request(
-    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}?user_key=${encodeURIComponent(userKey)}`,
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}?user_id=${encodeURIComponent(userId)}`,
     { method: 'DELETE' },
   )
 }
 
-export function listKnowledgeDocuments(knowledgeBaseId, userKey) {
+export function listKnowledgeDocuments(knowledgeBaseId, userId) {
   return request(
-    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/documents?user_key=${encodeURIComponent(userKey)}`,
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/documents?user_id=${encodeURIComponent(userId)}`,
   )
 }
 
-export async function uploadKnowledgeDocument(knowledgeBaseId, userKey, file) {
+export async function uploadKnowledgeDocument(knowledgeBaseId, userId, file) {
   const formData = new FormData()
   formData.append('file', file)
 
   const response = await fetch(
-    `${API_BASE}/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/documents?user_key=${encodeURIComponent(userKey)}`,
+    `${API_BASE}/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/documents?user_id=${encodeURIComponent(userId)}`,
     {
       method: 'POST',
       body: formData,
@@ -97,18 +97,18 @@ export async function uploadKnowledgeDocument(knowledgeBaseId, userKey, file) {
   return response.json()
 }
 
-export function deleteKnowledgeDocument(documentId, userKey) {
+export function deleteKnowledgeDocument(documentId, userId) {
   return request(
-    `/knowledge-documents/${encodeURIComponent(documentId)}?user_key=${encodeURIComponent(userKey)}`,
+    `/knowledge-documents/${encodeURIComponent(documentId)}?user_id=${encodeURIComponent(userId)}`,
     { method: 'DELETE' },
   )
 }
 
-export async function sendChatStream(message, userKey, conversationId = null, handlers = {}) {
+export async function sendChatStream(message, userId, conversationId = null, handlers = {}) {
   const response = await fetch(`${API_BASE}/chat/stream`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, user_key: userKey, conversation_id: conversationId }),
+    body: JSON.stringify({ message, user_id: userId, conversation_id: conversationId }),
   })
 
   if (!response.ok || !response.body) {

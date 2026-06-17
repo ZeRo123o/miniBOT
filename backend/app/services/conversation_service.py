@@ -14,16 +14,16 @@ class ConversationService:
     async def prepare_conversation(
         self,
         *,
-        user_key: str,
+        user_id: str,
         message: str,
         conversation_id: int | None,
     ) -> Conversation:
         """创建或校验会话，并在空会话首次发送消息时自动命名。"""
         title = message[:24] or "新对话"
         if conversation_id is None:
-            return await self.conversation_repo.create(user_key=user_key, title=title)
+            return await self.conversation_repo.create(user_id=user_id, title=title)
 
-        conversation = await self.conversation_repo.get(conversation_id, user_key=user_key)
+        conversation = await self.conversation_repo.get(conversation_id, user_id=user_id)
         if conversation is None:
             raise ValueError("Conversation not found.")
 
@@ -72,14 +72,14 @@ class ConversationService:
         self,
         *,
         conversation_id: int,
-        user_key: str,
+        user_id: str,
         answer: str,
         selection: dict,
         resources: dict[str, list[dict]],
     ) -> dict:
         """构造返回给前端的聊天响应。"""
         messages = await self.message_repo.list(conversation_id)
-        conversation = await self.conversation_repo.get(conversation_id, user_key=user_key)
+        conversation = await self.conversation_repo.get(conversation_id, user_id=user_id)
         if conversation is None:
             raise ValueError("Conversation not found.")
 

@@ -90,17 +90,17 @@ class UserSelection(Base, TimestampMixin):
     __tablename__ = "user_selections"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_key: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     mcps: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     skills: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     subagents: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
     knowledge_base_ids: Mapped[list[int]] = mapped_column(JSONB, default=list, nullable=False)
 
-    __table_args__ = (UniqueConstraint("user_key", name="uq_user_selections_user_key"),)
+    __table_args__ = (UniqueConstraint("user_id", name="uq_user_selections_user_id"),)
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "user_key": self.user_key,
+            "user_id": self.user_id,
             "knowledge_base_ids": self.knowledge_base_ids or [],
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -113,7 +113,7 @@ class KnowledgeBase(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
-    user_key: Mapped[str] = mapped_column(String(128), default="default", nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(128), default="default", nullable=False, index=True)
     metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict, nullable=False)
 
     documents: Mapped[list["KnowledgeDocument"]] = relationship(
@@ -122,14 +122,14 @@ class KnowledgeBase(Base, TimestampMixin):
         passive_deletes=True,
     )
 
-    __table_args__ = (UniqueConstraint("user_key", "name", name="uq_knowledge_bases_user_name"),)
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_knowledge_bases_user_name"),)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "user_key": self.user_key,
+            "user_id": self.user_id,
             "metadata": self.metadata_ or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
@@ -233,7 +233,7 @@ class Conversation(Base, TimestampMixin):
     __tablename__ = "conversations"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_key: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(255), default="新对话", nullable=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
@@ -246,7 +246,7 @@ class Conversation(Base, TimestampMixin):
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
-            "user_key": self.user_key,
+            "user_id": self.user_id,
             "title": self.title,
             "archived": self.archived,
             "created_at": self.created_at.isoformat() if self.created_at else None,

@@ -94,7 +94,7 @@ async function loadKnowledgeBases() {
   loading.value = true
   errorMessage.value = ''
   try {
-    knowledgeBases.value = await listKnowledgeBases(selectionStore.userKey)
+    knowledgeBases.value = await listKnowledgeBases(selectionStore.userId)
     if (!selectedBaseId.value && knowledgeBases.value.length) {
       selectedBaseId.value = knowledgeBases.value[0].id
       await loadDocuments(selectedBaseId.value)
@@ -110,7 +110,7 @@ async function loadDocuments(knowledgeBaseId) {
   if (!knowledgeBaseId) return
   documentsByBaseId.value = {
     ...documentsByBaseId.value,
-    [knowledgeBaseId]: await listKnowledgeDocuments(knowledgeBaseId, selectionStore.userKey),
+    [knowledgeBaseId]: await listKnowledgeDocuments(knowledgeBaseId, selectionStore.userId),
   }
 }
 
@@ -168,7 +168,7 @@ async function confirmDelete() {
   try {
     if (kind === 'knowledgeBase') {
       const deletedIndex = knowledgeBases.value.findIndex((knowledgeBase) => knowledgeBase.id === item.id)
-      await deleteKnowledgeBase(item.id, selectionStore.userKey)
+      await deleteKnowledgeBase(item.id, selectionStore.userId)
       knowledgeBases.value = knowledgeBases.value.filter((knowledgeBase) => knowledgeBase.id !== item.id)
       const nextDocuments = { ...documentsByBaseId.value }
       delete nextDocuments[item.id]
@@ -186,7 +186,7 @@ async function confirmDelete() {
         await loadDocuments(nextKnowledgeBase.id)
       }
     } else {
-      await deleteKnowledgeDocument(item.id, selectionStore.userKey)
+      await deleteKnowledgeDocument(item.id, selectionStore.userId)
       await loadDocuments(item.knowledge_base_id)
     }
     deleteTarget.value = null
@@ -251,7 +251,7 @@ async function submitKnowledgeBase() {
     const knowledgeBase = await createKnowledgeBase({
       name,
       description: createForm.value.description.trim(),
-      user_key: selectionStore.userKey,
+      user_id: selectionStore.userId,
       kb_type: createForm.value.kb_type,
       chunk_preset_id: createForm.value.chunk_preset_id,
       chunk_parser_config: selectedCreatePreset.value?.default_config || {},
@@ -282,7 +282,7 @@ async function submitKnowledgeDocument() {
   errorMessage.value = ''
 
   try {
-    await uploadKnowledgeDocument(knowledgeBaseId, selectionStore.userKey, uploadFile.value)
+    await uploadKnowledgeDocument(knowledgeBaseId, selectionStore.userId, uploadFile.value)
     await loadDocuments(knowledgeBaseId)
     selectedBaseId.value = knowledgeBaseId
     uploadDialogOpen.value = false

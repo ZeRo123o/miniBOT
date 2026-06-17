@@ -393,7 +393,7 @@ class RuntimeConfigMiddlewareTests(unittest.IsolatedAsyncioTestCase):
 class ToolGovernanceLoggingTests(unittest.TestCase):
     def test_logs_tool_lifecycle_without_payload_values(self):
         context = SimpleNamespace(
-            user_key="default",
+            user_id="default",
             conversation_id=42,
             tool_events=[],
         )
@@ -416,7 +416,7 @@ class ToolGovernanceLoggingTests(unittest.TestCase):
 
     def test_logs_tool_failure(self):
         context = SimpleNamespace(
-            user_key="default",
+            user_id="default",
             conversation_id=43,
             tool_events=[],
         )

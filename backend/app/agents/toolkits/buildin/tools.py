@@ -41,9 +41,9 @@ def _runtime_context(runtime: ToolRuntime | None) -> Any:
 def _normalize_presented_artifact_path(filepath: str, runtime: ToolRuntime) -> str:
     """只允许展示当前会话沙盒 outputs 目录中的普通文件。"""
     context = _runtime_context(runtime)
-    user_key = str(getattr(context, "user_key", "") or "").strip()
+    user_id = str(getattr(context, "user_id", "") or "").strip()
     conversation_id = getattr(context, "conversation_id", None)
-    if not user_key or conversation_id is None:
+    if not user_id or conversation_id is None:
         raise ValueError("当前运行时缺少用户或会话信息")
 
     normalized = str(filepath or "").strip()
@@ -56,7 +56,7 @@ def _normalize_presented_artifact_path(filepath: str, runtime: ToolRuntime) -> s
     ):
         raise ValueError(f"只允许展示 {VIRTUAL_OUTPUTS_ROOT} 下的文件")
     actual_path = resolve_host_path(
-        user_key,
+        user_id,
         int(conversation_id),
         normalized,
     )

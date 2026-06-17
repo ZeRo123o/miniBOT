@@ -21,7 +21,7 @@ function setActiveView(view) {
 onMounted(async () => {
   await Promise.all([
     loadWorkspace(),
-    loadConversations(selectionStore.userKey),
+    loadConversations(selectionStore.userId),
   ])
 })
 </script>

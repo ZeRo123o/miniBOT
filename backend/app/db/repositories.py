@@ -64,20 +64,20 @@ class UserSelectionRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get(self, user_key: str) -> UserSelection | None:
-        result = await self.db.execute(select(UserSelection).where(UserSelection.user_key == user_key))
+    async def get(self, user_id: str) -> UserSelection | None:
+        result = await self.db.execute(select(UserSelection).where(UserSelection.user_id == user_id))
         return result.scalar_one_or_none()
 
     async def save(
         self,
-        user_key: str,
+        user_id: str,
         knowledge_base_ids: list[int],
     ) -> UserSelection:
         """只保存用户选择的知识库范围，旧资源列固定清空以兼容现有数据库。"""
-        item = await self.get(user_key)
+        item = await self.get(user_id)
         if item is None:
             item = UserSelection(
-                user_key=user_key,
+                user_id=user_id,
                 mcps=[],
                 skills=[],
                 subagents=[],
@@ -98,18 +98,18 @@ class KnowledgeBaseRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list(self, user_key: str) -> list[KnowledgeBase]:
+    async def list(self, user_id: str) -> list[KnowledgeBase]:
         result = await self.db.execute(
             select(KnowledgeBase)
-            .where(KnowledgeBase.user_key == user_key)
+            .where(KnowledgeBase.user_id == user_id)
             .order_by(KnowledgeBase.updated_at.desc(), KnowledgeBase.id.desc())
         )
         return list(result.scalars().all())
 
-    async def get(self, knowledge_base_id: int, user_key: str | None = None) -> KnowledgeBase | None:
+    async def get(self, knowledge_base_id: int, user_id: str | None = None) -> KnowledgeBase | None:
         stmt = select(KnowledgeBase).where(KnowledgeBase.id == knowledge_base_id)
-        if user_key is not None:
-            stmt = stmt.where(KnowledgeBase.user_key == user_key)
+        if user_id is not None:
+            stmt = stmt.where(KnowledgeBase.user_id == user_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -118,13 +118,13 @@ class KnowledgeBaseRepository:
         *,
         name: str,
         description: str = "",
-        user_key: str = "default",
+        user_id: str = "default",
         metadata: dict | None = None,
     ) -> KnowledgeBase:
         item = KnowledgeBase(
             name=name,
             description=description,
-            user_key=user_key,
+            user_id=user_id,
             metadata_=metadata or {},
         )
         self.db.add(item)
@@ -245,10 +245,10 @@ class ConversationRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def list(self, user_key: str, include_archived: bool = False) -> list[Conversation]:
+    async def list(self, user_id: str, include_archived: bool = False) -> list[Conversation]:
         stmt = (
             select(Conversation)
-            .where(Conversation.user_key == user_key)
+            .where(Conversation.user_id == user_id)
             .order_by(Conversation.updated_at.desc(), Conversation.id.desc())
         )
         if not include_archived:
@@ -256,15 +256,15 @@ class ConversationRepository:
         result = await self.db.execute(stmt)
         return list(result.scalars().all())
 
-    async def get(self, conversation_id: int, user_key: str | None = None) -> Conversation | None:
+    async def get(self, conversation_id: int, user_id: str | None = None) -> Conversation | None:
         stmt = select(Conversation).where(Conversation.id == conversation_id)
-        if user_key is not None:
-            stmt = stmt.where(Conversation.user_key == user_key)
+        if user_id is not None:
+            stmt = stmt.where(Conversation.user_id == user_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def create(self, user_key: str, title: str = "新对话") -> Conversation:
-        item = Conversation(user_key=user_key, title=title)
+    async def create(self, user_id: str, title: str = "新对话") -> Conversation:
+        item = Conversation(user_id=user_id, title=title)
         self.db.add(item)
         await self.db.commit()
         await self.db.refresh(item)

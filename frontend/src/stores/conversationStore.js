@@ -42,16 +42,16 @@ function removeLocalConversation(conversationId) {
   delete conversationStore.messagesByConversationId[conversationId]
 }
 
-export async function loadConversations(userKey) {
+export async function loadConversations(userId) {
   conversationStore.loading = true
   conversationStore.error = ''
   try {
-    conversationStore.conversations = await listConversations(userKey)
+    conversationStore.conversations = await listConversations(userId)
     if (!conversationStore.activeId && conversationStore.conversations.length) {
       conversationStore.activeId = conversationStore.conversations[0].id
     }
     if (conversationStore.activeId) {
-      await loadMessages(conversationStore.activeId, userKey)
+      await loadMessages(conversationStore.activeId, userId)
     }
   } catch (error) {
     conversationStore.error = error.message
@@ -65,18 +65,18 @@ export function newConversation() {
   conversationStore.error = ''
 }
 
-export async function selectConversation(id, userKey) {
+export async function selectConversation(id, userId) {
   conversationStore.activeId = id
-  await loadMessages(id, userKey)
+  await loadMessages(id, userId)
 }
 
-export async function loadMessages(conversationId, userKey) {
+export async function loadMessages(conversationId, userId) {
   conversationStore.loading = true
   conversationStore.error = ''
   try {
     const messages = await listConversationMessages(
       conversationId,
-      userKey,
+      userId,
     )
     conversationStore.messagesByConversationId[conversationId] = messages
   } catch (error) {
@@ -86,14 +86,14 @@ export async function loadMessages(conversationId, userKey) {
   }
 }
 
-export async function renameConversation(conversationId, userKey, title) {
+export async function renameConversation(conversationId, userId, title) {
   const nextTitle = title.trim()
   if (!nextTitle) return
 
   conversationStore.loading = true
   conversationStore.error = ''
   try {
-    const conversation = await updateConversation(conversationId, userKey, { title: nextTitle })
+    const conversation = await updateConversation(conversationId, userId, { title: nextTitle })
     upsertConversation(conversation)
   } catch (error) {
     conversationStore.error = error.message
@@ -102,11 +102,11 @@ export async function renameConversation(conversationId, userKey, title) {
   }
 }
 
-export async function removeConversation(conversationId, userKey) {
+export async function removeConversation(conversationId, userId) {
   conversationStore.loading = true
   conversationStore.error = ''
   try {
-    await deleteConversation(conversationId, userKey)
+    await deleteConversation(conversationId, userId)
     const wasActive = conversationStore.activeId === conversationId
     removeLocalConversation(conversationId)
     if (wasActive) {

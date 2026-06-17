@@ -21,9 +21,9 @@ def start_tool_call(
     tool_events = context_value(context, "tool_events", None)
     event = {"tool_name": tool_name, "status": "started", **(payload or {})}
     logger.info(
-        "Agent tool call started: tool=%s user_key=%s conversation_id=%s",
+        "Agent tool call started: tool=%s user_id=%s conversation_id=%s",
         tool_name,
-        context_value(context, "user_key", ""),
+        context_value(context, "user_id", ""),
         context_value(context, "conversation_id", None),
     )
     if isinstance(tool_events, list):

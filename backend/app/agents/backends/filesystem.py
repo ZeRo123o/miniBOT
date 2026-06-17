@@ -28,7 +28,7 @@ class AgentFilesystemBackend:
             return BackendWriteResult(path=path, error="conversation_id is required")
         try:
             host_path = resolve_host_path(
-                self._context.user_key,
+                self._context.user_id,
                 self._context.conversation_id,
                 path,
                 write=True,

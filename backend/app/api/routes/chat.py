@@ -21,36 +21,36 @@ def sse_event(data: dict) -> str:
 @router.post("")
 async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> dict:
     logger.info(
-        "Chat request received: user_key=%s conversation_id=%s message_chars=%s",
-        payload.user_key,
+        "Chat request received: user_id=%s conversation_id=%s message_chars=%s",
+        payload.user_id,
         payload.conversation_id,
         len(payload.message),
     )
     runtime = AgentRuntime(db)
     try:
         response = await runtime.run(
-            user_key=payload.user_key,
+            user_id=payload.user_id,
             message=payload.message,
             conversation_id=payload.conversation_id,
         )
         logger.info(
-            "Chat request completed: user_key=%s conversation_id=%s",
-            payload.user_key,
+            "Chat request completed: user_id=%s conversation_id=%s",
+            payload.user_id,
             response.get("conversation_id"),
         )
         return response
     except ValueError as error:
         logger.warning(
-            "Chat request rejected: user_key=%s conversation_id=%s error=%s",
-            payload.user_key,
+            "Chat request rejected: user_id=%s conversation_id=%s error=%s",
+            payload.user_id,
             payload.conversation_id,
             error,
         )
         raise HTTPException(status_code=404, detail=str(error)) from error
     except Exception:
         logger.exception(
-            "Chat request failed: user_key=%s conversation_id=%s",
-            payload.user_key,
+            "Chat request failed: user_id=%s conversation_id=%s",
+            payload.user_id,
             payload.conversation_id,
         )
         raise
@@ -60,35 +60,35 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> dict
 async def chat_stream(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> StreamingResponse:
     async def event_generator() -> AsyncIterator[str]:
         logger.info(
-            "Chat stream opened: user_key=%s conversation_id=%s message_chars=%s",
-            payload.user_key,
+            "Chat stream opened: user_id=%s conversation_id=%s message_chars=%s",
+            payload.user_id,
             payload.conversation_id,
             len(payload.message),
         )
         runtime = AgentRuntime(db)
         try:
             async for event in runtime.run_stream(
-                user_key=payload.user_key,
+                user_id=payload.user_id,
                 message=payload.message,
                 conversation_id=payload.conversation_id,
             ):
                 yield sse_event(event)
             logger.info(
-                "Chat stream completed: user_key=%s",
-                payload.user_key,
+                "Chat stream completed: user_id=%s",
+                payload.user_id,
             )
         except ValueError as error:
             logger.warning(
-                "Chat stream rejected: user_key=%s conversation_id=%s error=%s",
-                payload.user_key,
+                "Chat stream rejected: user_id=%s conversation_id=%s error=%s",
+                payload.user_id,
                 payload.conversation_id,
                 error,
             )
             yield sse_event({"type": "error", "detail": str(error)})
         except Exception as error:
             logger.exception(
-                "Chat stream failed: user_key=%s conversation_id=%s",
-                payload.user_key,
+                "Chat stream failed: user_id=%s conversation_id=%s",
+                payload.user_id,
                 payload.conversation_id,
             )
             yield sse_event({"type": "error", "detail": str(error)})

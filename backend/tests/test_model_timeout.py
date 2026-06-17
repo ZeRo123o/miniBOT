@@ -59,7 +59,7 @@ class ModelTimeoutTests(unittest.IsolatedAsyncioTestCase):
             return_value=TimeoutAgent(),
         ):
             result = await runtime._generate_result(
-                user_key="default",
+                user_id="default",
                 message="hello",
                 conversation_id=7,
                 selection={"knowledge_base_ids": []},
