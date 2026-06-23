@@ -183,6 +183,98 @@ export function appendPendingAssistantContent(conversationId, content) {
   }
 }
 
+export function appendPendingToolEvent(conversationId, event) {
+  const messages = conversationStore.messagesByConversationId[conversationId]
+  if (!messages) return
+
+  const loadingMessage = messages.find((message) => message.metadata?.loading || message.metadata?.streaming)
+  if (!loadingMessage) return
+
+  const toolCalls = [...(loadingMessage.metadata?.tool_calls || [])]
+  if (event.type === 'tool_event') {
+    mergeToolCall(toolCalls, event.event || {})
+  } else if (event.type === 'subagent_status') {
+    mergeSubagentStatus(toolCalls, event)
+  }
+  loadingMessage.metadata = {
+    ...loadingMessage.metadata,
+    tool_calls: toolCalls,
+  }
+}
+
+export function appendPendingSubagentToken(conversationId, event) {
+  const messages = conversationStore.messagesByConversationId[conversationId]
+  if (!messages || !event.child_thread_id || !event.content) return
+
+  const loadingMessage = messages.find((message) => message.metadata?.loading || message.metadata?.streaming)
+  if (!loadingMessage) return
+
+  const toolCalls = [...(loadingMessage.metadata?.tool_calls || [])]
+  const task = toolCalls.find((item) => item.id === event.tool_call_id)
+  if (!task) return
+  const subagents = { ...(task.subagents || {}) }
+  const previous = subagents[event.child_thread_id] || emptySubagent(event)
+  subagents[event.child_thread_id] = {
+    ...previous,
+    status: previous.status === 'completed' ? previous.status : 'running',
+    text: `${previous.text}${event.content}`,
+  }
+  task.subagents = subagents
+  loadingMessage.metadata = {
+    ...loadingMessage.metadata,
+    tool_calls: toolCalls,
+  }
+}
+
+function mergeToolCall(toolCalls, toolCall) {
+  if (toolCall.parent_tool_call_id) {
+    const task = toolCalls.find((item) => item.id === toolCall.parent_tool_call_id)
+    if (!task) return
+    const subagents = { ...(task.subagents || {}) }
+    const childThreadId = toolCall.child_thread_id || 'child'
+    const subagent = subagents[childThreadId] || emptySubagent(toolCall)
+    const childCalls = [...(subagent.toolCalls || [])]
+    upsertToolCall(childCalls, toolCall)
+    subagents[childThreadId] = { ...subagent, toolCalls: childCalls }
+    task.subagents = subagents
+    return
+  }
+  upsertToolCall(toolCalls, toolCall)
+}
+
+function upsertToolCall(toolCalls, toolCall) {
+  const index = toolCalls.findIndex((item) => item.id === toolCall.id)
+  if (index >= 0) toolCalls[index] = { ...toolCalls[index], ...toolCall }
+  else toolCalls.push({ ...toolCall, subagents: {} })
+}
+
+function mergeSubagentStatus(toolCalls, event) {
+  const task = toolCalls.find((item) => item.id === event.tool_call_id)
+  if (!task || !event.child_thread_id) return
+  const subagents = { ...(task.subagents || {}) }
+  const previous = subagents[event.child_thread_id] || emptySubagent(event)
+  subagents[event.child_thread_id] = {
+    ...previous,
+    type: event.subagent_type || previous.type,
+    runId: event.run_id || previous.runId,
+    status: event.status || previous.status,
+    error: event.error || '',
+  }
+  task.subagents = subagents
+}
+
+function emptySubagent(event) {
+  return {
+    childThreadId: event.child_thread_id,
+    type: event.subagent_type || 'general',
+    runId: event.run_id || '',
+    status: event.status || 'running',
+    text: '',
+    error: '',
+    toolCalls: [],
+  }
+}
+
 export function applyChatResponse(response, optimisticConversationId = null) {
   if (response.conversation) {
     upsertConversation(response.conversation)

@@ -193,7 +193,7 @@ def ask_user_question(
 )
 async def tavily_search(
     query: str,
-    runtime: ToolRuntime | None = None,
+    runtime: ToolRuntime,
 ) -> str:
     """搜索网页以获取最新信息、新闻、版本变化、价格或外部事实。"""
     clean_query = query.strip()

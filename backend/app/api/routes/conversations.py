@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.repositories import ConversationMessageRepository, ConversationRepository
 from app.db.session import get_db
 from app.schemas import ConversationCreate, ConversationUpdate
+from app.services.conversation_service import ConversationService
 
 router = APIRouter()
 
@@ -44,11 +45,12 @@ async def archive_conversation(
     user_id: str = Query(default="default", min_length=1, max_length=128),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    repo = ConversationRepository(db)
-    item = await repo.get(conversation_id, user_id=user_id)
+    item = await ConversationService(db).archive_conversation(
+        conversation_id=conversation_id,
+        user_id=user_id,
+    )
     if item is None:
         raise HTTPException(status_code=404, detail="Conversation not found.")
-    item = await repo.update(item, archived=True)
     return item.to_dict()
 
 

@@ -58,6 +58,8 @@ backend/app
 |-- schemas.py               通用请求/响应 Pydantic schema
 |-- agent/                   旧兼容入口，转发到 agents/buildin
 |-- agents/
+|   |-- checkpoints.py       PostgreSQL LangGraph checkpointer lifecycle
+|   |-- state.py             parent/subagent shared BaseAgentState
 |   |-- backends/
 |   |   |-- filesystem.py    Agent 虚拟文件系统 backend，统一处理 `/mnt/...` 写入
 |   |   `-- sandbox/
@@ -70,9 +72,15 @@ backend/app
 |   |       |-- context.py   AgentContext 运行时上下文
 |   |       |-- graph.py     create_agent 构建入口
 |   |       |-- prompt.py    基础提示词和运行时提示词片段组装
-|   |       |-- state.py     messages 与 artifacts Agent 状态
+|   |       |-- state.py     messages、artifacts 与并行 subagent runs Agent 状态
 |   |       `-- runtime.py   一次智能助手对话运行编排
+|   |   `-- subagent/
+|   |       |-- graph.py     isolated subagent create_agent entry
+|   |       |-- runner.py    child context builder and child agent runner
+|   |       |-- state.py     SubAgentState without parent subagent run records
+|   |       `-- tools.py     middleware-owned task tool with parallel-safe state updates
 |   |-- middlewares/
+|   |   |-- subagent_middleware.py task delegation policy, profiles, runs and thread lifecycle
 |   |   |-- knowledge_base.py  知识库工具注入中间件
 |   |   |-- runtime_config.py  运行时工具注册与模型可见性筛选
 |   |   |-- Skills_middleware.py  Skill DB 加载、摘要注入、读取激活和依赖按需加载
@@ -201,7 +209,7 @@ frontend
   -> 把 ValueError 转成 HTTPException
 ```
 
-`agents/buildin/chatbot/runtime.py` 负责一次完整智能助手运行编排：
+`agents/buildin/chatbot/runtime.py` 负责一次完整智能助手运行编排。主回答直接消费父 LangGraph `astream(messages, values)` 的 `AIMessageChunk` 推送 SSE，结束后从 checkpoint state 读取最终结果并保存。工具过程采用 Yuxi 风格的消息内 `tool_calls`：SSE 按稳定调用 ID 更新临时调用，最终以同一结构保存到 assistant metadata；子任务工具和文本按父 `task` 调用嵌套展示。
 
 ```text
 调用 ConversationService 准备会话和消息
@@ -242,6 +250,7 @@ resolver.py               根据 AgentContext.tools 选择当前已授权 Tools
 governance.py             工具调用状态、结果和事件记录
 buildin/tools.py          ask_user_question / present_artifacts / tavily_search
 buildin/install_skill.py  install_skill
+buildin/subagent/tools.py middleware-owned task subagent delegation tool
 kbs/tools.py              list_kbs / query_kb
 ```
 
@@ -297,6 +306,8 @@ skills
 user_selections
 conversations
 conversation_messages
+agent_runs（父 Agent 与子 Agent 运行记录、逻辑 thread_id、状态和结果）
+LangGraph checkpoint 表（由 AsyncPostgresSaver 自动创建与迁移）
 knowledge_bases
 knowledge_documents
 user_selections.knowledge_base_ids

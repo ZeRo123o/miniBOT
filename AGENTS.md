@@ -129,6 +129,12 @@ http://localhost:5173
 - 原始文件和 Markdown 文件通过 `backend/app/storage` 的对象存储抽象保存，业务层不要直接调用 MinIO SDK。
 - 内置 agent 能力放在 `backend/app/agents/buildin`，其中 `chatbot` 对应智能助手。
 - 智能助手的一次 Agent 对话运行编排放在 `backend/app/agents/buildin/chatbot/runtime.py`，runtime 只负责串联 service、构建 context 和调用 agent。
+- Subagent 使用逻辑 `thread_id` 隔离子任务状态；同一轮多个独立 `task` 由 LangGraph 并发执行，`ChatBotState.subagent_runs` 必须通过 reducer 按 `child_thread_id` 合并，禁止用普通 list 覆盖并行结果。
+- 每次父 Agent 和子 Agent 执行都写入 `agent_runs`；子运行必须记录 `parent_agent_run_id`、`thread_id`、幂等 `request_id` 和终态。续跑只能传回此前 `task` 返回的 child thread ID，且不得并行续跑同一 child thread。
+- 主 Agent 与 Subagent 图都必须挂载 PostgreSQL `AsyncPostgresSaver`；调用图时在 `configurable.thread_id` 传入逻辑线程。应用启动由 `checkpoint_manager.initialize()` 创建或迁移 LangGraph checkpoint 表，禁止以“上一次最终回答注入 prompt”代替 checkpoint 续跑。
+- Windows 环境下 PostgreSQL checkpoint 使用 psycopg async pool，应用启动前必须切换为 `WindowsSelectorEventLoopPolicy`，否则 Proactor loop 无法建立异步连接。
+- `/api/chat/stream` 的工具过程采用 Yuxi 风格 `tool_calls` 模型：每个 `tool_event` 必须带稳定 `id`、`tool_name`、状态与受限的 `args` 展示字段；前端按 id 合并为消息内的工具调用组。子 Agent 的模型文本只能通过独立的 `subagent_token` 事件推送，必须附带 `subagent_type`、`child_thread_id`、`run_id` 和父 `tool_call_id`，前端不得将其混入主回答 token。仅允许展示经裁剪的查询、任务说明、虚拟路径等用户可见输入；禁止推送文件内容、API key 或其他敏感参数。
+- `/api/chat/stream` 主回答必须直接消费父 LangGraph `astream(stream_mode=["messages", "values"])` 的 `AIMessageChunk` 并立即推送 `token`；最终答案从 checkpoint state 读取后持久化。禁止在 `ainvoke()` 完成后对完整 answer 人为切片伪造流式输出。
 - 智能助手运行时上下文放在 `backend/app/agents/buildin/chatbot/context.py`，不要把资源、用户、模型用途散落到 state dict 中。
 - `backend/app/agents/buildin/chatbot/graph.py` 使用 LangChain `create_agent` 构建 agent，不手写 node/edge 编排。
 - Agent 业务中间件放在 `backend/app/agents/middlewares`，新增上下文裁剪、记忆、工具权限等能力时优先新增独立 middleware 文件。
@@ -212,6 +218,8 @@ http://localhost:5173
 - `user_selections`：用户选择的知识库 ID；旧 MCP、Skill、Subagent 列仅为现有数据库兼容保留。
 - `conversations`：对话会话元信息。
 - `conversation_messages`：对话消息明细。
+- `agent_runs`：父/子 Agent 运行记录，保存逻辑线程、父子关联、状态、结果与错误。
+- LangGraph checkpoint 表（`checkpoints`、`checkpoint_blobs`、`checkpoint_writes`、`checkpoint_migrations`）由 `AsyncPostgresSaver.setup()` 管理，不映射为应用 SQLAlchemy 模型。
 - `knowledge_bases`：知识库元信息。
 - `knowledge_documents`：知识库文档元数据、对象存储 key 和解析状态。
 
@@ -220,6 +228,7 @@ http://localhost:5173
 - 继续沿用 `user_id` 作为当前无认证阶段的用户标识。
 - `user_selections.knowledge_base_ids` 保存右侧工作区启用的知识库 ID，写入时必须按 `user_id` 过滤访问范围。
 - 会话删除默认采用归档语义，避免误删历史数据。
+- 会话归档时必须通过 `AsyncPostgresSaver.adelete_thread()` 清理 `conversation:<id>` 及该会话 `agent_runs.checkpoint_thread_id` 关联的所有子 Agent checkpoint；保留会话消息和运行审计记录。
 - 消息 `role` 只使用 `user`、`assistant`、`system`、`tool`。
 - 消息扩展信息放在 JSONB `metadata` 中，不要把运行时上下文硬编码进文本字段。
 - 知识库原始文档和 Markdown 副本保存在对象存储中，PostgreSQL 只保存 object key、状态、hash、文件大小等元数据。

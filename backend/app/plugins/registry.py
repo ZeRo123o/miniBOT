@@ -25,6 +25,7 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
     repo = PluginResourceRepository(db)
     # 知识库工具由独立 middleware 注入，不作为通用运行时工具资源。
     await repo.delete_by_name("tool", "knowledge_query")
+    await repo.delete_by_name("tool", "task")
     await repo.delete_by_kind("subagent")
     samples = [
         {

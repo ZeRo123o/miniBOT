@@ -1,11 +1,12 @@
 from typing import Any
 
 from langchain.agents import create_agent
-from langchain.agents.middleware import ToolCallLimitMiddleware
+from langchain.agents.middleware import ModelRetryMiddleware, TodoListMiddleware, ToolCallLimitMiddleware
 
 from app.agents.buildin.chatbot.context import AgentContext
-from app.agents.buildin.chatbot.prompt import build_system_prompt
+from app.agents.buildin.chatbot.prompt import TODO_LIST_SYSTEM_PROMPT, build_system_prompt
 from app.agents.buildin.chatbot.state import ChatBotState
+from app.agents.checkpoints import checkpoint_manager
 from app.agents.toolkits import resolve_runtime_tools
 from app.agents.middlewares import (
     AttachmentMiddleware,
@@ -16,10 +17,11 @@ from app.agents.middlewares import (
     SkillsMiddleware,
     SummaryMiddleware,
 )
+from app.agents.middlewares.subagent_middleware import SubAgentMiddleware
 from app.llm import get_model
 
 
-def build_chat_agent(context: AgentContext | None = None) -> Any:
+async def build_chat_agent(context: AgentContext | None = None) -> Any:
     """根据运行时上下文创建 chat agent，并通过 middleware 提供具体工具。"""
     agent_context = context or AgentContext()
     candidate_tool_names = [
@@ -32,15 +34,16 @@ def build_chat_agent(context: AgentContext | None = None) -> Any:
         agent_context,
         extra_tool_names=candidate_tool_names,
     )
-    return create_agent(
-        model=get_model(agent_context.model_use),
-        tools=[],
-        system_prompt=build_system_prompt(agent_context),
-        middleware=[
-            RuntimeConfigMiddleware(runtime_tools),
-            SandboxMiddleware(),
-            AttachmentMiddleware(),
-            KnowledgeBaseMiddleware(),
+    middleware = [
+        RuntimeConfigMiddleware(runtime_tools),
+        SandboxMiddleware(),
+        AttachmentMiddleware(),
+        KnowledgeBaseMiddleware(),
+    ]
+    if agent_context.allow_subagents:
+        middleware.append(SubAgentMiddleware())
+    middleware.extend(
+        [
             ToolCallLimitMiddleware(
                 run_limit=agent_context.max_tool_calls,
                 exit_behavior="continue",
@@ -48,13 +51,22 @@ def build_chat_agent(context: AgentContext | None = None) -> Any:
             SkillsMiddleware(skills_context_name="skills"),
             SummaryMiddleware(),
             RuntimePromptMiddleware(),
-        ],
+            TodoListMiddleware(system_prompt=TODO_LIST_SYSTEM_PROMPT),
+            ModelRetryMiddleware(),
+        ]
+    )
+    return create_agent(
+        model=get_model(agent_context.model_use),
+        tools=[],
+        system_prompt=build_system_prompt(agent_context),
+        middleware=middleware,
         state_schema=ChatBotState,
         context_schema=AgentContext,
+        checkpointer=await checkpoint_manager.get(),
         name="minibot-chat",
     )
 
 
-def build_chat_graph(context: AgentContext | None = None) -> Any:
+async def build_chat_graph(context: AgentContext | None = None) -> Any:
     """保留旧入口名称，内部转发到新的 create_agent 构建函数。"""
-    return build_chat_agent(context)
+    return await build_chat_agent(context)

@@ -5,6 +5,7 @@ from app.agents.middlewares.attachment import AttachmentMiddleware
 from app.agents.middlewares.runtime_config_middleware import RuntimeConfigMiddleware
 from app.agents.middlewares.runtime_prompt import RuntimePromptMiddleware
 from app.agents.middlewares.Skills_middleware import SkillsMiddleware
+from app.agents.middlewares.subagent_middleware import SubAgentMiddleware
 from app.agents.middlewares.summary_middleware import SummaryMiddleware
 from app.agents.backends.sandbox.middleware import SandboxMiddleware
 
@@ -15,5 +16,6 @@ __all__ = [
     "RuntimePromptMiddleware",
     "SandboxMiddleware",
     "SkillsMiddleware",
+    "SubAgentMiddleware",
     "SummaryMiddleware",
 ]

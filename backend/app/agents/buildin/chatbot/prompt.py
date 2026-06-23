@@ -2,6 +2,18 @@ from typing import Any
 
 DEFAULT_SYSTEM_PROMPT = "You are miniBOT, a modular assistant."
 
+TODO_LIST_SYSTEM_PROMPT = """
+## 任务进度
+
+仅当任务确实复杂时才使用 `write_todos`：例如需要三个及以上相互关联的步骤、多个工具调用、跨文件分析，或执行过程中需要根据结果调整计划的任务。
+
+- 简单问答、单一步骤操作、简短解释和可直接完成的请求不要创建待办。
+- 创建待办后，马上将正在执行的第一项标记为 `in_progress`。
+- 每完成一项立即更新为 `completed`，不要等到任务结束后再批量更新。
+- 待办标题应简短、具体、面向用户可见；不要包含敏感信息、完整文件内容或冗长内部推理。
+- 发现新依赖、风险或工作项时可以调整未完成待办；所有工作完成后将相应项目标记为 `completed`。
+""".strip()
+
 
 def _get_value(source: Any, name: str, default: Any) -> Any:
     """兼容 dict 和 dataclass 两种上下文读取方式。"""

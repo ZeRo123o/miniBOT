@@ -279,3 +279,48 @@ class ConversationMessage(Base):
             "metadata": self.metadata_ or {},
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class AgentRun(Base):
+    """Persist one parent or subagent execution for audit and task continuation."""
+
+    __tablename__ = "agent_runs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    conversation_id: Mapped[int] = mapped_column(
+        ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    thread_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    agent_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    parent_agent_run_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    run_type: Mapped[str] = mapped_column(String(32), nullable=False, default="chat", index=True)
+    request_id: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    checkpoint_thread_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="created", index=True)
+    input_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    result_payload: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    error_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "conversation_id": self.conversation_id,
+            "user_id": self.user_id,
+            "thread_id": self.thread_id,
+            "agent_id": self.agent_id,
+            "parent_agent_run_id": self.parent_agent_run_id,
+            "run_type": self.run_type,
+            "request_id": self.request_id,
+            "checkpoint_thread_id": self.checkpoint_thread_id,
+            "status": self.status,
+            "input_payload": self.input_payload or {},
+            "result_payload": self.result_payload or {},
+            "error_type": self.error_type,
+            "error_message": self.error_message,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "finished_at": self.finished_at.isoformat() if self.finished_at else None,
+        }

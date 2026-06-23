@@ -1,8 +1,10 @@
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.checkpoints import checkpoint_manager
+from app.agents.middlewares.subagent_middleware import make_parent_thread_id
 from app.db.models import Conversation, ConversationMessage
-from app.db.repositories import ConversationMessageRepository, ConversationRepository
+from app.db.repositories import AgentRunRepository, ConversationMessageRepository, ConversationRepository
 from app.services.attachment_service import build_attachment_state_files
 
 
@@ -58,6 +60,23 @@ class ConversationService:
             content=content,
             metadata=metadata,
         )
+
+    async def archive_conversation(self, *, conversation_id: int, user_id: str) -> Conversation | None:
+        """Archive a conversation after removing all of its LangGraph checkpoints."""
+        conversation = await self.conversation_repo.get(conversation_id, user_id=user_id)
+        if conversation is None:
+            return None
+
+        run_threads = await AgentRunRepository(self.conversation_repo.db).list_checkpoint_thread_ids(
+            conversation_id=conversation_id,
+            user_id=user_id,
+        )
+        checkpoint_threads = {make_parent_thread_id(conversation_id), *run_threads}
+        saver = await checkpoint_manager.get()
+        for thread_id in checkpoint_threads:
+            await saver.adelete_thread(thread_id)
+
+        return await self.conversation_repo.update(conversation, archived=True)
 
     async def load_langchain_messages(self, conversation_id: int) -> list[BaseMessage]:
         """读取会话历史消息，并转换为 LangChain 消息格式。"""

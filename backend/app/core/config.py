@@ -11,6 +11,8 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     database_url: str = "postgresql+asyncpg://minibot:minibot@localhost:5432/minibot"
+    langgraph_checkpoint_pool_min_size: int = 1
+    langgraph_checkpoint_pool_max_size: int = 10
     storage_provider: str = "minio"
     storage_bucket: str = "minibot"
     minio_endpoint: str = "localhost:9000"

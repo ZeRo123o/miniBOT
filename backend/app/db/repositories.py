@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import (
     Conversation,
     ConversationMessage,
+    AgentRun,
     KnowledgeBase,
     KnowledgeChunk,
     KnowledgeDocument,
@@ -326,6 +329,81 @@ class ConversationMessageRepository:
             .where(Conversation.id == conversation_id)
             .values(updated_at=func.now())
         )
+        await self.db.commit()
+        await self.db.refresh(item)
+        return item
+
+
+class AgentRunRepository:
+    """Database operations for parent and child agent executions."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def create(self, data: dict) -> AgentRun:
+        item = AgentRun(**data)
+        self.db.add(item)
+        await self.db.commit()
+        await self.db.refresh(item)
+        return item
+
+    async def get_by_request_id(self, request_id: str) -> AgentRun | None:
+        result = await self.db.execute(select(AgentRun).where(AgentRun.request_id == request_id))
+        return result.scalar_one_or_none()
+
+    async def get_latest_subagent_for_thread(
+        self,
+        *,
+        thread_id: str,
+        user_id: str,
+    ) -> AgentRun | None:
+        result = await self.db.execute(
+            select(AgentRun)
+            .where(
+                AgentRun.thread_id == thread_id,
+                AgentRun.user_id == user_id,
+                AgentRun.run_type == "subagent",
+            )
+            .order_by(AgentRun.created_at.desc())
+        )
+        return result.scalars().first()
+
+    async def list_checkpoint_thread_ids(
+        self,
+        *,
+        conversation_id: int,
+        user_id: str,
+    ) -> list[str]:
+        """Return every persisted LangGraph thread owned by one conversation."""
+        result = await self.db.execute(
+            select(AgentRun.checkpoint_thread_id)
+            .where(
+                AgentRun.conversation_id == conversation_id,
+                AgentRun.user_id == user_id,
+                AgentRun.checkpoint_thread_id.is_not(None),
+            )
+            .distinct()
+        )
+        return [thread_id for thread_id in result.scalars().all() if thread_id]
+
+    async def set_terminal_status(
+        self,
+        run_id: str,
+        *,
+        status: str,
+        result_payload: dict | None = None,
+        error_type: str | None = None,
+        error_message: str | None = None,
+    ) -> AgentRun:
+        result = await self.db.execute(select(AgentRun).where(AgentRun.id == run_id))
+        item = result.scalar_one()
+        item.status = status
+        # Existing project DateTime columns are timezone-naive; store UTC consistently.
+        item.finished_at = datetime.utcnow()
+        if result_payload is not None:
+            item.result_payload = result_payload
+        item.error_type = error_type
+        item.error_message = error_message
         await self.db.commit()
         await self.db.refresh(item)
         return item

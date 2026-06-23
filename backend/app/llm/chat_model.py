@@ -1,13 +1,14 @@
 import json
 import logging
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
 from langchain_core.language_models import LanguageModelInput
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, ToolMessage
-from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
 from langchain_core.utils.function_calling import convert_to_openai_tool
@@ -69,6 +70,91 @@ class MiniBotChatModel(BaseChatModel):
         if self.provider == "mock":
             return self._mock_result(messages)
         return await self._aopenai_compatible_result(messages)
+
+    async def _astream(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+        run_manager: AsyncCallbackManagerForLLMRun | None = None,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatGenerationChunk]:
+        """Stream OpenAI-compatible SSE deltas as LangChain message chunks.
+
+        LangGraph can now forward these chunks directly to the chat SSE endpoint.
+        Tool-call deltas are retained as `tool_call_chunks`, matching Yuxi's model
+        stream contract and allowing the UI to merge their incremental arguments.
+        """
+        if self.provider == "mock":
+            # Keep local development deterministic while still exercising the streaming path.
+            message = self._mock_result(messages).generations[0].message
+            yield ChatGenerationChunk(
+                message=AIMessageChunk(content=str(message.content), chunk_position="last"),
+            )
+            return
+
+        payload = self._openai_payload(messages)
+        payload["stream"] = True
+        if stop:
+            payload["stop"] = stop
+        try:
+            async with httpx.AsyncClient(timeout=self._http_timeout()) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url.rstrip('/')}/chat/completions",
+                    json=payload,
+                    headers=self._openai_headers(),
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        chunk = self._stream_chunk_from_line(line)
+                        if chunk is not None:
+                            yield chunk
+        except httpx.TimeoutException as error:
+            self._raise_timeout(error)
+
+    def _stream_chunk_from_line(self, line: str) -> ChatGenerationChunk | None:
+        """Convert one OpenAI SSE `data:` line into a LangChain generation chunk."""
+        if not line.startswith("data:"):
+            return None
+        raw_data = line[5:].strip()
+        if not raw_data or raw_data == "[DONE]":
+            return None
+        try:
+            data = json.loads(raw_data)
+        except json.JSONDecodeError:
+            logger.warning("Ignoring malformed OpenAI-compatible stream chunk")
+            return None
+
+        choices = data.get("choices") or []
+        if not choices:
+            return None
+        choice = choices[0] or {}
+        delta = choice.get("delta") or {}
+        content = delta.get("content") or ""
+        tool_call_chunks = []
+        for item in delta.get("tool_calls") or []:
+            function = item.get("function") or {}
+            tool_call_chunks.append(
+                {
+                    "name": function.get("name"),
+                    "args": function.get("arguments") or "",
+                    "id": item.get("id"),
+                    "index": item.get("index", 0),
+                    "type": "tool_call_chunk",
+                }
+            )
+        finish_reason = choice.get("finish_reason")
+        message = AIMessageChunk(
+            content=content,
+            tool_call_chunks=tool_call_chunks,
+            id=data.get("id"),
+            response_metadata={"model": data.get("model") or self.model_name},
+            chunk_position="last" if finish_reason else None,
+        )
+        return ChatGenerationChunk(
+            message=message,
+            generation_info={"finish_reason": finish_reason} if finish_reason else None,
+        )
 
     def _mock_result(self, messages: list[BaseMessage]) -> ChatResult:
         """生成本地 mock 回复，便于无 API Key 时开发调试。"""

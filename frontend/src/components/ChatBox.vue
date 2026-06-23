@@ -6,6 +6,8 @@ import {
   activeMessages,
   addPendingChatMessage,
   appendPendingAssistantContent,
+  appendPendingToolEvent,
+  appendPendingSubagentToken,
   applyChatResponse,
   applyStreamConversation,
   conversationStore,
@@ -13,6 +15,7 @@ import {
 } from '../stores/conversationStore'
 import { selectionStore } from '../stores/selectionStore'
 import MarkdownMessage from './MarkdownMessage.vue'
+import ToolCallsGroup from './ToolCallsGroup.vue'
 
 const input = ref('')
 const inputEl = ref(null)
@@ -69,6 +72,18 @@ async function submit() {
           appendPendingAssistantContent(streamConversationId, event.content || '')
           scrollToBottom()
         },
+        subagent_token(event) {
+          appendPendingSubagentToken(streamConversationId, event)
+          scrollToBottom()
+        },
+        subagent_status(event) {
+          appendPendingToolEvent(streamConversationId, event)
+          scrollToBottom()
+        },
+        tool_event(event) {
+          appendPendingToolEvent(streamConversationId, event)
+          scrollToBottom()
+        },
         done(event) {
           applyChatResponse(event, optimisticConversationId)
           scrollToBottom()
@@ -116,7 +131,11 @@ function removeSelectedFile(index) {
           <span />
           <span />
         </div>
-        <MarkdownMessage v-else :content="message.content" />
+        <ToolCallsGroup
+          :tool-calls="message.metadata?.tool_calls || []"
+          :is-active="Boolean(message.metadata?.loading || message.metadata?.streaming)"
+        />
+        <MarkdownMessage v-if="!message.metadata?.loading" :content="message.content" />
         <div v-if="message.metadata?.uploads?.length" class="message-attachments">
           <span v-for="upload in message.metadata.uploads" :key="upload.path || upload.file_name" class="attachment-pill">
             <Paperclip :size="13" />

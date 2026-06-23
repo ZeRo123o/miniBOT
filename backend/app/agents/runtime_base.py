@@ -1,4 +1,3 @@
-import asyncio
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
@@ -152,18 +151,21 @@ class BaseChatRuntime(ABC):
             len(resources.get("skills", [])),
             len(resources.get("tools", [])),
         )
-        result = await self._generate_result(
+        result: RuntimeResult | None = None
+        async for stream_item in self._generate_stream_result(
             user_id=user_id,
             message=message,
             conversation_id=prepared_conversation_id,
             selection=selection,
             resources=resources,
             uploads=upload_items,
-        )
-
-        for token in self._chunk_answer(result.answer):
-            yield {"type": "token", "content": token}
-            await asyncio.sleep(0.01)
+        ):
+            if isinstance(stream_item, RuntimeResult):
+                result = stream_item
+            else:
+                yield stream_item
+        if result is None:
+            raise RuntimeError("Runtime stream ended without a final result.")
 
         await self.conversation_service.save_assistant_message(
             conversation_id=prepared_conversation_id,
@@ -198,11 +200,26 @@ class BaseChatRuntime(ABC):
     ) -> RuntimeResult:
         """Generate the assistant answer."""
 
+    async def _generate_stream_result(
+        self,
+        *,
+        user_id: str,
+        message: str,
+        conversation_id: int,
+        selection: dict,
+        resources: dict[str, list[dict]],
+        uploads: list[dict],
+    ) -> AsyncIterator[dict | RuntimeResult]:
+        """Yield runtime SSE events followed by the final result; default runtimes have no events."""
+        yield await self._generate_result(
+            user_id=user_id,
+            message=message,
+            conversation_id=conversation_id,
+            selection=selection,
+            resources=resources,
+            uploads=uploads,
+        )
+
     def _build_response(self, response: dict, result: RuntimeResult) -> dict:
         response.update(result.response_extra)
         return response
-
-    def _chunk_answer(self, answer: str) -> list[str]:
-        if not answer:
-            return [""]
-        return [answer[index : index + 4] for index in range(0, len(answer), 4)]

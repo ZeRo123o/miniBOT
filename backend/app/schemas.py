@@ -25,6 +25,7 @@ class ChatResponse(BaseModel):
     resources: dict[str, list[dict[str, Any]]]
     citations: list[dict[str, Any]] = Field(default_factory=list)
     artifacts: list[str] = Field(default_factory=list)
+    subagent_runs: list[dict[str, Any]] = Field(default_factory=list)
     conversation_id: int | None = None
     conversation: dict[str, Any] | None = None
     messages: list[dict[str, Any]] = Field(default_factory=list)

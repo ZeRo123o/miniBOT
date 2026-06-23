@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import Annotated
+from collections.abc import Callable
+from typing import Annotated, Any
 
 from app.agents.context import BaseAgentContext
 from app.agents.buildin.chatbot.prompt import DEFAULT_SYSTEM_PROMPT
@@ -23,6 +24,21 @@ class AgentContext(BaseAgentContext):
         },
     )
     tool_events: list[dict] = field(default_factory=list)
+    runtime_event_sink: Callable[[dict[str, Any]], None] | None = field(
+        default=None,
+        repr=False,
+        metadata={"configurable": False, "hide": True},
+    )
+    thread_id: str = ""
+    parent_thread_id: str | None = None
+    run_id: str = ""
+    allow_subagents: bool = True
+    subagent_depth: int = 0
+    max_subagent_tasks_per_run: int = 3
+    subagent_task_count: int = 0
+    active_subagent_run_count: int = 0
+    subagent_prompt_max_chars: int = 12000
+    subagent_result_max_chars: int = 12000
     sandbox_id: str = ""
     summary: str = ""
     summary_trigger_tokens: int = 90000
