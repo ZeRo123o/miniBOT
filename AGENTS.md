@@ -76,6 +76,8 @@ MINIBOT_OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 MINIBOT_OPENAI_TEMPERATURE=0.2
 MINIBOT_OPENAI_TIMEOUT_SECONDS=180
 MINIBOT_TAVILY_API_KEY=your_tavily_api_key
+MINIBOT_EXCHANGE_RATE_BASE_URL=https://api.frankfurter.dev/v1
+MINIBOT_EXCHANGE_RATE_TIMEOUT_SECONDS=15
 MINIBOT_RUNTIME_TOOL_CALL_LIMIT=3
 ```
 
@@ -142,15 +144,16 @@ http://localhost:5173
 - 上下文压缩放在 `backend/app/agents/middlewares/summary.py`；默认按估算 token 达到 90K 触发，先将超阈值 ToolMessage 结果卸载到 `/mnt/user-data/workspace/.minibot/summary_offload`，卸载后仍超过 `summary_max_retention_ratio * summary_trigger_tokens` 时再清理历史并生成滚动摘要，始终保留 System Message。
 - 智能助手提示词组装放在 `backend/app/agents/buildin/chatbot/prompt.py`；基础 prompt 在 `create_agent` 时构建，资源、Skill 和工具策略由 middleware 在每次模型调用前增量追加，不要在 provider 中拼 prompt。
 - Skill 元数据存放在独立 `skills` 表中，`AgentContext.skills` 只保存 slug；不在 runtime 中预加载或缓存 Skill 元数据。`SkillsMiddleware.abefore_agent` 直接通过 Repository 加载提示元数据和依赖图、展开 `skill_dependencies`，并将 Skill 提示段合并到 `AgentContext.system_prompt`；`awrap_model_call` 再次从数据库读取依赖图并处理动态依赖；读取可见 Skill 的 `/mnt/skills/<slug>/SKILL.md` 后由同步或异步 tool wrapper 写入 `activated_skills`。`RuntimeConfigMiddleware.awrap_model_call` 每次从 context 读取最新 system prompt 并覆盖模型请求。
-- Skill 依赖必须经过 `backend/app/agents/toolkits/dependencies.py` 的 provider 和统一工具 resolver，不得绕过资源启用状态与 `allow_skill_dependency` 权限；`expose_directly=false` 的工具只允许通过 Skill 激活后暴露。
+- 普通 Tool 与 MCP 在 graph 构建时按当前用户已启用资源注入；Skill 依赖必须经过 `backend/app/agents/toolkits/dependencies.py` 的 provider 和统一工具 resolver，在读取对应 `SKILL.md` 并激活后才动态追加。Skill 依赖不得绕过资源启用状态或用户可见范围。
 - 内置 Skill 放在 `backend/app/agents/skills/buildin/<slug>/SKILL.md`，应用启动时自动扫描并同步资源元数据；新增内置 Skill 不要在种子函数中重复硬编码。
 - 工具调用日志统一由 `backend/app/agents/toolkits/governance.py` 记录开始、完成和失败；Skill 可见范围、激活和依赖注入由 `SkillsMiddleware` 记录。日志不得输出文件内容、完整查询正文、API key 或其他敏感参数。
 - 大模型接入放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 agent graph。
-- 运行时工具统一放在 `backend/app/agents/toolkits`：`registry.py` 自动注册可信 Tool，`resolver.py` 将已授权资源解析为具体 LangChain Tool，`governance.py` 负责事件记录，`RuntimeConfigMiddleware` 在每次模型调用前按 `AgentContext.tools` 筛选并提供给模型，工具调用上限由统一的 `ToolCallLimitMiddleware` 负责。
+- 运行时工具统一放在 `backend/app/agents/toolkits`：`registry.py` 自动注册可信 Tool，`resolver.py` 将已授权资源解析为具体 LangChain Tool 与 MCP Tool，`governance.py` 负责事件记录；普通 Tool/MCP 在 graph 创建时注入，middleware 自带 Tool 自动注入，已激活 Skill 的依赖在后续模型调用中动态追加，工具调用上限由统一的 `ToolCallLimitMiddleware` 负责。
 - 系统内置工具放在 `backend/app/agents/toolkits/buildin`，使用 `registry.py` 提供的 YUXI 风格 `@tool(category=..., tags=..., display_name=...)` 注册，模块导入时自动收集具体 LangChain Tool。
+- 可信外置 API 工具放在 `backend/app/agents/toolkits/external/<slug>`；使用 `category="external"` 注册，启动时同步为 `origin="plugin"` 且默认禁用，管理员启用后才允许用户在工作区选择。外部密钥只放环境变量，不写入资源配置、日志或流事件。
 - Agent 沙盒抽象、路径和生命周期放在 `backend/app/agents/backends/sandbox`；工具层不能直接调用 Docker SDK 或拼接宿主机路径。
 - Agent 中间件写入 `/mnt/...` 虚拟路径时优先通过 `backend/app/agents/backends` 的文件系统 backend，不在 middleware 中直接解析宿主机路径。
-- 沙盒文件工具放在 `backend/app/agents/toolkits/sandbox`，当前只提供 `read_file`、`write_file`、`ls`、`glob`、`grep` 对应的受控能力，不提供宿主机执行模式。
+- 沙盒文件工具放在 `backend/app/agents/toolkits/sandbox`，由 `SandboxMiddleware` 自动注入，不属于扩展管理的普通 Tool；当前只提供 `read_file`、`write_file`、`ls`、`glob`、`grep` 对应的受控能力，不提供宿主机执行模式。
 - 沙盒按 `user_id + conversation_id` 隔离并延迟创建；`workspace` 为用户级共享目录，`uploads`、`outputs` 和只读 `skills` 为会话级目录。
 - Agent 只使用 `/mnt/user-data/workspace`、`/mnt/user-data/uploads`、`/mnt/user-data/outputs`、`/mnt/skills` 虚拟路径，不得向模型暴露宿主机真实路径。
 - `uploads` 和 `skills` 必须只读挂载；只有 `workspace` 与 `outputs` 可写。最终交付物必须写入 outputs，再通过 `present_artifacts` 展示。
@@ -201,7 +204,7 @@ http://localhost:5173
 1. 创建或校验会话。
 2. 保存用户消息。
 3. 读取用户选择的知识库范围。
-4. 读取扩展管理中启用的 MCP、Tool，以及独立 `skills` 表中的 Skill。
+4. 读取扩展管理中启用的 MCP、Tool，以及独立 `skills` 表中的 Skill；所有已启用 Tool/MCP 在 graph 创建时直接注入，Skill 依赖从同一启用资源范围动态解析。
 5. 根据 Skill slug 构建运行时提示元数据和依赖图。
 6. 构建 `AgentContext`。
 7. 调用 `create_agent` 生成的 agent。
@@ -226,7 +229,7 @@ http://localhost:5173
 约定：
 
 - 继续沿用 `user_id` 作为当前无认证阶段的用户标识。
-- `user_selections.knowledge_base_ids` 保存右侧工作区启用的知识库 ID，写入时必须按 `user_id` 过滤访问范围。
+- `user_selections.knowledge_base_ids` 保存右侧工作区启用的知识库 ID，写入时必须按 `user_id` 过滤访问范围。Tool/MCP 是否可用仅由扩展管理中的启用状态决定。
 - 会话删除默认采用归档语义，避免误删历史数据。
 - 会话归档时必须通过 `AsyncPostgresSaver.adelete_thread()` 清理 `conversation:<id>` 及该会话 `agent_runs.checkpoint_thread_id` 关联的所有子 Agent checkpoint；保留会话消息和运行审计记录。
 - 消息 `role` 只使用 `user`、`assistant`、`system`、`tool`。

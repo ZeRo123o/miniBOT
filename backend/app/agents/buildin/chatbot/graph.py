@@ -7,7 +7,7 @@ from app.agents.buildin.chatbot.context import AgentContext
 from app.agents.buildin.chatbot.prompt import TODO_LIST_SYSTEM_PROMPT, build_system_prompt
 from app.agents.buildin.chatbot.state import ChatBotState
 from app.agents.checkpoints import checkpoint_manager
-from app.agents.toolkits import resolve_runtime_tools
+from app.agents.toolkits import merge_runtime_tools, resolve_runtime_mcps, resolve_runtime_tools
 from app.agents.middlewares import (
     AttachmentMiddleware,
     KnowledgeBaseMiddleware,
@@ -24,18 +24,14 @@ from app.llm import get_model
 async def build_chat_agent(context: AgentContext | None = None) -> Any:
     """根据运行时上下文创建 chat agent，并通过 middleware 提供具体工具。"""
     agent_context = context or AgentContext()
-    candidate_tool_names = [
-        str(resource.get("name") or "")
-        for resource in agent_context.tools
-        if resource.get("name")
-        and (resource.get("config") or {}).get("allow_skill_dependency", True) is not False
-    ]
-    runtime_tools = resolve_runtime_tools(
-        agent_context,
-        extra_tool_names=candidate_tool_names,
+    # two-layer tool assembly: configured resources are injected
+    # at graph creation, while middleware contributes its own dynamic tools.
+    runtime_tools = merge_runtime_tools(
+        resolve_runtime_tools(agent_context),
+        await resolve_runtime_mcps(agent_context),
     )
     middleware = [
-        RuntimeConfigMiddleware(runtime_tools),
+        RuntimeConfigMiddleware(),
         SandboxMiddleware(),
         AttachmentMiddleware(),
         KnowledgeBaseMiddleware(),
@@ -57,7 +53,7 @@ async def build_chat_agent(context: AgentContext | None = None) -> Any:
     )
     return create_agent(
         model=get_model(agent_context.model_use),
-        tools=[],
+        tools=runtime_tools,
         system_prompt=build_system_prompt(agent_context),
         middleware=middleware,
         state_schema=ChatBotState,

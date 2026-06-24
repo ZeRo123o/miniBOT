@@ -33,3 +33,5 @@ async def init_db() -> None:
                 "ON agent_runs(checkpoint_thread_id)"
             )
         )
+        await conn.execute(text("ALTER TABLE user_selections DROP COLUMN IF EXISTS direct_tool_names"))
+        await conn.execute(text("ALTER TABLE user_selections DROP COLUMN IF EXISTS direct_mcp_names"))

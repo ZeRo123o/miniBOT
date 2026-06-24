@@ -27,7 +27,7 @@ miniBOT
   -> 读取扩展管理中启用的 MCP / Tool 和独立 skills 表
   -> 创建 AgentContext
   -> create_agent 构建基础 prompt + middleware 增量追加运行时提示词
-  -> RuntimeConfigMiddleware 按上下文提供具体 LangChain Tools
+  -> graph 创建时注入普通 Tool/MCP，middleware 按需追加工具
   -> chat_model
   -> 保存 assistant message
   -> 前端刷新当前会话
@@ -120,7 +120,7 @@ backend/app
 |   |-- conversation_service.py  会话和消息业务服务
 |   |-- knowledge_service.py     知识库、文档上传和解析编排服务
 |   |-- selection_service.py     用户知识库选择服务
-|   `-- resource_service.py      资源解析服务
+|   `-- resource_service.py      已启用资源解析服务
 |-- knowledge/
 |   |-- backends/
 |   |   |-- base.py              Milvus / LightRAG 统一知识库接口
@@ -151,7 +151,7 @@ backend/app
 沙盒调用链：
 
 ```text
-模型调用 sandbox_read_file / sandbox_write_file / sandbox_ls / sandbox_glob / sandbox_grep
+SandboxMiddleware 自动注入 sandbox_read_file / sandbox_write_file / sandbox_ls / sandbox_glob / sandbox_grep
   -> SandboxMiddleware 持久化 sandbox_id
   -> ProvisionerSandboxProvider 按 user_id + conversation_id 获取沙盒
   -> HTTP 调用 sandbox-provisioner
@@ -214,7 +214,7 @@ frontend
 ```text
 调用 ConversationService 准备会话和消息
 调用 SelectionService 读取用户知识库选择
-调用 ResourceService 解析资源
+调用 ResourceService 解析已启用资源
 构建 AgentContext
 调用 create_agent 生成的 agent
 委托 ConversationService 保存 assistant 回复并构造响应
@@ -238,7 +238,7 @@ ResourceService      已启用 MCP / Tool 与独立 Skill 资源解析
 选择模型用途 model_use
 加载对应 BaseChatModel
 挂载 AgentMiddleware
-由 RuntimeConfigMiddleware 注册并筛选具体运行时工具
+graph 创建时注入当前用户已启用的普通 Tool/MCP，middleware 自动提供自身工具
 返回 compiled agent
 ```
 
@@ -250,6 +250,7 @@ resolver.py               根据 AgentContext.tools 选择当前已授权 Tools
 governance.py             工具调用状态、结果和事件记录
 buildin/tools.py          ask_user_question / present_artifacts / tavily_search
 buildin/install_skill.py  install_skill
+external/exchange_rate/   exchange_rate 外部参考汇率 Tool、schema 与 HTTP client
 buildin/subagent/tools.py middleware-owned task subagent delegation tool
 kbs/tools.py              list_kbs / query_kb
 ```
@@ -264,7 +265,6 @@ kbs/tools.py              list_kbs / query_kb
 `agents/middlewares/` 统一负责供 Agent 模型调用使用的中间件：
 
 ```text
-RuntimeConfigMiddleware    按 AgentContext.tools 筛选模型本轮可见的具体工具
 ToolCallLimitMiddleware    统一限制单次 Agent 运行的工具调用总数
 KnowledgeBaseMiddleware    注册 list_kbs / query_kb 知识库工具
 SkillsMiddleware          生命周期内直接查询 Skill Repository，注入 prompt、展开依赖并处理动态激活
@@ -273,14 +273,9 @@ SummaryMiddleware          估算 token 达到 90K 时先卸载大 ToolMessage�
 RuntimePromptMiddleware    每次模型调用前增量追加资源和工具策略
 ```
 
-Skill 依赖工具配置：
-
-```text
-allow_skill_dependency=false  禁止该 Tool 被 Skill 依赖激活
-expose_directly=false         不直接暴露给模型，仅在 Skill 激活后按需暴露
-```
-
-旧 Tool 未配置这两个字段时均按 `true` 处理，保持原有运行行为。
+Tool/MCP 装配采用两层：当前用户已启用的普通 Tool/MCP 在 graph 创建时直接注入；
+middleware 自带 Tool 由 LangChain 自动收集；Skill 仅在读取 `/mnt/skills/<slug>/SKILL.md`
+并激活后，才由 `SkillsMiddleware` 在后续模型调用中动态追加其依赖 Tool/MCP。
 
 `llm/` 负责模型管理：
 

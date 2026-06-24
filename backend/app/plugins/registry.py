@@ -26,6 +26,14 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
     # 知识库工具由独立 middleware 注入，不作为通用运行时工具资源。
     await repo.delete_by_name("tool", "knowledge_query")
     await repo.delete_by_name("tool", "task")
+    for sandbox_tool_name in (
+        "sandbox_read_file",
+        "sandbox_write_file",
+        "sandbox_ls",
+        "sandbox_glob",
+        "sandbox_grep",
+    ):
+        await repo.delete_by_name("tool", sandbox_tool_name)
     await repo.delete_by_kind("subagent")
     samples = [
         {
@@ -37,7 +45,7 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
         },
     ]
     for item in samples:
-        await repo.upsert({"enabled": True, **item})
+        await repo.upsert({"enabled": False, **item})
 
     # Skill 不再写入 plugin_resources，而是同步到独立 skills 表和运行时目录。
     await sync_builtin_skills(db)
@@ -55,22 +63,22 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
     extra_metadata = get_all_extra_metadata()
     for tool_instance in get_all_tool_instances():
         metadata = extra_metadata.get(tool_instance.name)
-        if metadata is None or metadata.category != "buildin":
+        if metadata is None or metadata.category not in {"buildin", "external"}:
             continue
 
+        is_builtin = metadata.category == "buildin"
         display_name = metadata.display_name or tool_instance.name
         description = tool_instance.description or ""
         metadata_config = {
+            "origin": "builtin" if is_builtin else "plugin",
             "category": metadata.category,
             "tags": metadata.tags,
             "icon": metadata.icon,
             "config_guide": metadata.config_guide,
-            "_builtin_defaults_version": 1,
+            "_tool_defaults_version": 1,
         }
         default_config = {
             **tool_configs.get(tool_instance.name, {}),
-            "allow_skill_dependency": True,
-            "expose_directly": True,
             **metadata_config,
         }
         existing = await repo.get_by_name("tool", tool_instance.name)
@@ -81,15 +89,19 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
                     "name": tool_instance.name,
                     "display_name": display_name,
                     "description": description,
-                    "enabled": True,
+                    "enabled": is_builtin,
                     "config": default_config,
                 }
             )
             continue
 
         existing_config = existing.config or {}
+        # Retire switches from the previous per-model-call filtering design.
+        existing_config.pop("allow_skill_dependency", None)
+        existing_config.pop("expose_directly", None)
+        existing_config["origin"] = "builtin" if is_builtin else "plugin"
         # 每个默认策略版本只迁移一次，之后保留管理员手动设置的开关状态。
-        if int(existing_config.get("_builtin_defaults_version") or 0) < 1:
+        if is_builtin and int(existing_config.get("_tool_defaults_version") or 0) < 1:
             existing.enabled = True
 
         # 同步代码定义的展示元数据，但保留工具业务配置。

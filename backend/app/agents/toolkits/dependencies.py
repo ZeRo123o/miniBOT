@@ -79,12 +79,9 @@ class McpDependencyProvider:
     kind = "mcp"
 
     async def resolve(self, names: Sequence[str], context: Any) -> list[BaseTool]:
-        # MCP metadata exists, but miniBOT does not have an MCP runtime client yet.
-        logger.warning(
-            "MCP Skill dependencies have no runtime provider and were skipped: %s",
-            ", ".join(names),
-        )
-        return []
+        from app.agents.toolkits.resolver import resolve_runtime_mcps
+
+        return await resolve_runtime_mcps(context, server_names=names)
 
 
 register_skill_dependency_provider("tool", ToolDependencyProvider)

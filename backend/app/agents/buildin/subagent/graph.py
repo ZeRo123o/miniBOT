@@ -21,7 +21,7 @@ from app.agents.middlewares.runtime_config_middleware import RuntimeConfigMiddle
 from app.agents.middlewares.runtime_prompt import RuntimePromptMiddleware
 from app.agents.middlewares.Skills_middleware import SkillsMiddleware
 from app.agents.middlewares.summary_middleware import SummaryMiddleware
-from app.agents.toolkits import resolve_runtime_tools
+from app.agents.toolkits import merge_runtime_tools, resolve_runtime_mcps, resolve_runtime_tools
 from app.llm import get_model
 
 _SUBAGENT_DISABLED_TOOLS = frozenset({"ask_user_question", "install_skill", "present_artifacts", "task"})
@@ -56,22 +56,16 @@ class _SubAgentToolFilterMiddleware(AgentMiddleware):
 async def build_subagent_agent(context: SubAgentContext | None = None) -> Any:
     """Build an isolated subagent graph for task delegation."""
     agent_context = context or SubAgentContext()
-    candidate_tool_names = [
-        str(resource.get("name") or "")
-        for resource in agent_context.tools
-        if resource.get("name")
-        and (resource.get("config") or {}).get("allow_skill_dependency", True) is not False
-    ]
-    runtime_tools = resolve_runtime_tools(
-        agent_context,
-        extra_tool_names=candidate_tool_names,
+    runtime_tools = merge_runtime_tools(
+        resolve_runtime_tools(agent_context),
+        await resolve_runtime_mcps(agent_context),
     )
     return create_agent(
         model=get_model(agent_context.model_use),
-        tools=[],
+        tools=runtime_tools,
         system_prompt=build_system_prompt(agent_context),
         middleware=[
-            RuntimeConfigMiddleware(runtime_tools),
+            RuntimeConfigMiddleware(),
             SandboxMiddleware(),
             AttachmentMiddleware(),
             KnowledgeBaseMiddleware(),

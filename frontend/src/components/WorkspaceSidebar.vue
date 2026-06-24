@@ -28,6 +28,7 @@ function toggleKnowledgeBase(knowledgeBaseId) {
   selectionStore.selection.knowledge_base_ids = Array.from(selected)
   selectionStore.hasUnsavedChanges = true
 }
+
 </script>
 
 <template>
@@ -71,6 +72,7 @@ function toggleKnowledgeBase(knowledgeBaseId) {
           <p v-if="!knowledgeBases.length" class="empty">暂无可选知识库。</p>
         </div>
       </section>
+
 
       <p v-if="selectionStore.error" class="resource-error">{{ selectionStore.error }}</p>
       <button

@@ -45,6 +45,11 @@ function resourceTitle(resource) {
     : resource.display_name || resource.name
 }
 
+function isBuiltinTool(resource) {
+  return resource.kind === 'tool'
+    && resource.config?.origin === 'builtin'
+}
+
 const activeConfig = computed(
   () => categories.find((category) => category.key === activeCategory.value) || categories[0],
 )
@@ -158,7 +163,7 @@ onMounted(loadResources)
             <component :is="activeConfig.icon" :size="20" />
           </div>
           <button
-            v-if="resource.kind !== 'skill'"
+            v-if="resource.kind !== 'skill' && !isBuiltinTool(resource)"
             class="extension-switch"
             type="button"
             role="switch"
@@ -176,10 +181,16 @@ onMounted(loadResources)
             <h3>{{ resourceTitle(resource) }}</h3>
             <div class="extension-badges">
               <span
-                v-if="resource.kind === 'tool' && resource.config?.category === 'buildin'"
+                v-if="isBuiltinTool(resource)"
                 class="builtin"
               >
                 内置工具
+              </span>
+              <span
+                v-if="isBuiltinTool(resource)"
+                class="builtin"
+              >
+                始终启用
               </span>
               <span
                 v-if="resource.kind === 'skill' && resource.is_builtin"

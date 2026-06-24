@@ -28,6 +28,7 @@ from app.agents.toolkits.governance import (
     finish_tool_call,
     start_tool_call,
 )
+from app.agents.toolkits.resolver import resolve_runtime_tools
 
 
 def dependency_node(
@@ -62,6 +63,23 @@ class FakeModelRequest:
 
 
 class SkillRuntimeTests(unittest.TestCase):
+    def test_configured_tool_is_directly_resolved_without_legacy_visibility_flags(self):
+        context = AgentContext(
+            tools=[
+                {
+                    "kind": "tool",
+                    "name": "tavily_search",
+                    "config": {"expose_directly": False},
+                }
+            ]
+        )
+        tool_instance = SimpleNamespace(name="tavily_search")
+        with patch(
+            "app.agents.toolkits.resolver.get_tool_instance",
+            return_value=tool_instance,
+        ):
+            self.assertEqual(resolve_runtime_tools(context), [tool_instance])
+
     def test_activated_skills_reducer_preserves_order_and_deduplicates(self):
         self.assertEqual(
             _activated_skills_reducer(
@@ -143,10 +161,7 @@ class SkillsMiddlewareTests(unittest.IsolatedAsyncioTestCase):
                 "kind": "tool",
                 "name": "tavily_search",
                 "display_name": "Tavily Search",
-                "config": {
-                    "allow_skill_dependency": True,
-                    "expose_directly": False,
-                },
+                "config": {},
             }
         ]
         self.context = AgentContext(
@@ -349,8 +364,7 @@ class SkillsMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("tavily_search", visible_tool_names[0])
         self.assertIn("tavily_search", visible_tool_names[1])
 
-    async def test_tool_can_block_skill_dependency_activation(self):
-        self.context.tools[0]["config"]["allow_skill_dependency"] = False
+    async def test_skill_dependency_uses_authorized_resource_even_if_not_directly_configured(self):
         middleware = SkillsMiddleware()
         captured: list[str] = []
 
@@ -367,7 +381,7 @@ class SkillsMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             handler,
         )
 
-        self.assertNotIn("tavily_search", captured)
+        self.assertIn("tavily_search", captured)
 
 
 class RuntimeConfigMiddlewareTests(unittest.IsolatedAsyncioTestCase):
@@ -376,7 +390,7 @@ class RuntimeConfigMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             system_prompt="base\n\nskill prompt",
             current_datetime="2026-06-12 10:00:00",
         )
-        middleware = RuntimeConfigMiddleware([])
+        middleware = RuntimeConfigMiddleware()
         captured = []
 
         async def handler(request):

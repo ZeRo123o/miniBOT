@@ -10,7 +10,6 @@ from langchain_core.messages import ToolMessage
 from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 
-
 class SandboxMiddlewareState(AgentState):
     sandbox: NotRequired[dict | None]
 
@@ -19,6 +18,28 @@ class SandboxMiddleware(AgentMiddleware):
     """持久化文件工具延迟创建的 sandbox_id，不主动冷启动容器。"""
 
     state_schema = SandboxMiddlewareState
+
+    def __init__(self) -> None:
+        super().__init__()
+        # Import lazily: sandbox tools depend on the filesystem backend, which
+        # imports this package while its sandbox path helpers are initialized.
+        from app.agents.toolkits.sandbox import (
+            sandbox_glob,
+            sandbox_grep,
+            sandbox_ls,
+            sandbox_read_file,
+            sandbox_write_file,
+        )
+
+        # These tools are middleware-owned capabilities, not user-configured
+        # extension resources. LangChain collects `self.tools` automatically.
+        self.tools = [
+            sandbox_read_file,
+            sandbox_write_file,
+            sandbox_ls,
+            sandbox_glob,
+            sandbox_grep,
+        ]
 
     @staticmethod
     def _sandbox_id(request: ToolCallRequest) -> str | None:

@@ -8,11 +8,25 @@ import app.agents.toolkits  # noqa: F401
 from langgraph.prebuilt.tool_node import _get_all_injected_args
 
 from app.agents.buildin.chatbot.context import AgentContext
+from app.agents.backends.sandbox.middleware import SandboxMiddleware
 from app.agents.toolkits.sandbox.tools import _ensure_sandbox
 from app.agents.toolkits.registry import get_tool_instance
 
 
 class SandboxToolRuntimeTests(unittest.TestCase):
+    def test_sandbox_middleware_owns_all_file_tools(self):
+        middleware = SandboxMiddleware()
+        self.assertEqual(
+            [tool.name for tool in middleware.tools],
+            [
+                "sandbox_read_file",
+                "sandbox_write_file",
+                "sandbox_ls",
+                "sandbox_glob",
+                "sandbox_grep",
+            ],
+        )
+
     def test_sandbox_tools_inject_runtime_without_exposing_it_to_model(self):
         tool_names = [
             "sandbox_read_file",

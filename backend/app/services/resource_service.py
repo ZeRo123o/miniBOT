@@ -9,9 +9,14 @@ class ResourceService:
         """保存数据库会话，供资源解析函数使用。"""
         self.db = db
 
-    async def resolve_for_selection(self, selection: dict) -> dict[str, list[dict]]:
-        """读取扩展管理中启用的 MCP、Skill 和运行时工具。"""
-        user_id = selection.get("user_id")
+    async def resolve_enabled_resources(self, user_id: str) -> dict[str, list[dict]]:
+        """Resolve globally enabled Tool/MCP resources visible to one user.
+
+        Tool and MCP availability is controlled by each resource's global enabled
+        flag. ``user_selections`` is intentionally not consulted here: it only
+        stores the user's knowledge-base scope. A resource may still be private
+        to its owner through ``config.owner_user_id``.
+        """
         return {
             "mcps": await list_enabled_resources(self.db, kind="mcp", user_id=user_id),
             "skills": [

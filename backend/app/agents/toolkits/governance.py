@@ -8,6 +8,7 @@ MAX_LOGGED_ERROR_CHARS = 500
 _TOOL_ACTIVITY = {
     "task": ("委派子任务", "正在启动专业子任务", "子任务已返回结果"),
     "tavily_search": ("搜索公开资料", "正在检索相关网页", "已完成公开资料搜索"),
+    "exchange_rate": ("查询参考汇率", "正在查询货币参考汇率", "已完成货币换算"),
     "query_kb": ("检索知识库", "正在检索已启用知识库", "已找到相关知识片段"),
     "list_kbs": ("查看知识库", "正在读取可用知识库", "已读取知识库列表"),
     "sandbox_read_file": ("阅读文件", "正在读取工作区文件", "已读取文件"),
@@ -89,14 +90,10 @@ def fail_tool_call(event: dict[str, Any] | None, error: Any) -> None:
         return
     event["status"] = "failed"
     event["error"] = str(error)
-    error_text = str(error)
-    if len(error_text) > MAX_LOGGED_ERROR_CHARS:
-        error_text = f"{error_text[:MAX_LOGGED_ERROR_CHARS]}..."
     logger.warning(
-        "Agent tool call failed: tool=%s error_type=%s error=%s",
+        "Agent tool call failed: tool=%s error_type=%s",
         event.get("tool_name", ""),
         type(error).__name__,
-        error_text,
     )
     emit_runtime_event(getattr(event, "context", None), {"type": "tool_event", "event": _streamable_tool_event(event)})
 
@@ -158,6 +155,9 @@ def _display_args(event: dict[str, Any]) -> dict[str, Any]:
         "glob",
         "filepaths",
         "skill_names",
+        "from_currency",
+        "to_currency",
+        "amount",
     }
     result: dict[str, Any] = {}
     for key in allowed:

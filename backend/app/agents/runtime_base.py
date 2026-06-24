@@ -62,8 +62,8 @@ class BaseChatRuntime(ABC):
             prepared_conversation_id,
         )
 
-        selection = await self.selection_service.get_or_default(user_id)
-        resources = await self.resource_service.resolve_for_selection(selection)
+        knowledge_selection = await self.selection_service.get_or_default(user_id)
+        resources = await self.resource_service.resolve_enabled_resources(user_id)
         logger.info(
             "Runtime resources resolved: conversation_id=%s mcps=%s skills=%s tools=%s",
             prepared_conversation_id,
@@ -75,7 +75,7 @@ class BaseChatRuntime(ABC):
             user_id=user_id,
             message=message,
             conversation_id=prepared_conversation_id,
-            selection=selection,
+            knowledge_selection=knowledge_selection,
             resources=resources,
             uploads=upload_items,
         )
@@ -94,7 +94,7 @@ class BaseChatRuntime(ABC):
             conversation_id=prepared_conversation_id,
             user_id=user_id,
             answer=result.answer,
-            selection=selection,
+            selection=knowledge_selection,
             resources=resources,
         )
         logger.info("Runtime run completed: conversation_id=%s", prepared_conversation_id)
@@ -142,8 +142,8 @@ class BaseChatRuntime(ABC):
             "conversation": prepared_conversation,
         }
 
-        selection = await self.selection_service.get_or_default(user_id)
-        resources = await self.resource_service.resolve_for_selection(selection)
+        knowledge_selection = await self.selection_service.get_or_default(user_id)
+        resources = await self.resource_service.resolve_enabled_resources(user_id)
         logger.info(
             "Runtime stream resources resolved: conversation_id=%s mcps=%s skills=%s tools=%s",
             prepared_conversation_id,
@@ -156,7 +156,7 @@ class BaseChatRuntime(ABC):
             user_id=user_id,
             message=message,
             conversation_id=prepared_conversation_id,
-            selection=selection,
+            knowledge_selection=knowledge_selection,
             resources=resources,
             uploads=upload_items,
         ):
@@ -181,7 +181,7 @@ class BaseChatRuntime(ABC):
             conversation_id=prepared_conversation_id,
             user_id=user_id,
             answer=result.answer,
-            selection=selection,
+            selection=knowledge_selection,
             resources=resources,
         )
         logger.info("Runtime stream done event ready: conversation_id=%s", prepared_conversation_id)
@@ -194,7 +194,7 @@ class BaseChatRuntime(ABC):
         user_id: str,
         message: str,
         conversation_id: int,
-        selection: dict,
+        knowledge_selection: dict,
         resources: dict[str, list[dict]],
         uploads: list[dict],
     ) -> RuntimeResult:
@@ -206,7 +206,7 @@ class BaseChatRuntime(ABC):
         user_id: str,
         message: str,
         conversation_id: int,
-        selection: dict,
+        knowledge_selection: dict,
         resources: dict[str, list[dict]],
         uploads: list[dict],
     ) -> AsyncIterator[dict | RuntimeResult]:
@@ -215,7 +215,7 @@ class BaseChatRuntime(ABC):
             user_id=user_id,
             message=message,
             conversation_id=conversation_id,
-            selection=selection,
+            knowledge_selection=knowledge_selection,
             resources=resources,
             uploads=uploads,
         )

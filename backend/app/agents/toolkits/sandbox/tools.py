@@ -117,7 +117,7 @@ def _truncate(text: str, limit: int) -> tuple[str, bool]:
 
 
 @tool(
-    category="buildin",
+    category="sandbox",
     tags=["沙盒", "文件", "只读"],
     display_name="读取沙盒文件",
 )
@@ -144,7 +144,7 @@ async def sandbox_read_file(path: SandboxPath, runtime: ToolRuntime) -> str:
 
 
 @tool(
-    category="buildin",
+    category="sandbox",
     tags=["沙盒", "文件", "写入"],
     display_name="写入沙盒文件",
 )
@@ -182,7 +182,7 @@ async def sandbox_write_file(
 
 
 @tool(
-    category="buildin",
+    category="sandbox",
     tags=["沙盒", "文件", "目录"],
     display_name="列出沙盒目录",
 )
@@ -217,7 +217,7 @@ async def sandbox_ls(path: SandboxPath, runtime: ToolRuntime) -> str:
 
 
 @tool(
-    category="buildin",
+    category="sandbox",
     tags=["沙盒", "文件", "搜索"],
     display_name="匹配沙盒文件",
 )
@@ -254,7 +254,7 @@ async def sandbox_glob(
 
 
 @tool(
-    category="buildin",
+    category="sandbox",
     tags=["沙盒", "文件", "搜索"],
     display_name="搜索沙盒文件内容",
 )

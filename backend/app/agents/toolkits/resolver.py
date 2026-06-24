@@ -1,13 +1,28 @@
 import logging
 from collections.abc import Iterable
+from typing import Any
 
 from langchain_core.tools import BaseTool
 
 from app.agents.buildin.chatbot.context import AgentContext
-from app.agents.toolkits.registry import get_tool_instance
+from app.agents.toolkits.registry import get_extra_metadata, get_tool_instance
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+
+def merge_runtime_tools(*groups: Iterable[BaseTool]) -> list[BaseTool]:
+    """Merge tool sources by name so a model never receives duplicate schemas."""
+    merged: list[BaseTool] = []
+    seen: set[str] = set()
+    for group in groups:
+        for tool in group:
+            if tool.name in seen:
+                logger.warning("Duplicate runtime tool name skipped: %s", tool.name)
+                continue
+            merged.append(tool)
+            seen.add(tool.name)
+    return merged
 
 
 def resolve_runtime_tools(
@@ -16,7 +31,7 @@ def resolve_runtime_tools(
     include_direct: bool = True,
     extra_tool_names: Iterable[str] = (),
 ) -> list[BaseTool]:
-    """Resolve direct tools and explicitly requested Skill dependencies."""
+    """Resolve configured direct tools or explicitly activated Skill dependencies."""
     resolved: list[BaseTool] = []
     seen: set[str] = set()
     resources_by_name = {
@@ -24,15 +39,7 @@ def resolve_runtime_tools(
         for resource in context.tools
         if resource.get("name")
     }
-    direct_names = (
-        tuple(
-            name
-            for name, resource in resources_by_name.items()
-            if (resource.get("config") or {}).get("expose_directly", True) is not False
-        )
-        if include_direct
-        else ()
-    )
+    direct_names = tuple(resources_by_name) if include_direct else ()
     dependency_names = tuple(
         dict.fromkeys(
             str(name or "").strip()
@@ -40,8 +47,6 @@ def resolve_runtime_tools(
             if str(name or "").strip()
         )
     )
-    dependency_name_set = set(dependency_names)
-
     for name in (*direct_names, *dependency_names):
         if not name or name in seen:
             continue
@@ -49,20 +54,83 @@ def resolve_runtime_tools(
         if resource is None:
             logger.warning("Skill dependency tool is unavailable or unauthorized: %s", name)
             continue
-        if name in dependency_name_set and (resource.get("config") or {}).get(
-            "allow_skill_dependency",
-            True,
-        ) is False:
-            logger.warning("Tool blocks Skill dependency activation: %s", name)
-            continue
         if name.startswith("sandbox_") and not get_settings().sandbox_enabled:
             continue
 
         tool_instance = get_tool_instance(name)
         if tool_instance is None:
+            # A long-lived API worker may have imported the resolver before a
+            # newly deployed trusted integration was discovered. Re-import the
+            # aggregate package once before treating the resource as missing.
+            import app.agents.toolkits.external  # noqa: F401
+
+            tool_instance = get_tool_instance(name)
+        if tool_instance is None:
             logger.warning("No trusted runtime implementation registered for tool: %s", name)
+            continue
+        metadata = get_extra_metadata(name)
+        if metadata and metadata.category == "sandbox":
+            logger.warning("Sandbox middleware tool cannot be configured directly: %s", name)
             continue
         resolved.append(tool_instance)
         seen.add(name)
 
     return resolved
+
+
+async def resolve_runtime_mcps(
+    context: AgentContext,
+    *,
+    server_names: Iterable[str] = (),
+) -> list[BaseTool]:
+    """Resolve configured MCP servers for direct or activated-Skill use."""
+    source_names = server_names or tuple(item.get("name") for item in context.mcps)
+    requested = tuple(
+        dict.fromkeys(
+            str(name or "").strip()
+            for name in source_names
+            if str(name or "").strip()
+        )
+    )
+    resources_by_name = {
+        str(resource.get("name") or "").strip(): resource
+        for resource in context.mcps
+        if resource.get("name")
+    }
+    result: list[BaseTool] = []
+    seen: set[str] = set()
+    for name in requested:
+        resource = resources_by_name.get(name)
+        if resource is None:
+            logger.warning("MCP server is unavailable or unauthorized: %s", name)
+            continue
+        for tool in await _load_mcp_tools(name, resource.get("config") or {}):
+            if tool.name not in seen:
+                result.append(tool)
+                seen.add(tool.name)
+    return result
+
+
+async def _load_mcp_tools(server_name: str, config: dict[str, Any]) -> list[BaseTool]:
+    """Discover one MCP server without logging its configuration."""
+    try:
+        from langchain_mcp_adapters.client import MultiServerMCPClient
+    except ImportError:
+        logger.warning("MCP runtime dependency is not installed; server skipped: %s", server_name)
+        return []
+
+    allowed_config_keys = {
+        "transport", "command", "args", "url", "env", "headers", "timeout", "sse_read_timeout",
+    }
+    server_config = {key: value for key, value in config.items() if key in allowed_config_keys}
+    if not server_config.get("transport"):
+        logger.warning("MCP server has no transport configured: %s", server_name)
+        return []
+    try:
+        tools = await MultiServerMCPClient({server_name: server_config}).get_tools()
+    except Exception as error:  # noqa: BLE001
+        logger.warning("Failed to load MCP tools: server=%s error_type=%s", server_name, type(error).__name__)
+        return []
+    for tool in tools:
+        tool.handle_tool_error = True
+    return list(tools)

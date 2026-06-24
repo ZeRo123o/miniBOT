@@ -58,6 +58,8 @@ class Settings(BaseSettings):
     tavily_base_url: str = "https://api.tavily.com"
     tavily_max_results: int = 5
     tavily_search_depth: str = "basic"
+    exchange_rate_base_url: str = "https://api.frankfurter.dev/v1"
+    exchange_rate_timeout_seconds: float = 15.0
     runtime_tool_call_limit: int = 3
     runtime_outputs_dir: str = "./data/outputs"
     runtime_skill_imports_dir: str = "./data/skill-imports"

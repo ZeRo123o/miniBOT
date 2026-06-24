@@ -36,7 +36,7 @@ class AgentRuntime(BaseChatRuntime):
         user_id: str,
         message: str,
         conversation_id: int,
-        selection: dict,
+        knowledge_selection: dict,
         resources: dict[str, list[dict]],
         uploads: list[dict] | None = None,
         event_sink: Callable[[dict], None] | None = None,
@@ -57,7 +57,7 @@ class AgentRuntime(BaseChatRuntime):
         context = self._build_context(
             user_id=user_id,
             conversation_id=conversation_id,
-            selection=selection,
+            knowledge_selection=knowledge_selection,
             resources=resources,
             thread_id=thread_id,
             run_id=str(parent_run["id"]),
@@ -172,14 +172,14 @@ class AgentRuntime(BaseChatRuntime):
         *,
         user_id: str,
         conversation_id: int,
-        selection: dict,
+        knowledge_selection: dict,
         resources: dict[str, list[dict]],
         thread_id: str,
         run_id: str,
     ) -> AgentContext:
         """把数据库资源和运行时配置整理成 AgentContext。"""
         settings = get_settings()
-        knowledge_base_ids = selection.get("knowledge_base_ids", []) or []
+        knowledge_base_ids = knowledge_selection.get("knowledge_base_ids", []) or []
         logger.info(
             "Knowledge bases enabled for agent run: user_id=%s conversation_id=%s knowledge_base_ids=%s",
             user_id,
@@ -228,7 +228,7 @@ class AgentRuntime(BaseChatRuntime):
         user_id: str,
         message: str,
         conversation_id: int,
-        selection: dict,
+        knowledge_selection: dict,
         resources: dict[str, list[dict]],
         uploads: list[dict],
     ) -> AsyncIterator[dict | RuntimeResult]:
@@ -239,7 +239,7 @@ class AgentRuntime(BaseChatRuntime):
                 user_id=user_id,
                 message=message,
                 conversation_id=conversation_id,
-                selection=selection,
+                knowledge_selection=knowledge_selection,
                 resources=resources,
                 uploads=uploads,
                 event_sink=event_queue.put_nowait,
@@ -260,7 +260,7 @@ class AgentRuntime(BaseChatRuntime):
         user_id: str,
         message: str,
         conversation_id: int,
-        selection: dict,
+        knowledge_selection: dict,
         resources: dict[str, list[dict]],
         uploads: list[dict],
         event_sink: Callable[[dict], None],
@@ -282,7 +282,7 @@ class AgentRuntime(BaseChatRuntime):
         context = self._build_context(
             user_id=user_id,
             conversation_id=conversation_id,
-            selection=selection,
+            knowledge_selection=knowledge_selection,
             resources=resources,
             thread_id=thread_id,
             run_id=str(parent_run["id"]),
