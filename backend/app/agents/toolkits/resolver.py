@@ -5,6 +5,7 @@ from typing import Any
 from langchain_core.tools import BaseTool
 
 from app.agents.buildin.chatbot.context import AgentContext
+from app.agents.mcp import discover_mcp_tools
 from app.agents.toolkits.registry import get_extra_metadata, get_tool_instance
 from app.core.config import get_settings
 
@@ -108,29 +109,17 @@ async def resolve_runtime_mcps(
             if tool.name not in seen:
                 result.append(tool)
                 seen.add(tool.name)
+                server_by_tool = getattr(context, "_mcp_tool_servers", {})
+                server_by_tool[tool.name] = name
+                setattr(context, "_mcp_tool_servers", server_by_tool)
     return result
 
 
 async def _load_mcp_tools(server_name: str, config: dict[str, Any]) -> list[BaseTool]:
     """Discover one MCP server without logging its configuration."""
     try:
-        from langchain_mcp_adapters.client import MultiServerMCPClient
-    except ImportError:
-        logger.warning("MCP runtime dependency is not installed; server skipped: %s", server_name)
-        return []
-
-    allowed_config_keys = {
-        "transport", "command", "args", "url", "env", "headers", "timeout", "sse_read_timeout",
-    }
-    server_config = {key: value for key, value in config.items() if key in allowed_config_keys}
-    if not server_config.get("transport"):
-        logger.warning("MCP server has no transport configured: %s", server_name)
-        return []
-    try:
-        tools = await MultiServerMCPClient({server_name: server_config}).get_tools()
+        tools = await discover_mcp_tools(server_name, config)
     except Exception as error:  # noqa: BLE001
         logger.warning("Failed to load MCP tools: server=%s error_type=%s", server_name, type(error).__name__)
         return []
-    for tool in tools:
-        tool.handle_tool_error = True
     return list(tools)

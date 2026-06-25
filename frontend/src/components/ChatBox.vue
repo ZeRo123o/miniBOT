@@ -114,6 +114,12 @@ function onFilesSelected(event) {
 function removeSelectedFile(index) {
   selectedFiles.value.splice(index, 1)
 }
+
+function chartUrls(message) {
+  return (message.metadata?.tool_calls || [])
+    .map((toolCall) => toolCall.chart_url)
+    .filter(Boolean)
+}
 </script>
 
 <template>
@@ -135,7 +141,11 @@ function removeSelectedFile(index) {
           :tool-calls="message.metadata?.tool_calls || []"
           :is-active="Boolean(message.metadata?.loading || message.metadata?.streaming)"
         />
-        <MarkdownMessage v-if="!message.metadata?.loading" :content="message.content" />
+        <MarkdownMessage
+          v-if="!message.metadata?.loading"
+          :content="message.content"
+          :hidden-image-urls="chartUrls(message)"
+        />
         <div v-if="message.metadata?.uploads?.length" class="message-attachments">
           <span v-for="upload in message.metadata.uploads" :key="upload.path || upload.file_name" class="attachment-pill">
             <Paperclip :size="13" />

@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.mcp import BUILTIN_MCP_SERVERS
 from app.agents.skills.buildin import sync_builtin_skills
 from app.db.repositories import PluginResourceRepository
 
@@ -44,7 +45,7 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
             "config": {"transport": "stdio", "command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem"]},
         },
     ]
-    for item in samples:
+    for item in [*BUILTIN_MCP_SERVERS, *samples]:
         await repo.upsert({"enabled": False, **item})
 
     # Skill 不再写入 plugin_resources，而是同步到独立 skills 表和运行时目录。

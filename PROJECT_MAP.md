@@ -87,6 +87,7 @@ backend/app
 |   |   |-- runtime_prompt.py  资源和工具策略增量注入
 |   |   |-- summary.py         长上下文压缩与工具结果卸载
 |   |   `-- system_message.py  system message 追加工具
+|   |-- mcp/                  Yuxi 风格 MCP service：内置声明、发现缓存与工具过滤
 |   |-- skills/
 |   |   |-- parser.py          SKILL.md frontmatter 与依赖解析
 |   |   |-- service.py         Skill 目录校验、哈希、安装和内置同步
@@ -316,6 +317,10 @@ user_selections.knowledge_base_ids
 GET    /api/health
 GET    /api/resources?kind=mcp|tool
 POST   /api/resources
+POST   /api/resources/{name}/mcp/test
+GET    /api/resources/{name}/mcp/tools
+POST   /api/resources/{name}/mcp/refresh
+PUT    /api/resources/{name}/mcp/tools/{tool_name}?enabled=true|false
 GET    /api/skills
 GET    /api/selections/{user_id}
 PUT    /api/selections/{user_id}

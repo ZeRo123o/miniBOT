@@ -8,6 +8,7 @@ from langchain_core.messages import AIMessageChunk
 
 from app.agents.buildin.chatbot.context import AgentContext
 from app.agents.buildin.chatbot.graph import build_chat_agent
+from app.agents.mcp import build_mcp_event_callback
 from app.agents.middlewares.subagent_middleware import create_parent_run, finish_run, make_parent_thread_id
 from app.agents.runtime_base import BaseChatRuntime, RuntimeResult
 from app.agents.toolkits.governance import serialize_tool_calls
@@ -65,7 +66,10 @@ class AgentRuntime(BaseChatRuntime):
         context.runtime_event_sink = event_sink
         try:
             agent = await build_chat_agent(context)
-            checkpoint_config = {"configurable": {"thread_id": thread_id}}
+            checkpoint_config = {
+                "configurable": {"thread_id": thread_id},
+                "callbacks": [build_mcp_event_callback(context)],
+            }
             checkpoint_state = await agent.aget_state(checkpoint_config)
             if checkpoint_state.values.get("messages"):
                 # The checkpoint already has this thread's history; only append the new user message.
@@ -290,7 +294,10 @@ class AgentRuntime(BaseChatRuntime):
         context.runtime_event_sink = event_sink
         try:
             agent = await build_chat_agent(context)
-            checkpoint_config = {"configurable": {"thread_id": thread_id}}
+            checkpoint_config = {
+                "configurable": {"thread_id": thread_id},
+                "callbacks": [build_mcp_event_callback(context)],
+            }
             checkpoint_state = await agent.aget_state(checkpoint_config)
             if checkpoint_state.values.get("messages"):
                 # The checkpointer owns prior turns, so this invocation carries only the new input.

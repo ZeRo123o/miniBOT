@@ -123,6 +123,7 @@ def _streamable_tool_event(event: dict[str, Any]) -> dict[str, Any]:
         "parent_tool_call_id",
         "truncated",
         "child_tool_event_count",
+        "chart_url",
     ):
         if key in event:
             payload[key] = event[key]
@@ -158,6 +159,7 @@ def _display_args(event: dict[str, Any]) -> dict[str, Any]:
         "from_currency",
         "to_currency",
         "amount",
+        "mcp_server",
     }
     result: dict[str, Any] = {}
     for key in allowed:

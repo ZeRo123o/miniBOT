@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 from app.agents.buildin.chatbot.context import AgentContext
 from app.agents.middlewares.subagent_middleware import SubAgentContext, SubAgentProfile
 from app.agents.buildin.subagent.graph import build_subagent_agent
+from app.agents.mcp import build_mcp_event_callback
 from app.agents.toolkits.governance import emit_runtime_event
 
 
@@ -49,7 +50,10 @@ class SubAgentRunner:
             "uploads": uploads or [],
             "files": files or {},
         }
-        config = {"configurable": {"thread_id": child_thread_id}}
+        config = {
+            "configurable": {"thread_id": child_thread_id},
+            "callbacks": [build_mcp_event_callback(child_context)],
+        }
         result: dict[str, Any] | None = None
         async for mode, chunk in child_agent.astream(
             child_input,

@@ -8,6 +8,10 @@ const props = defineProps({
     type: String,
     required: true,
   },
+  hiddenImageUrls: {
+    type: Array,
+    default: () => [],
+  },
 })
 
 const md = new MarkdownIt({
@@ -21,8 +25,22 @@ const md = new MarkdownIt({
     return md.utils.escapeHtml(code)
   },
 })
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function withoutRenderedChartImages(content) {
+  return props.hiddenImageUrls.reduce(
+    (result, url) => result.replace(
+      new RegExp(`!\\[[^\\]]*\\]\\(${escapeRegExp(String(url))}(?:\\s+[^)]*)?\\)`, 'g'),
+      '',
+    ),
+    content,
+  )
+}
 </script>
 
 <template>
-  <div class="markdown-body" v-html="md.render(props.content)" />
+  <div class="markdown-body" v-html="md.render(withoutRenderedChartImages(props.content))" />
 </template>
