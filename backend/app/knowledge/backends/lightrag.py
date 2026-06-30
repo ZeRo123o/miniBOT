@@ -9,8 +9,8 @@ import httpx
 import numpy as np
 
 from app.core.config import get_settings
-from app.embedding import get_embedding_service
 from app.knowledge.backends.base import KnowledgeBackend
+from app.knowledge.embedding import get_embedding_service
 
 logger = logging.getLogger(__name__)
 

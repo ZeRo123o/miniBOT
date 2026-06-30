@@ -1,7 +1,7 @@
 import hashlib
 import math
 
-from app.embedding.base import EmbeddingService
+from app.knowledge.embedding.base import EmbeddingService
 
 
 class MockEmbeddingService(EmbeddingService):

@@ -1,7 +1,7 @@
 from app.core.config import get_settings
-from app.embedding.base import EmbeddingService
-from app.embedding.mock import MockEmbeddingService
-from app.embedding.openai import OpenAIEmbeddingService
+from app.knowledge.embedding.base import EmbeddingService
+from app.knowledge.embedding.mock import MockEmbeddingService
+from app.knowledge.embedding.openai import OpenAIEmbeddingService
 
 
 def get_embedding_service() -> EmbeddingService:

@@ -14,9 +14,9 @@ from app.knowledge.chunking import (
     resolve_chunk_processing_params,
 )
 from app.db.repositories import KnowledgeBaseRepository, KnowledgeChunkRepository, KnowledgeDocumentRepository
-from app.document_parsers import parse_document_to_markdown
 from app.knowledge.backends import get_knowledge_backend, normalize_knowledge_backend_type
 from app.storage import get_storage
+from app.knowledge.parser import parse_document_to_markdown
 
 logger = logging.getLogger(__name__)
 PROCESSING_DOCUMENT_STATUSES = {"uploaded", "parsing", "chunking", "embedding", "indexing"}

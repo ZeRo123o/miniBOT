@@ -41,7 +41,7 @@ miniBOT
   -> KnowledgeService
   -> MinIO 保存原始文件
   -> PostgreSQL 保存 knowledge_documents 元数据，status=uploaded/parsing
-  -> document_parsers 转 Markdown
+  -> knowledge/parser 转 Markdown
   -> MinIO 保存 Markdown 副本
   -> 根据知识库 metadata 中的 chunk_preset_id 选择分块策略
   -> 按 knowledge_bases.metadata.kb_type 选择 Milvus 或 LightRAG backend
@@ -128,14 +128,18 @@ backend/app
 |   |   |-- factory.py           按 kb_type 选择 backend
 |   |   |-- milvus.py            原有向量知识库实现
 |   |   `-- lightrag.py          LightRAG + Neo4j 图知识库实现
+|   |-- embedding/
+|   |   |-- factory.py           Embedding 服务工厂
+|   |   |-- openai.py            OpenAI-compatible Embedding 实现
+|   |   `-- mock.py              本地开发 mock Embedding
+|   |-- parser/
+|   |   `-- factory.py           文档转 Markdown 解析入口
 |   `-- chunking/
 |       `-- ragflow_like/        多策略 Markdown 分块
 |-- storage/
 |   |-- base.py                  对象存储抽象
 |   |-- factory.py               存储服务工厂
 |   `-- minio.py                 MinIO 对象存储实现
-|-- document_parsers/
-|   `-- factory.py               文档转 Markdown 解析入口
 |-- graph/
 |   |-- builder.py           旧兼容入口，转发到 agents/buildin/chatbot/graph.py
 |   |-- prompt.py            旧兼容入口，转发到 agents/buildin/chatbot/prompt.py
@@ -396,7 +400,7 @@ DELETE /api/knowledge-documents/{document_id}?user_id=default
 - `backend/app/services/knowledge_service.py`
 - `backend/app/knowledge/chunking/ragflow_like/dispatcher.py`
 - `backend/app/knowledge/chunking/ragflow_like/parsers/`
-- `backend/app/document_parsers/factory.py`
+- `backend/app/knowledge/parser/factory.py`
 - `backend/app/storage/`
 - `backend/app/db/models.py`
 

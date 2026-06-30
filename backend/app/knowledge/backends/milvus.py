@@ -1,7 +1,7 @@
 from typing import Any
 
-from app.embedding import get_embedding_service
 from app.knowledge.backends.base import KnowledgeBackend
+from app.knowledge.embedding import get_embedding_service
 from app.vectorstores import get_vector_store
 
 

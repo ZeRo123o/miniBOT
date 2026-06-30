@@ -127,7 +127,7 @@ http://localhost:5173
 - 路由层保持轻量，主要负责参数接收、依赖注入和响应组织。
 - 业务流程放在 `backend/app/services`，包括会话、知识库选择和资源解析；不要把业务流程堆进 API route。
 - 知识库文档上传、原始文件/Markdown 保存和解析状态更新放在 `backend/app/services/knowledge_service.py`。
-- 文件转 Markdown 的具体解析器放在 `backend/app/document_parsers`，不要把不同文件类型解析逻辑堆进 route。
+- 文件转 Markdown 的具体解析器放在 `backend/app/knowledge/parser`，不要把不同文件类型解析逻辑堆进 route。
 - 原始文件和 Markdown 文件通过 `backend/app/storage` 的对象存储抽象保存，业务层不要直接调用 MinIO SDK。
 - 内置 agent 能力放在 `backend/app/agents/buildin`，其中 `chatbot` 对应智能助手。
 - 智能助手的一次 Agent 对话运行编排放在 `backend/app/agents/buildin/chatbot/runtime.py`，runtime 只负责串联 service、构建 context 和调用 agent。

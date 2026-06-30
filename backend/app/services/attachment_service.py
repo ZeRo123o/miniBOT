@@ -9,7 +9,7 @@ from fastapi import HTTPException, UploadFile
 
 from app.agents.backends.sandbox.paths import VIRTUAL_UPLOADS_ROOT, conversation_uploads_dir
 from app.core.config import get_settings
-from app.document_parsers import parse_document_to_markdown
+from app.knowledge.parser import parse_document_to_markdown
 
 MAX_CHAT_UPLOAD_FILES = 10
 MARKDOWN_READABLE_EXTENSIONS = {".csv", ".docx", ".md", ".markdown", ".pdf", ".txt", ".xlsx"}
