@@ -10,6 +10,10 @@ from app.db.models import (
     Conversation,
     ConversationMessage,
     AgentRun,
+    EvaluationDataset,
+    EvaluationDatasetItem,
+    EvaluationRun,
+    EvaluationRunItem,
     KnowledgeBase,
     KnowledgeChunk,
     KnowledgeDocument,
@@ -147,6 +151,12 @@ class KnowledgeBaseRepository:
         await self.db.delete(knowledge_base)
         await self.db.commit()
 
+    async def update_metadata(self, knowledge_base: KnowledgeBase, metadata: dict) -> KnowledgeBase:
+        knowledge_base.metadata_ = metadata
+        await self.db.commit()
+        await self.db.refresh(knowledge_base)
+        return knowledge_base
+
 
 class KnowledgeDocumentRepository:
     def __init__(self, db: AsyncSession):
@@ -242,6 +252,147 @@ class KnowledgeChunkRepository:
         for item in items:
             await self.db.refresh(item)
         return items
+
+
+class EvaluationRepository:
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def create_dataset_with_items(
+        self,
+        dataset_data: dict,
+        items_data: list[dict],
+    ) -> EvaluationDataset:
+        dataset = EvaluationDataset(**dataset_data)
+        self.db.add(dataset)
+        self.db.add_all([EvaluationDatasetItem(**item) for item in items_data])
+        await self.db.commit()
+        await self.db.refresh(dataset)
+        return dataset
+
+    async def list_datasets(self, knowledge_base_id: int, user_id: str) -> list[EvaluationDataset]:
+        result = await self.db.execute(
+            select(EvaluationDataset)
+            .where(
+                EvaluationDataset.knowledge_base_id == knowledge_base_id,
+                EvaluationDataset.user_id == user_id,
+            )
+            .order_by(EvaluationDataset.updated_at.desc(), EvaluationDataset.id.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get_dataset(self, dataset_id: str) -> EvaluationDataset | None:
+        result = await self.db.execute(
+            select(EvaluationDataset).where(EvaluationDataset.dataset_id == dataset_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def list_dataset_items(
+        self,
+        dataset_id: str,
+        *,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> list[EvaluationDatasetItem]:
+        result = await self.db.execute(
+            select(EvaluationDatasetItem)
+            .where(EvaluationDatasetItem.dataset_id == dataset_id)
+            .order_by(EvaluationDatasetItem.item_index.asc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def list_all_dataset_items(self, dataset_id: str) -> list[EvaluationDatasetItem]:
+        result = await self.db.execute(
+            select(EvaluationDatasetItem)
+            .where(EvaluationDatasetItem.dataset_id == dataset_id)
+            .order_by(EvaluationDatasetItem.item_index.asc())
+        )
+        return list(result.scalars().all())
+
+    async def count_dataset_items(self, dataset_id: str) -> int:
+        result = await self.db.execute(
+            select(func.count(EvaluationDatasetItem.id)).where(EvaluationDatasetItem.dataset_id == dataset_id)
+        )
+        return int(result.scalar() or 0)
+
+    async def delete_dataset(self, dataset: EvaluationDataset) -> None:
+        await self.db.delete(dataset)
+        await self.db.commit()
+
+    async def create_run(self, data: dict) -> EvaluationRun:
+        run = EvaluationRun(**data)
+        self.db.add(run)
+        await self.db.commit()
+        await self.db.refresh(run)
+        return run
+
+    async def get_run(self, run_id: str) -> EvaluationRun | None:
+        result = await self.db.execute(select(EvaluationRun).where(EvaluationRun.run_id == run_id))
+        return result.scalar_one_or_none()
+
+    async def list_runs(self, knowledge_base_id: int, user_id: str) -> list[EvaluationRun]:
+        result = await self.db.execute(
+            select(EvaluationRun)
+            .where(
+                EvaluationRun.knowledge_base_id == knowledge_base_id,
+                EvaluationRun.user_id == user_id,
+            )
+            .order_by(EvaluationRun.started_at.desc(), EvaluationRun.id.desc())
+        )
+        return list(result.scalars().all())
+
+    async def update_run(self, run: EvaluationRun, data: dict) -> EvaluationRun:
+        for key, value in data.items():
+            setattr(run, key, value)
+        await self.db.commit()
+        await self.db.refresh(run)
+        return run
+
+    async def upsert_run_item(self, run_id: str, item_index: int, data: dict) -> EvaluationRunItem:
+        result = await self.db.execute(
+            select(EvaluationRunItem).where(
+                EvaluationRunItem.run_id == run_id,
+                EvaluationRunItem.item_index == item_index,
+            )
+        )
+        item = result.scalar_one_or_none()
+        if item is None:
+            item = EvaluationRunItem(run_id=run_id, item_index=item_index, **data)
+            self.db.add(item)
+        else:
+            for key, value in data.items():
+                setattr(item, key, value)
+        await self.db.commit()
+        await self.db.refresh(item)
+        return item
+
+    async def list_run_items(
+        self,
+        run_id: str,
+        *,
+        offset: int = 0,
+        limit: int = 100,
+    ) -> list[EvaluationRunItem]:
+        result = await self.db.execute(
+            select(EvaluationRunItem)
+            .where(EvaluationRunItem.run_id == run_id)
+            .order_by(EvaluationRunItem.item_index.asc())
+            .offset(offset)
+            .limit(limit)
+        )
+        return list(result.scalars().all())
+
+    async def count_run_items(self, run_id: str) -> int:
+        result = await self.db.execute(
+            select(func.count(EvaluationRunItem.id)).where(EvaluationRunItem.run_id == run_id)
+        )
+        return int(result.scalar() or 0)
+
+    async def delete_run(self, run: EvaluationRun) -> None:
+        await self.db.delete(run)
+        await self.db.commit()
 
 
 class ConversationRepository:

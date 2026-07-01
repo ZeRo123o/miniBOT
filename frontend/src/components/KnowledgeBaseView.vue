@@ -1,18 +1,35 @@
 <script setup>
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { FileText, Loader2, MoreVertical, Plus, Search, Trash2, UploadCloud, X } from 'lucide-vue-next'
+import { BarChart3, ClipboardList, FileText, Loader2, MoreVertical, Plus, Save, Search, Trash2, UploadCloud, X } from 'lucide-vue-next'
 import {
   createKnowledgeBase,
+  deleteEvaluationDataset,
+  deleteEvaluationRun,
   deleteKnowledgeBase,
   deleteKnowledgeDocument,
+  getEvaluationDataset,
+  getEvaluationRun,
   listKnowledgeChunkPresets,
   listKnowledgeBases,
   listKnowledgeDocuments,
+  listEvaluationDatasets,
+  listEvaluationRuns,
+  getKnowledgeQueryParams,
+  queryKnowledgeBase,
+  runKnowledgeEvaluation,
+  updateKnowledgeQueryParams,
+  uploadEvaluationDataset,
   uploadKnowledgeDocument,
 } from '../apis/resources'
 import { selectionStore } from '../stores/selectionStore'
 
 const knowledgeTypes = ['全部类型', '文档知识库', '知识图谱']
+const detailTabs = [
+  { key: 'documents', label: '文档管理' },
+  { key: 'query', label: '检索测试' },
+  { key: 'evaluation', label: 'RAG评估' },
+  { key: 'benchmark', label: '评估基准' },
+]
 const acceptedTypes = '.md,.markdown,.txt,.pdf,.docx,.xlsx,.csv'
 const processingStatuses = new Set(['uploaded', 'parsing', 'chunking', 'embedding', 'indexing'])
 const documentPollIntervalMs = 3000
@@ -22,8 +39,47 @@ const knowledgeBases = ref([])
 const chunkPresets = ref([])
 const documentsByBaseId = ref({})
 const selectedBaseId = ref(null)
+const activeDetailTab = ref('documents')
 const loading = ref(false)
 const errorMessage = ref('')
+const queryText = ref('')
+const queryLoading = ref(false)
+const queryErrorMessage = ref('')
+const queryResult = ref(null)
+const queryConfigLoading = ref(false)
+const queryConfigSaving = ref(false)
+const queryConfigMessage = ref('')
+const queryConfig = ref({
+  search_mode: 'hybrid',
+  final_top_k: 10,
+  recall_top_k: 50,
+  similarity_threshold: 0,
+  bm25_top_k: 50,
+  vector_weight: 0.7,
+  bm25_weight: 0.3,
+  bm25_drop_ratio_search: 0,
+  use_reranker: false,
+  reranker_model: '',
+})
+const evaluationDatasetsByBaseId = ref({})
+const evaluationRunsByBaseId = ref({})
+const evaluationLoading = ref(false)
+const evaluationErrorMessage = ref('')
+const evaluationResult = ref(null)
+const selectedDatasetDetail = ref(null)
+const selectedRunDetail = ref(null)
+const datasetUploadDialogOpen = ref(false)
+const datasetUploadFile = ref(null)
+const datasetUploadForm = ref({
+  name: '',
+  description: '',
+})
+const evaluationForm = ref({
+  name: '',
+  dataset_id: '',
+  answer_llm_enabled: false,
+  judge_llm_enabled: false,
+})
 
 const createDialogOpen = ref(false)
 const uploadDialogOpen = ref(false)
@@ -58,6 +114,14 @@ const selectedKnowledgeBase = computed(() =>
 
 const selectedDocuments = computed(() => documentsByBaseId.value[selectedBaseId.value] || [])
 
+const queryResults = computed(() => queryResult.value?.results || [])
+
+const selectedEvaluationDatasets = computed(() => evaluationDatasetsByBaseId.value[selectedBaseId.value] || [])
+
+const selectedEvaluationRuns = computed(() => evaluationRunsByBaseId.value[selectedBaseId.value] || [])
+
+const latestEvaluationRun = computed(() => selectedEvaluationRuns.value[0] || null)
+
 const uploadTargetKnowledgeBase = computed(() =>
   knowledgeBases.value.find((item) => item.id === uploadTargetBaseId.value),
 )
@@ -69,6 +133,13 @@ const selectedCreatePreset = computed(() =>
 const selectedKnowledgeBasePreset = computed(() =>
   chunkPresets.value.find((item) => item.value === selectedKnowledgeBase.value?.chunk_preset_id),
 )
+
+function normalizeQueryConfig(config) {
+  return {
+    ...config,
+    reranker_model: config?.reranker_model || '',
+  }
+}
 
 onMounted(() => {
   loadKnowledgeBases()
@@ -98,6 +169,9 @@ async function loadKnowledgeBases() {
     if (!selectedBaseId.value && knowledgeBases.value.length) {
       selectedBaseId.value = knowledgeBases.value[0].id
       await loadDocuments(selectedBaseId.value)
+      await loadQueryConfig(selectedBaseId.value)
+      await loadEvaluationDatasets(selectedBaseId.value)
+      await loadEvaluationRuns(selectedBaseId.value)
     }
   } catch (error) {
     errorMessage.value = error.message
@@ -111,6 +185,187 @@ async function loadDocuments(knowledgeBaseId) {
   documentsByBaseId.value = {
     ...documentsByBaseId.value,
     [knowledgeBaseId]: await listKnowledgeDocuments(knowledgeBaseId, selectionStore.userId),
+  }
+}
+
+async function loadQueryConfig(knowledgeBaseId) {
+  if (!knowledgeBaseId || queryConfigLoading.value) return
+  queryConfigLoading.value = true
+  queryConfigMessage.value = ''
+  try {
+    const response = await getKnowledgeQueryParams(knowledgeBaseId, selectionStore.userId)
+    queryConfig.value = {
+      ...queryConfig.value,
+      ...normalizeQueryConfig(response.data || {}),
+    }
+  } catch (error) {
+    queryErrorMessage.value = error.message
+  } finally {
+    queryConfigLoading.value = false
+  }
+}
+
+async function loadEvaluationDatasets(knowledgeBaseId) {
+  if (!knowledgeBaseId) return
+  evaluationErrorMessage.value = ''
+  try {
+    const response = await listEvaluationDatasets(knowledgeBaseId, selectionStore.userId)
+    evaluationDatasetsByBaseId.value = {
+      ...evaluationDatasetsByBaseId.value,
+      [knowledgeBaseId]: response.data || [],
+    }
+    if (!evaluationForm.value.dataset_id && response.data?.length) {
+      evaluationForm.value.dataset_id = response.data[0].dataset_id
+    }
+  } catch (error) {
+    evaluationErrorMessage.value = error.message
+  }
+}
+
+async function loadEvaluationRuns(knowledgeBaseId) {
+  if (!knowledgeBaseId) return
+  evaluationErrorMessage.value = ''
+  try {
+    const response = await listEvaluationRuns(knowledgeBaseId, selectionStore.userId)
+    evaluationRunsByBaseId.value = {
+      ...evaluationRunsByBaseId.value,
+      [knowledgeBaseId]: response.data || [],
+    }
+  } catch (error) {
+    evaluationErrorMessage.value = error.message
+  }
+}
+
+function openDatasetUploadDialog() {
+  if (!selectedKnowledgeBase.value) return
+  datasetUploadForm.value = {
+    name: '',
+    description: '',
+  }
+  datasetUploadFile.value = null
+  evaluationErrorMessage.value = ''
+  datasetUploadDialogOpen.value = true
+}
+
+function closeDatasetUploadDialog() {
+  if (submitting.value) return
+  datasetUploadDialogOpen.value = false
+}
+
+function handleDatasetFileChange(event) {
+  datasetUploadFile.value = event.target.files?.[0] || null
+  evaluationErrorMessage.value = ''
+}
+
+async function submitEvaluationDataset() {
+  const knowledgeBase = selectedKnowledgeBase.value
+  if (!knowledgeBase || !datasetUploadFile.value || submitting.value) return
+
+  submitting.value = true
+  submitMessage.value = '正在上传评估基准...'
+  evaluationErrorMessage.value = ''
+  try {
+    await uploadEvaluationDataset(
+      knowledgeBase.id,
+      selectionStore.userId,
+      datasetUploadFile.value,
+      datasetUploadForm.value.name.trim() || datasetUploadFile.value.name,
+      datasetUploadForm.value.description.trim(),
+    )
+    await loadEvaluationDatasets(knowledgeBase.id)
+    datasetUploadDialogOpen.value = false
+  } catch (error) {
+    evaluationErrorMessage.value = error.message
+  } finally {
+    submitting.value = false
+    submitMessage.value = ''
+  }
+}
+
+async function showDatasetDetail(dataset) {
+  if (!selectedKnowledgeBase.value || !dataset) return
+  evaluationErrorMessage.value = ''
+  try {
+    const response = await getEvaluationDataset(selectedKnowledgeBase.value.id, dataset.dataset_id, selectionStore.userId)
+    selectedDatasetDetail.value = response.data
+  } catch (error) {
+    evaluationErrorMessage.value = error.message
+  }
+}
+
+function closeDatasetDetail() {
+  selectedDatasetDetail.value = null
+}
+
+async function removeEvaluationDataset(dataset) {
+  if (!dataset || deleting.value) return
+  deleting.value = true
+  evaluationErrorMessage.value = ''
+  try {
+    await deleteEvaluationDataset(dataset.dataset_id, selectionStore.userId)
+    await loadEvaluationDatasets(selectedBaseId.value)
+    if (evaluationForm.value.dataset_id === dataset.dataset_id) {
+      evaluationForm.value.dataset_id = selectedEvaluationDatasets.value[0]?.dataset_id || ''
+    }
+  } catch (error) {
+    evaluationErrorMessage.value = error.message
+  } finally {
+    deleting.value = false
+  }
+}
+
+async function startEvaluation() {
+  const knowledgeBase = selectedKnowledgeBase.value
+  if (!knowledgeBase || !evaluationForm.value.dataset_id || evaluationLoading.value) return
+
+  evaluationLoading.value = true
+  evaluationResult.value = null
+  evaluationErrorMessage.value = ''
+  try {
+    const response = await runKnowledgeEvaluation(knowledgeBase.id, {
+      user_id: selectionStore.userId,
+      dataset_id: evaluationForm.value.dataset_id,
+      name: evaluationForm.value.name.trim() || null,
+      model_config: {
+        answer_llm_enabled: evaluationForm.value.answer_llm_enabled,
+        judge_llm_enabled: evaluationForm.value.judge_llm_enabled,
+      },
+    })
+    evaluationResult.value = response.data
+    await loadEvaluationRuns(knowledgeBase.id)
+  } catch (error) {
+    evaluationErrorMessage.value = error.message
+  } finally {
+    evaluationLoading.value = false
+  }
+}
+
+async function showRunDetail(run, errorOnly = false) {
+  if (!selectedKnowledgeBase.value || !run) return
+  evaluationErrorMessage.value = ''
+  try {
+    const response = await getEvaluationRun(selectedKnowledgeBase.value.id, run.run_id, selectionStore.userId, errorOnly)
+    selectedRunDetail.value = response.data
+  } catch (error) {
+    evaluationErrorMessage.value = error.message
+  }
+}
+
+function closeRunDetail() {
+  selectedRunDetail.value = null
+}
+
+async function removeEvaluationRun(run) {
+  if (!selectedKnowledgeBase.value || !run || deleting.value) return
+  deleting.value = true
+  evaluationErrorMessage.value = ''
+  try {
+    await deleteEvaluationRun(selectedKnowledgeBase.value.id, run.run_id, selectionStore.userId)
+    await loadEvaluationRuns(selectedKnowledgeBase.value.id)
+  } catch (error) {
+    evaluationErrorMessage.value = error.message
+  } finally {
+    deleting.value = false
   }
 }
 
@@ -133,9 +388,96 @@ async function refreshProcessingDocuments() {
 
 async function selectKnowledgeBase(knowledgeBaseId) {
   openDocumentMenuId.value = null
+  queryResult.value = null
+  queryErrorMessage.value = ''
+  queryConfigMessage.value = ''
   selectedBaseId.value = knowledgeBaseId
   if (!documentsByBaseId.value[knowledgeBaseId]) {
     await loadDocuments(knowledgeBaseId)
+  }
+  await loadQueryConfig(knowledgeBaseId)
+  if (!evaluationDatasetsByBaseId.value[knowledgeBaseId]) {
+    await loadEvaluationDatasets(knowledgeBaseId)
+  }
+  if (!evaluationRunsByBaseId.value[knowledgeBaseId]) {
+    await loadEvaluationRuns(knowledgeBaseId)
+  }
+}
+
+function selectDetailTab(tabKey) {
+  activeDetailTab.value = tabKey
+  openDocumentMenuId.value = null
+  if (tabKey === 'evaluation' && selectedBaseId.value) {
+    loadEvaluationRuns(selectedBaseId.value)
+    loadEvaluationDatasets(selectedBaseId.value)
+  }
+  if (tabKey === 'benchmark' && selectedBaseId.value) {
+    loadEvaluationDatasets(selectedBaseId.value)
+  }
+}
+
+async function runQueryTest() {
+  const knowledgeBase = selectedKnowledgeBase.value
+  const query = queryText.value.trim()
+  if (!knowledgeBase || !query || queryLoading.value) return
+
+  queryLoading.value = true
+  queryErrorMessage.value = ''
+  try {
+    queryResult.value = await queryKnowledgeBase(knowledgeBase.id, {
+      user_id: selectionStore.userId,
+      query,
+      search_mode: queryConfig.value.search_mode,
+      final_top_k: Number(queryConfig.value.final_top_k),
+      recall_top_k: Number(queryConfig.value.recall_top_k),
+      similarity_threshold: Number(queryConfig.value.similarity_threshold),
+      bm25_top_k: Number(queryConfig.value.bm25_top_k),
+      vector_weight: Number(queryConfig.value.vector_weight),
+      bm25_weight: Number(queryConfig.value.bm25_weight),
+      bm25_drop_ratio_search: Number(queryConfig.value.bm25_drop_ratio_search),
+      include_distances: true,
+      use_reranker: queryConfig.value.use_reranker,
+      reranker_model: queryConfig.value.use_reranker ? queryConfig.value.reranker_model.trim() || null : null,
+    })
+  } catch (error) {
+    queryErrorMessage.value = error.message
+  } finally {
+    queryLoading.value = false
+  }
+}
+
+async function saveQueryConfig() {
+  const knowledgeBase = selectedKnowledgeBase.value
+  if (!knowledgeBase || queryConfigSaving.value) return
+
+  queryConfigSaving.value = true
+  queryConfigMessage.value = ''
+  queryErrorMessage.value = ''
+  try {
+    const response = await updateKnowledgeQueryParams(knowledgeBase.id, {
+      user_id: selectionStore.userId,
+      search_mode: queryConfig.value.search_mode,
+      final_top_k: Number(queryConfig.value.final_top_k),
+      recall_top_k: Number(queryConfig.value.recall_top_k),
+      similarity_threshold: Number(queryConfig.value.similarity_threshold),
+      bm25_top_k: Number(queryConfig.value.bm25_top_k),
+      vector_weight: Number(queryConfig.value.vector_weight),
+      bm25_weight: Number(queryConfig.value.bm25_weight),
+      bm25_drop_ratio_search: Number(queryConfig.value.bm25_drop_ratio_search),
+      use_reranker: queryConfig.value.use_reranker,
+      reranker_model: queryConfig.value.use_reranker ? queryConfig.value.reranker_model.trim() || null : null,
+    })
+    queryConfig.value = {
+      ...queryConfig.value,
+      ...normalizeQueryConfig(response.data || {}),
+    }
+    queryConfigMessage.value = '已保存'
+    await loadKnowledgeBases()
+    selectedBaseId.value = knowledgeBase.id
+  } catch (error) {
+    queryErrorMessage.value = error.message
+  } finally {
+    queryConfigSaving.value = false
   }
 }
 
@@ -307,6 +649,25 @@ function formatFileSize(size) {
   return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
 }
 
+function formatScore(score) {
+  if (score === null || score === undefined || Number.isNaN(Number(score))) return '-'
+  return Number(score).toFixed(4)
+}
+
+function formatPercent(score) {
+  if (score === null || score === undefined || Number.isNaN(Number(score))) return '-'
+  return `${(Number(score) * 100).toFixed(1)}%`
+}
+
+function metricValue(record, key) {
+  return record?.metrics?.[key]
+}
+
+function truncateText(value, length = 120) {
+  const text = String(value || '')
+  return text.length > length ? `${text.slice(0, length)}...` : text
+}
+
 function statusText(status) {
   const statusMap = {
     uploaded: '已上传',
@@ -397,7 +758,6 @@ function statusText(status) {
         <div class="knowledge-detail-header">
           <div>
             <h2>{{ selectedKnowledgeBase?.name || '请选择知识库' }}</h2>
-            <p>{{ selectedKnowledgeBase?.description || '上传文档后会自动转为 Markdown 并保存解析状态。' }}</p>
             <span v-if="selectedKnowledgeBase" class="chunk-preset-badge">
               {{ selectedKnowledgeBase.kb_type === 'lightrag' ? 'LightRAG' : 'Milvus' }}
               · 分块策略：{{ selectedKnowledgeBasePreset?.label || selectedKnowledgeBase.chunk_preset_id || 'General' }}
@@ -414,36 +774,288 @@ function statusText(status) {
           </button>
         </div>
 
-        <div v-if="selectedDocuments.length" class="knowledge-document-list">
-          <article v-for="document in selectedDocuments" :key="document.id" class="knowledge-document-row">
-            <FileText :size="20" />
-            <div class="knowledge-document-info">
-              <strong>{{ document.filename }}</strong>
-              <span>{{ formatFileSize(document.file_size) }}</span>
+        <nav class="knowledge-detail-tabs" aria-label="知识库详情">
+          <button
+            v-for="tab in detailTabs"
+            :key="tab.key"
+            type="button"
+            :class="{ active: activeDetailTab === tab.key }"
+            @click="selectDetailTab(tab.key)"
+          >
+            <FileText v-if="tab.key === 'documents'" :size="16" />
+            <Search v-else-if="tab.key === 'query'" :size="16" />
+            <BarChart3 v-else-if="tab.key === 'evaluation'" :size="16" />
+            <ClipboardList v-else :size="16" />
+            <span>{{ tab.label }}</span>
+          </button>
+        </nav>
+
+        <section v-if="activeDetailTab === 'documents'" class="knowledge-detail-panel">
+          <div v-if="selectedDocuments.length" class="knowledge-document-list">
+            <article v-for="document in selectedDocuments" :key="document.id" class="knowledge-document-row">
+              <FileText :size="20" />
+              <div class="knowledge-document-info">
+                <strong>{{ document.filename }}</strong>
+                <span>{{ formatFileSize(document.file_size) }}</span>
+              </div>
+              <em :class="['document-status', document.status]">{{ statusText(document.status) }}</em>
+              <div class="document-actions">
+                <button
+                  type="button"
+                  class="document-menu-button"
+                  :aria-label="`管理文档 ${document.filename}`"
+                  @click.stop="toggleDocumentMenu(document.id)"
+                >
+                  <MoreVertical :size="18" />
+                </button>
+                <div v-if="openDocumentMenuId === document.id" class="document-action-menu">
+                  <button type="button" @click="requestDeleteDocument(document)">
+                    <Trash2 :size="15" />
+                    <span>删除文档</span>
+                  </button>
+                </div>
+              </div>
+            </article>
+          </div>
+          <div v-else class="knowledge-document-empty">
+            <FileText :size="34" />
+            <p>当前知识库还没有文档</p>
+          </div>
+        </section>
+
+        <section v-else-if="activeDetailTab === 'query'" class="knowledge-query-layout">
+          <div class="knowledge-query-main">
+            <form class="knowledge-query-box" @submit.prevent="runQueryTest">
+              <textarea v-model="queryText" rows="3" placeholder="输入检索问题" />
+              <button type="submit" class="knowledge-query-submit" :disabled="queryLoading || !queryText.trim()">
+                <Loader2 v-if="queryLoading" class="spin" :size="17" />
+                <Search v-else :size="17" />
+              </button>
+            </form>
+
+            <p v-if="queryErrorMessage" class="knowledge-inline-error">{{ queryErrorMessage }}</p>
+
+            <div v-if="queryResult" class="knowledge-query-summary">
+              <span>模式：{{ queryResult.search_mode }}</span>
+              <span>召回：{{ queryResults.length }}</span>
             </div>
-            <em :class="['document-status', document.status]">{{ statusText(document.status) }}</em>
-            <div class="document-actions">
+
+            <div v-if="queryResults.length" class="knowledge-query-results">
+              <article v-for="(item, index) in queryResults" :key="item.metadata?.citation_id || index" class="knowledge-query-result">
+                <header>
+                  <strong>#{{ index + 1 }}</strong>
+                  <span>Score {{ formatScore(item.score) }}</span>
+                  <span v-if="item.rerank_score !== undefined">Rerank {{ formatScore(item.rerank_score) }}</span>
+                </header>
+                <p>{{ item.content }}</p>
+                <footer>
+                  <span>{{ item.metadata?.source || '未知来源' }}</span>
+                  <span v-if="item.metadata?.chunk_index !== undefined">Chunk {{ item.metadata.chunk_index }}</span>
+                  <span v-if="item.distance !== undefined">Distance {{ formatScore(item.distance) }}</span>
+                </footer>
+              </article>
+            </div>
+            <div v-else class="knowledge-document-empty">
+              <Search :size="34" />
+              <p>{{ queryResult ? '没有命中结果' : '输入问题后开始检索' }}</p>
+            </div>
+          </div>
+
+          <aside class="knowledge-query-config">
+            <header>
+              <strong>检索配置</strong>
               <button
                 type="button"
-                class="document-menu-button"
-                :aria-label="`管理文档 ${document.filename}`"
-                @click.stop="toggleDocumentMenu(document.id)"
+                class="knowledge-config-save"
+                :disabled="queryConfigSaving || queryConfigLoading"
+                @click="saveQueryConfig"
               >
-                <MoreVertical :size="18" />
+                <Loader2 v-if="queryConfigSaving" class="spin" :size="15" />
+                <Save v-else :size="15" />
+                <span>{{ queryConfigSaving ? '保存中' : '保存' }}</span>
               </button>
-              <div v-if="openDocumentMenuId === document.id" class="document-action-menu">
-                <button type="button" @click="requestDeleteDocument(document)">
-                  <Trash2 :size="15" />
-                  <span>删除文档</span>
-                </button>
+            </header>
+
+            <p v-if="queryConfigMessage" class="knowledge-config-message">{{ queryConfigMessage }}</p>
+
+            <label>
+              <span>检索模式</span>
+              <select v-model="queryConfig.search_mode">
+                <option value="hybrid">混合检索</option>
+                <option value="vector">向量检索</option>
+                <option value="keyword">关键词检索</option>
+              </select>
+            </label>
+
+            <label>
+              <span>最终返回 Chunk 数</span>
+              <input v-model.number="queryConfig.final_top_k" type="number" min="1" max="100" />
+            </label>
+
+            <label>
+              <span>召回 Chunk 数</span>
+              <input v-model.number="queryConfig.recall_top_k" type="number" min="1" max="200" />
+            </label>
+
+            <label>
+              <span>相似度阈值</span>
+              <input v-model.number="queryConfig.similarity_threshold" type="number" min="0" max="1" step="0.05" />
+            </label>
+
+            <label>
+              <span>BM25 召回数量</span>
+              <input v-model.number="queryConfig.bm25_top_k" type="number" min="1" max="200" />
+            </label>
+
+            <label>
+              <span>向量检索权重</span>
+              <input v-model.number="queryConfig.vector_weight" type="number" min="0" step="0.1" />
+            </label>
+
+            <label>
+              <span>BM25 权重</span>
+              <input v-model.number="queryConfig.bm25_weight" type="number" min="0" step="0.1" />
+            </label>
+
+            <label>
+              <span>BM25 稀疏项丢弃比例</span>
+              <input v-model.number="queryConfig.bm25_drop_ratio_search" type="number" min="0" max="1" step="0.05" />
+            </label>
+
+            <label class="knowledge-config-switch">
+              <input v-model="queryConfig.use_reranker" type="checkbox" />
+              <span>启用重排序</span>
+            </label>
+
+            <label>
+              <span>Rerank 模型</span>
+              <input v-model="queryConfig.reranker_model" type="text" :disabled="!queryConfig.use_reranker" placeholder="默认配置" />
+            </label>
+          </aside>
+        </section>
+
+        <section v-else-if="activeDetailTab === 'evaluation'" class="knowledge-evaluation-layout">
+          <div class="knowledge-evaluation-main">
+            <header class="knowledge-section-header">
+              <div>
+                <strong>RAG评估</strong>
+                <span>使用当前知识库检索配置执行 Yuxi 风格 Recall/F1 和答案正确性评估。</span>
+              </div>
+              <button type="button" class="knowledge-primary-button" :disabled="evaluationLoading || !evaluationForm.dataset_id" @click="startEvaluation">
+                <Loader2 v-if="evaluationLoading" class="spin" :size="16" />
+                <BarChart3 v-else :size="16" />
+                <span>{{ evaluationLoading ? '评估中' : '开始评估' }}</span>
+              </button>
+            </header>
+
+            <p v-if="evaluationErrorMessage" class="knowledge-inline-error">{{ evaluationErrorMessage }}</p>
+
+            <div class="knowledge-evaluation-form">
+              <label>
+                <span>评估名称</span>
+                <input v-model="evaluationForm.name" type="text" placeholder="默认自动生成 eval-日期-编号" />
+              </label>
+              <label>
+                <span>评估基准</span>
+                <select v-model="evaluationForm.dataset_id">
+                  <option value="">请选择评估基准</option>
+                  <option v-for="dataset in selectedEvaluationDatasets" :key="dataset.dataset_id" :value="dataset.dataset_id">
+                    {{ dataset.name }}（{{ dataset.item_count }}题）
+                  </option>
+                </select>
+              </label>
+              <label class="knowledge-config-switch">
+                <input v-model="evaluationForm.answer_llm_enabled" type="checkbox" />
+                <span>启用答案生成模型</span>
+              </label>
+              <label class="knowledge-config-switch">
+                <input v-model="evaluationForm.judge_llm_enabled" type="checkbox" />
+                <span>启用评判模型</span>
+              </label>
+            </div>
+
+            <div class="knowledge-metric-grid">
+              <div class="knowledge-metric">
+                <span>Recall@10</span>
+                <strong>{{ formatPercent(metricValue(latestEvaluationRun, 'recall@10')) }}</strong>
+              </div>
+              <div class="knowledge-metric">
+                <span>F1@10</span>
+                <strong>{{ formatPercent(metricValue(latestEvaluationRun, 'f1@10')) }}</strong>
+              </div>
+              <div class="knowledge-metric">
+                <span>答案正确率</span>
+                <strong>{{ formatPercent(metricValue(latestEvaluationRun, 'answer_correctness')) }}</strong>
               </div>
             </div>
-          </article>
-        </div>
-        <div v-else class="knowledge-document-empty">
-          <FileText :size="34" />
-          <p>当前知识库还没有文档</p>
-        </div>
+
+            <div v-if="selectedEvaluationRuns.length" class="knowledge-evaluation-table">
+              <div class="knowledge-evaluation-row header">
+                <span>评估名称</span>
+                <span>状态</span>
+                <span>Recall@10</span>
+                <span>题目</span>
+                <span>操作</span>
+              </div>
+              <div v-for="run in selectedEvaluationRuns" :key="run.run_id" class="knowledge-evaluation-row">
+                <span>{{ run.name }}</span>
+                <span>{{ run.status }}</span>
+                <span>{{ formatPercent(run.metrics?.['recall@10']) }}</span>
+                <span>{{ run.completed_items }}/{{ run.total_items }}</span>
+                <span class="knowledge-row-actions">
+                  <button type="button" @click="showRunDetail(run)">详情</button>
+                  <button type="button" @click="showRunDetail(run, true)">问题项</button>
+                  <button type="button" @click="removeEvaluationRun(run)">删除</button>
+                </span>
+              </div>
+            </div>
+            <div v-else class="knowledge-document-empty">
+              <BarChart3 :size="34" />
+              <p>暂无评估记录，选择基准后开始评估。</p>
+            </div>
+          </div>
+        </section>
+
+        <section v-else class="knowledge-evaluation-layout">
+          <div class="knowledge-evaluation-main">
+            <header class="knowledge-section-header">
+              <div>
+                <strong>评估基准</strong>
+                <span>上传 JSONL，每行包含 query，可选 gold_chunk_ids 和 gold_answer。</span>
+              </div>
+              <button type="button" class="knowledge-primary-button" @click="openDatasetUploadDialog">
+                <UploadCloud :size="16" />
+                <span>上传基准</span>
+              </button>
+            </header>
+
+            <p v-if="evaluationErrorMessage" class="knowledge-inline-error">{{ evaluationErrorMessage }}</p>
+
+            <div v-if="selectedEvaluationDatasets.length" class="knowledge-evaluation-table">
+              <div class="knowledge-evaluation-row header benchmark">
+                <span>名称</span>
+                <span>题目数</span>
+                <span>Gold Chunk</span>
+                <span>标准答案</span>
+                <span>操作</span>
+              </div>
+              <div v-for="dataset in selectedEvaluationDatasets" :key="dataset.dataset_id" class="knowledge-evaluation-row benchmark">
+                <span>{{ dataset.name }}</span>
+                <span>{{ dataset.item_count }}</span>
+                <span>{{ dataset.has_gold_chunks ? '有' : '无' }}</span>
+                <span>{{ dataset.has_gold_answers ? '有' : '无' }}</span>
+                <span class="knowledge-row-actions">
+                  <button type="button" @click="showDatasetDetail(dataset)">预览</button>
+                  <button type="button" @click="removeEvaluationDataset(dataset)">删除</button>
+                </span>
+              </div>
+            </div>
+            <div v-else class="knowledge-document-empty">
+              <ClipboardList :size="34" />
+              <p>暂无评估基准，先上传 JSONL 文件。</p>
+            </div>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -556,6 +1168,115 @@ function statusText(status) {
             </button>
           </div>
         </form>
+      </section>
+    </div>
+
+    <div v-if="datasetUploadDialogOpen" class="modal-backdrop" @click.self="closeDatasetUploadDialog">
+      <section class="knowledge-upload-dialog" role="dialog" aria-modal="true" aria-labelledby="dataset-upload-title">
+        <header>
+          <div>
+            <h2 id="dataset-upload-title">上传评估基准</h2>
+            <p>JSONL 每行一个样本：query 必填，gold_chunk_ids 和 gold_answer 可选。</p>
+          </div>
+          <button type="button" class="dialog-close-button" :disabled="submitting" @click="closeDatasetUploadDialog">
+            <X :size="18" />
+          </button>
+        </header>
+
+        <form class="knowledge-upload-form" @submit.prevent="submitEvaluationDataset">
+          <div class="knowledge-form-grid">
+            <label>
+              <span>基准名称</span>
+              <input v-model="datasetUploadForm.name" type="text" placeholder="默认使用文件名" />
+            </label>
+            <label>
+              <span>描述</span>
+              <input v-model="datasetUploadForm.description" type="text" placeholder="例如：制度问答回归集" />
+            </label>
+          </div>
+
+          <label class="file-drop-zone">
+            <UploadCloud :size="28" />
+            <strong>{{ datasetUploadFile?.name || '选择 JSONL 评估基准' }}</strong>
+            <span>{{ datasetUploadFile ? formatFileSize(datasetUploadFile.size) : '每行包含 query、gold_chunk_ids、gold_answer' }}</span>
+            <input accept=".jsonl,application/x-ndjson,application/jsonl" type="file" required @change="handleDatasetFileChange" />
+          </label>
+
+          <p v-if="submitMessage" class="upload-status">
+            <Loader2 class="spin" :size="16" />
+            <span>{{ submitMessage }}</span>
+          </p>
+          <p v-if="evaluationErrorMessage" class="upload-error">{{ evaluationErrorMessage }}</p>
+
+          <div class="dialog-actions">
+            <button type="button" class="secondary-button" :disabled="submitting" @click="closeDatasetUploadDialog">
+              取消
+            </button>
+            <button type="submit" class="knowledge-primary-button" :disabled="submitting || !datasetUploadFile">
+              <Loader2 v-if="submitting" class="spin" :size="16" />
+              <UploadCloud v-else :size="16" />
+              <span>{{ submitting ? '上传中' : '上传基准' }}</span>
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div v-if="selectedDatasetDetail" class="modal-backdrop" @click.self="closeDatasetDetail">
+      <section class="knowledge-detail-dialog" role="dialog" aria-modal="true">
+        <header>
+          <div>
+            <h2>{{ selectedDatasetDetail.name }}</h2>
+            <p>{{ selectedDatasetDetail.item_count }} 个问题 · Gold Chunk {{ selectedDatasetDetail.has_gold_chunks ? '可用' : '缺失' }} · 标准答案 {{ selectedDatasetDetail.has_gold_answers ? '可用' : '缺失' }}</p>
+          </div>
+          <button type="button" class="dialog-close-button" @click="closeDatasetDetail">
+            <X :size="18" />
+          </button>
+        </header>
+        <div class="knowledge-detail-list">
+          <article v-for="item in selectedDatasetDetail.items" :key="item.item_id" class="knowledge-detail-item">
+            <strong>{{ item.query }}</strong>
+            <p v-if="item.gold_answer">标准答案：{{ truncateText(item.gold_answer, 180) }}</p>
+            <span>Gold Chunk：{{ item.gold_chunk_ids?.join(', ') || '-' }}</span>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <div v-if="selectedRunDetail" class="modal-backdrop" @click.self="closeRunDetail">
+      <section class="knowledge-detail-dialog wide" role="dialog" aria-modal="true">
+        <header>
+          <div>
+            <h2>评估结果 - {{ selectedRunDetail.name }}</h2>
+            <p>
+              {{ selectedRunDetail.status }} · {{ selectedRunDetail.completed_items }}/{{ selectedRunDetail.total_items }}
+              · Overall {{ formatPercent(selectedRunDetail.overall_score) }}
+            </p>
+          </div>
+          <button type="button" class="dialog-close-button" @click="closeRunDetail">
+            <X :size="18" />
+          </button>
+        </header>
+
+        <div class="knowledge-metric-grid compact">
+          <div v-for="(value, key) in selectedRunDetail.metrics" :key="key" class="knowledge-metric">
+            <span>{{ key }}</span>
+            <strong>{{ typeof value === 'number' ? formatPercent(value) : value }}</strong>
+          </div>
+        </div>
+
+        <div class="knowledge-detail-list">
+          <article v-for="(item, index) in selectedRunDetail.items" :key="`${item.query}-${index}`" class="knowledge-detail-item">
+            <header>
+              <strong>{{ item.query }}</strong>
+              <span>Recall@10 {{ formatPercent(item.metrics?.['recall@10']) }}</span>
+            </header>
+            <p v-if="item.generated_answer">生成答案：{{ truncateText(item.generated_answer, 220) }}</p>
+            <p v-if="item.gold_answer">标准答案：{{ truncateText(item.gold_answer, 220) }}</p>
+            <span>Gold Chunk：{{ item.gold_chunk_ids?.join(', ') || '-' }}</span>
+            <span>命中 Chunk：{{ item.retrieved_chunks?.map((chunk) => chunk.metadata?.chunk_id).filter(Boolean).slice(0, 10).join(', ') || '-' }}</span>
+          </article>
+        </div>
       </section>
     </div>
 

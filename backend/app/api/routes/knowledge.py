@@ -5,7 +5,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.knowledge.chunking import get_chunk_preset_options
 from app.db.session import AsyncSessionLocal, get_db
-from app.schemas import KnowledgeBaseCreate
+from app.schemas import KnowledgeBaseCreate, KnowledgeQueryConfigRequest, KnowledgeQueryTestRequest
+from app.services.knowledge_retrieval_service import KnowledgeRetrievalService
 from app.services.knowledge_service import (
     DuplicateKnowledgeDocumentError,
     KnowledgeBaseNotFoundError,
@@ -15,6 +16,25 @@ from app.services.knowledge_service import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+DEFAULT_QUERY_PARAMS = {
+    "search_mode": "hybrid",
+    "final_top_k": 10,
+    "recall_top_k": 50,
+    "similarity_threshold": 0.0,
+    "bm25_top_k": 50,
+    "vector_weight": 0.7,
+    "bm25_weight": 0.3,
+    "bm25_drop_ratio_search": 0.0,
+    "use_reranker": False,
+    "reranker_model": None,
+}
+
+
+def _extract_query_options(metadata: dict | None) -> dict:
+    query_params = (metadata or {}).get("query_params") or {}
+    options = query_params.get("options") if isinstance(query_params, dict) else {}
+    return options if isinstance(options, dict) else {}
 
 
 async def process_knowledge_document(document_id: int) -> None:
@@ -131,6 +151,91 @@ async def list_knowledge_documents(
     except Exception:
         logger.exception("Knowledge documents list failed: user_id=%s knowledge_base_id=%s", user_id, knowledge_base_id)
         raise
+
+
+@router.get("/knowledge-bases/{knowledge_base_id}/query-params")
+async def get_knowledge_base_query_params(
+    knowledge_base_id: int,
+    user_id: str = Query(default="default"),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    knowledge_base = await KnowledgeService(db).base_repo.get(knowledge_base_id, user_id=user_id)
+    if knowledge_base is None:
+        raise HTTPException(status_code=404, detail="Knowledge base not found.")
+    options = {
+        **DEFAULT_QUERY_PARAMS,
+        **_extract_query_options(knowledge_base.metadata_),
+    }
+    return {"message": "success", "data": options}
+
+
+@router.put("/knowledge-bases/{knowledge_base_id}/query-params")
+async def update_knowledge_base_query_params(
+    knowledge_base_id: int,
+    payload: KnowledgeQueryConfigRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    knowledge_base = await KnowledgeService(db).base_repo.get(knowledge_base_id, user_id=payload.user_id)
+    if knowledge_base is None:
+        raise HTTPException(status_code=404, detail="Knowledge base not found.")
+
+    options = payload.model_dump(exclude={"user_id"})
+    if not options.get("use_reranker"):
+        options["reranker_model"] = None
+    elif options.get("reranker_model") is not None:
+        options["reranker_model"] = str(options["reranker_model"]).strip() or None
+
+    metadata = dict(knowledge_base.metadata_ or {})
+    query_params = dict(metadata.get("query_params") or {})
+    query_params["options"] = {
+        **(query_params.get("options") or {}),
+        **options,
+    }
+    metadata["query_params"] = query_params
+    await KnowledgeService(db).base_repo.update_metadata(knowledge_base, metadata)
+    return {"message": "success", "data": query_params["options"]}
+
+
+@router.post("/knowledge-bases/{knowledge_base_id}/query-test")
+async def query_knowledge_base(
+    knowledge_base_id: int,
+    payload: KnowledgeQueryTestRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Run an interactive retrieval test against one knowledge base."""
+    logger.info(
+        "Knowledge query test requested: user_id=%s knowledge_base_id=%s mode=%s final_top_k=%s",
+        payload.user_id,
+        knowledge_base_id,
+        payload.search_mode,
+        payload.final_top_k,
+    )
+    try:
+        return await KnowledgeRetrievalService(db).query(
+            user_id=payload.user_id,
+            query=payload.query,
+            knowledge_base_ids=[knowledge_base_id],
+            search_mode=payload.search_mode,
+            final_top_k=payload.final_top_k,
+            recall_top_k=payload.recall_top_k,
+            similarity_threshold=payload.similarity_threshold,
+            bm25_top_k=payload.bm25_top_k,
+            vector_weight=payload.vector_weight,
+            bm25_weight=payload.bm25_weight,
+            bm25_drop_ratio_search=payload.bm25_drop_ratio_search,
+            include_distances=payload.include_distances,
+            file_name=payload.file_name,
+            use_reranker=payload.use_reranker,
+            reranker_model=payload.reranker_model,
+        )
+    except ValueError as error:
+        logger.warning(
+            "Knowledge query test rejected: user_id=%s knowledge_base_id=%s error=%s",
+            payload.user_id,
+            knowledge_base_id,
+            error,
+        )
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @router.post("/knowledge-bases/{knowledge_base_id}/documents")

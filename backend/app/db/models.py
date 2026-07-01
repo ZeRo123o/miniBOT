@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -227,6 +227,150 @@ class KnowledgeChunk(Base, TimestampMixin):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class EvaluationDataset(Base, TimestampMixin):
+    __tablename__ = "evaluation_datasets"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    knowledge_base_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id: Mapped[str] = mapped_column(String(128), default="default", nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    item_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    has_gold_chunks: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    has_gold_answers: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    build_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+
+    items: Mapped[list["EvaluationDatasetItem"]] = relationship(
+        back_populates="dataset",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    runs: Mapped[list["EvaluationRun"]] = relationship(back_populates="dataset")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "dataset_id": self.dataset_id,
+            "knowledge_base_id": self.knowledge_base_id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "description": self.description,
+            "item_count": self.item_count,
+            "has_gold_chunks": self.has_gold_chunks,
+            "has_gold_answers": self.has_gold_answers,
+            "build_metadata": self.build_metadata or {},
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class EvaluationDatasetItem(Base):
+    __tablename__ = "evaluation_dataset_items"
+    __table_args__ = (
+        UniqueConstraint("item_id", name="uq_evaluation_dataset_items_item_id"),
+        UniqueConstraint("dataset_id", "item_index", name="uq_evaluation_dataset_items_dataset_index"),
+        Index("ix_evaluation_dataset_items_dataset_index", "dataset_id", "item_index"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    item_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    dataset_id: Mapped[str] = mapped_column(
+        ForeignKey("evaluation_datasets.dataset_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    knowledge_base_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    item_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    gold_chunk_ids: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    gold_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    dataset: Mapped[EvaluationDataset] = relationship(back_populates="items")
+
+
+class EvaluationRun(Base):
+    __tablename__ = "evaluation_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    knowledge_base_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    dataset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("evaluation_datasets.dataset_id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    user_id: Mapped[str] = mapped_column(String(128), default="default", nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="running", nullable=False, index=True)
+    retrieval_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    overall_score: Mapped[float | None] = mapped_column(nullable=True)
+    total_items: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    completed_items: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    error_message: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+    dataset: Mapped[EvaluationDataset | None] = relationship(back_populates="runs")
+    items: Mapped[list["EvaluationRunItem"]] = relationship(
+        back_populates="run",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "name": self.name,
+            "knowledge_base_id": self.knowledge_base_id,
+            "dataset_id": self.dataset_id,
+            "user_id": self.user_id,
+            "status": self.status,
+            "retrieval_config": self.retrieval_config or {},
+            "metrics": self.metrics or {},
+            "overall_score": self.overall_score,
+            "total_items": self.total_items,
+            "completed_items": self.completed_items,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at": self.completed_at.isoformat() if self.completed_at else None,
+            "error_message": self.error_message,
+        }
+
+
+class EvaluationRunItem(Base):
+    __tablename__ = "evaluation_run_items"
+    __table_args__ = (
+        UniqueConstraint("run_id", "item_index", name="uq_evaluation_run_items_run_index"),
+        Index("ix_evaluation_run_items_run_index", "run_id", "item_index"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    run_id: Mapped[str] = mapped_column(
+        ForeignKey("evaluation_runs.run_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    item_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    dataset_item_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    gold_chunk_ids: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    gold_answer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    generated_answer: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    retrieved_chunks: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list, nullable=False)
+    metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+
+    run: Mapped[EvaluationRun] = relationship(back_populates="items")
 
 
 class Conversation(Base, TimestampMixin):

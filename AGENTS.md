@@ -75,6 +75,11 @@ MINIBOT_OPENAI_API_KEY=your_api_key
 MINIBOT_OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 MINIBOT_OPENAI_TEMPERATURE=0.2
 MINIBOT_OPENAI_TIMEOUT_SECONDS=180
+MINIBOT_RERANK_ENABLED=false
+MINIBOT_RERANK_PROVIDER=openai
+MINIBOT_RERANK_MODEL_NAME=your_rerank_model
+MINIBOT_RERANK_BASE_URL=your_rerank_endpoint
+MINIBOT_RERANK_TIMEOUT_SECONDS=30
 MINIBOT_TAVILY_API_KEY=your_tavily_api_key
 MINIBOT_EXCHANGE_RATE_BASE_URL=https://api.frankfurter.dev/v1
 MINIBOT_EXCHANGE_RATE_TIMEOUT_SECONDS=15
@@ -196,6 +201,8 @@ http://localhost:5173
 - `POST /api/knowledge-bases`
 - `DELETE /api/knowledge-bases/{knowledge_base_id}?user_id=default`
 - `GET /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default`
+- `GET /api/knowledge-bases/{knowledge_base_id}/query-params?user_id=default`
+- `PUT /api/knowledge-bases/{knowledge_base_id}/query-params`
 - `POST /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default`
 - `DELETE /api/knowledge-documents/{document_id}?user_id=default`
 
@@ -265,6 +272,7 @@ http://localhost:5173
 - `knowledge_chunks` 只保存 chunk 元数据；chunk 正文和向量保存在 Milvus collection 中。
 - chunk 查询接口为 `GET /api/knowledge-documents/{document_id}/chunks?user_id=default`。
 - 知识库通过 `knowledge_bases.metadata.kb_type` 区分 `milvus` 与 `lightrag`；旧数据默认按 `milvus` 处理。
+- 知识库检索测试页保存的查询参数放在 `knowledge_bases.metadata.query_params.options`，主聊天 `query_kb` 工具调用 `KnowledgeRetrievalService` 时默认读取该配置；单次查询显式传参优先级高于持久化配置。
 - LightRAG 作为与 Milvus 平级的知识库 backend，使用独立 Milvus database 保存内部向量集合，并使用 Neo4j 保存图谱；具体实现放在 `backend/app/knowledge/backends`。
 - 文档删除接口为 `DELETE /api/knowledge-documents/{document_id}?user_id=default`，必须先清理对应 backend 索引，再删除 PostgreSQL 元数据。
 - 知识库删除必须清理对应 backend、MinIO 前缀和 `user_selections.knowledge_base_ids` 引用，再删除 PostgreSQL 元数据；存在 `uploaded`、`parsing`、`chunking`、`embedding` 或 `indexing` 文档时返回 409。

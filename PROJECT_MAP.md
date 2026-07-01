@@ -134,6 +134,9 @@ backend/app
 |   |   `-- mock.py              本地开发 mock Embedding
 |   |-- parser/
 |   |   `-- factory.py           文档转 Markdown 解析入口
+|   |-- rerank/
+|   |   |-- factory.py           Rerank 服务工厂
+|   |   `-- http.py              OpenAI-compatible / DashScope Rerank 实现
 |   `-- chunking/
 |       `-- ragflow_like/        多策略 Markdown 分块
 |-- storage/
@@ -340,6 +343,9 @@ GET    /api/knowledge-bases?user_id=default
 POST   /api/knowledge-bases
 GET    /api/knowledge-chunk-presets
 GET    /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default
+GET    /api/knowledge-bases/{knowledge_base_id}/query-params?user_id=default
+PUT    /api/knowledge-bases/{knowledge_base_id}/query-params
+POST   /api/knowledge-bases/{knowledge_base_id}/query-test
 POST   /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default
 DELETE /api/knowledge-documents/{document_id}?user_id=default
 ```
@@ -483,10 +489,15 @@ Milvus collection 的 `content` 字段启用 Chinese analyzer，并通过内置 
   -> 返回 chunk、文档名、score 和 citation_id
 ```
 
-`query_kb` 默认使用 hybrid 模式，底层通过 `WeightedRanker` 融合 vector 和 BM25 结果。
+`query_kb` 默认读取 `knowledge_bases.metadata.query_params.options` 中保存的知识库级检索配置；
+未保存配置时回退到 hybrid 等系统默认值。底层通过 `WeightedRanker` 融合 vector 和 BM25 结果。
 Milvus 查询层参考 Yuxi 实现，支持 `search_mode`、`final_top_k`、`recall_top_k`、
 `similarity_threshold`、`bm25_top_k`、`vector_weight`、`bm25_weight`、
 `bm25_drop_ratio_search`、`include_distances` 和文档过滤。
+
+当 `MINIBOT_RERANK_ENABLED=true` 时，检索服务会先按 `recall_top_k` 多召回候选，再调用
+`backend/app/knowledge/rerank` 中的 reranker 对 chunk 内容精排，结果写入 `rerank_score`。
+Rerank 调用失败时沿用 Yuxi 的降级思路，保留原始检索排序继续返回结果。
 
 统一检索结果采用 `content + metadata + score` 结构，`metadata` 中包含来源文档、chunk、知识库和
 `citation_id`。`KnowledgeRetrievalService` 根据知识库 `kb_type` 调用对应 backend，
@@ -516,6 +527,9 @@ query_kb   按 kb_id、query_text 和可选 file_name 查询知识库
 
 ```text
 GET /api/knowledge-documents/{document_id}/chunks?user_id=default
+GET /api/knowledge-bases/{knowledge_base_id}/query-params?user_id=default
+PUT /api/knowledge-bases/{knowledge_base_id}/query-params
+POST /api/knowledge-bases/{knowledge_base_id}/query-test
 ```
 - `backend/app/db/repositories.py`
 

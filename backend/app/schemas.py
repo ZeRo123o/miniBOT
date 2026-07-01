@@ -48,3 +48,34 @@ class KnowledgeBaseCreate(BaseModel):
     kb_type: Literal["milvus", "lightrag"] = "milvus"
     chunk_preset_id: str = Field(default="general", min_length=1, max_length=32)
     chunk_parser_config: dict[str, Any] = Field(default_factory=dict)
+
+
+class KnowledgeQueryTestRequest(BaseModel):
+    user_id: str = Field(default="default", min_length=1, max_length=128)
+    query: str = Field(min_length=1)
+    search_mode: Literal["vector", "keyword", "hybrid"] = "hybrid"
+    final_top_k: int = Field(default=5, ge=1, le=100)
+    recall_top_k: int = Field(default=50, ge=1, le=200)
+    similarity_threshold: float = Field(default=0.0, ge=0.0, le=1.0)
+    bm25_top_k: int = Field(default=50, ge=1, le=200)
+    vector_weight: float = Field(default=0.7, ge=0.0)
+    bm25_weight: float = Field(default=0.3, ge=0.0)
+    bm25_drop_ratio_search: float = Field(default=0.0, ge=0.0, le=1.0)
+    include_distances: bool = True
+    file_name: str | None = None
+    use_reranker: bool | None = None
+    reranker_model: str | None = None
+
+
+class KnowledgeQueryConfigRequest(BaseModel):
+    user_id: str = Field(default="default", min_length=1, max_length=128)
+    search_mode: Literal["vector", "keyword", "hybrid"] = "hybrid"
+    final_top_k: int = Field(default=10, ge=1, le=100)
+    recall_top_k: int = Field(default=50, ge=1, le=200)
+    similarity_threshold: float = Field(default=0.0, ge=0.0, le=1.0)
+    bm25_top_k: int = Field(default=50, ge=1, le=200)
+    vector_weight: float = Field(default=0.7, ge=0.0)
+    bm25_weight: float = Field(default=0.3, ge=0.0)
+    bm25_drop_ratio_search: float = Field(default=0.0, ge=0.0, le=1.0)
+    use_reranker: bool = False
+    reranker_model: str | None = None

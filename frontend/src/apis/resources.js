@@ -78,6 +78,26 @@ export function listKnowledgeDocuments(knowledgeBaseId, userId) {
   )
 }
 
+export function queryKnowledgeBase(knowledgeBaseId, payload) {
+  return request(`/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/query-test`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getKnowledgeQueryParams(knowledgeBaseId, userId) {
+  return request(
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/query-params?user_id=${encodeURIComponent(userId)}`,
+  )
+}
+
+export function updateKnowledgeQueryParams(knowledgeBaseId, payload) {
+  return request(`/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/query-params`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function uploadKnowledgeDocument(knowledgeBaseId, userId, file) {
   const formData = new FormData()
   formData.append('file', file)
@@ -100,6 +120,72 @@ export async function uploadKnowledgeDocument(knowledgeBaseId, userId, file) {
 export function deleteKnowledgeDocument(documentId, userId) {
   return request(
     `/knowledge-documents/${encodeURIComponent(documentId)}?user_id=${encodeURIComponent(userId)}`,
+    { method: 'DELETE' },
+  )
+}
+
+export async function uploadEvaluationDataset(knowledgeBaseId, userId, file, name, description = '') {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('name', name)
+  formData.append('description', description)
+  formData.append('user_id', userId)
+
+  const response = await fetch(
+    `${API_BASE}/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/evaluation/datasets/upload`,
+    {
+      method: 'POST',
+      body: formData,
+    },
+  )
+
+  if (!response.ok) {
+    throw new Error(await getResponseError(response))
+  }
+
+  return response.json()
+}
+
+export function listEvaluationDatasets(knowledgeBaseId, userId) {
+  return request(
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/evaluation/datasets?user_id=${encodeURIComponent(userId)}`,
+  )
+}
+
+export function getEvaluationDataset(knowledgeBaseId, datasetId, userId) {
+  return request(
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/evaluation/datasets/${encodeURIComponent(datasetId)}?user_id=${encodeURIComponent(userId)}`,
+  )
+}
+
+export function deleteEvaluationDataset(datasetId, userId) {
+  return request(`/evaluation/datasets/${encodeURIComponent(datasetId)}?user_id=${encodeURIComponent(userId)}`, {
+    method: 'DELETE',
+  })
+}
+
+export function runKnowledgeEvaluation(knowledgeBaseId, payload) {
+  return request(`/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/evaluation/runs`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function listEvaluationRuns(knowledgeBaseId, userId) {
+  return request(
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/evaluation/runs?user_id=${encodeURIComponent(userId)}`,
+  )
+}
+
+export function getEvaluationRun(knowledgeBaseId, runId, userId, errorOnly = false) {
+  return request(
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/evaluation/runs/${encodeURIComponent(runId)}?user_id=${encodeURIComponent(userId)}&error_only=${errorOnly ? 'true' : 'false'}`,
+  )
+}
+
+export function deleteEvaluationRun(knowledgeBaseId, runId, userId) {
+  return request(
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/evaluation/runs/${encodeURIComponent(runId)}?user_id=${encodeURIComponent(userId)}`,
     { method: 'DELETE' },
   )
 }

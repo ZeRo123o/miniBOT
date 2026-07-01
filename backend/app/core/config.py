@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     embedding_model_name: str = "mock"
     embedding_dimension: int = 384
     embedding_batch_size: int = 10
+    rerank_enabled: bool = True
+    rerank_provider: str = "openai"
+    rerank_model_name: str = ""
+    rerank_api_key: str = ""
+    rerank_base_url: str = ""
+    rerank_timeout_seconds: float = 30.0
+    rerank_batch_size: int = 32
+    rerank_max_length: int = 512
+    rerank_normalize_scores: bool = True
 
     default_model: str = "mock"
     default_model_provider: str = "mock"

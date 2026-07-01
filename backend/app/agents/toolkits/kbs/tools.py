@@ -134,7 +134,6 @@ async def query_kb(
                 user_id=user_id,
                 query=clean_query,
                 knowledge_base_ids=[int(kb_id)],
-                search_mode="hybrid",
                 file_name=file_name,
             )
     except Exception as error:

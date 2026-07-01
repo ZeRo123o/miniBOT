@@ -4,10 +4,26 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.db.repositories import KnowledgeBaseRepository, KnowledgeDocumentRepository
 from app.knowledge.backends import get_knowledge_backend, normalize_knowledge_backend_type
+from app.knowledge.rerank import get_rerank_service
 
 logger = logging.getLogger(__name__)
+
+DEFAULT_QUERY_PARAMS = {
+    "search_mode": "hybrid",
+    "final_top_k": 10,
+    "similarity_threshold": 0.0,
+    "bm25_top_k": 50,
+    "vector_weight": 0.7,
+    "bm25_weight": 0.3,
+    "bm25_drop_ratio_search": 0.0,
+    "include_distances": True,
+    "recall_top_k": 50,
+    "use_reranker": None,
+    "reranker_model": None,
+}
 
 
 class KnowledgeRetrievalService:
@@ -21,27 +37,53 @@ class KnowledgeRetrievalService:
         user_id: str,
         query: str,
         knowledge_base_ids: list[int] | None = None,
-        search_mode: str = "hybrid",
-        final_top_k: int = 5,
-        similarity_threshold: float = 0.0,
-        bm25_top_k: int = 50,
-        vector_weight: float = 0.7,
-        bm25_weight: float = 0.3,
-        bm25_drop_ratio_search: float = 0.0,
-        include_distances: bool = True,
-        recall_top_k: int = 50,
+        search_mode: str | None = None,
+        final_top_k: int | None = None,
+        similarity_threshold: float | None = None,
+        bm25_top_k: int | None = None,
+        vector_weight: float | None = None,
+        bm25_weight: float | None = None,
+        bm25_drop_ratio_search: float | None = None,
+        include_distances: bool | None = None,
+        recall_top_k: int | None = None,
         file_name: str | None = None,
+        use_reranker: bool | None = None,
+        reranker_model: str | None = None,
     ) -> dict[str, Any]:
         clean_query = query.strip()
         if not clean_query:
             raise ValueError("Knowledge query cannot be empty.")
 
-        normalized_mode = self._normalize_search_mode(search_mode)
-        final_top_k = min(max(int(final_top_k), 1), 100)
-        recall_top_k = min(max(int(recall_top_k), final_top_k), 200)
-        bm25_top_k = min(max(int(bm25_top_k), 1), 200)
-        vector_weight, bm25_weight = self._normalize_weights(vector_weight, bm25_weight)
         bases = await self._resolve_bases(user_id, knowledge_base_ids)
+        query_params = self._resolve_query_params(
+            bases=bases,
+            explicit={
+                "search_mode": search_mode,
+                "final_top_k": final_top_k,
+                "similarity_threshold": similarity_threshold,
+                "bm25_top_k": bm25_top_k,
+                "vector_weight": vector_weight,
+                "bm25_weight": bm25_weight,
+                "bm25_drop_ratio_search": bm25_drop_ratio_search,
+                "include_distances": include_distances,
+                "recall_top_k": recall_top_k,
+                "use_reranker": use_reranker,
+                "reranker_model": reranker_model,
+            },
+        )
+        settings = get_settings()
+        should_rerank = settings.rerank_enabled if query_params["use_reranker"] is None else bool(query_params["use_reranker"])
+        normalized_mode = self._normalize_search_mode(query_params["search_mode"])
+        final_top_k = min(max(int(query_params["final_top_k"]), 1), 100)
+        recall_top_k = min(max(int(query_params["recall_top_k"]), final_top_k), 200)
+        if should_rerank:
+            recall_top_k = min(max(recall_top_k, final_top_k, 50), 200)
+        bm25_top_k = min(max(int(query_params["bm25_top_k"]), 1), 200)
+        vector_weight, bm25_weight = self._normalize_weights(query_params["vector_weight"], query_params["bm25_weight"])
+        similarity_threshold = float(query_params["similarity_threshold"])
+        bm25_drop_ratio_search = float(query_params["bm25_drop_ratio_search"])
+        include_distances = bool(query_params["include_distances"])
+        reranker_model = query_params["reranker_model"]
         if not bases:
             return {
                 "query": clean_query,
@@ -69,6 +111,12 @@ class KnowledgeRetrievalService:
         grouped_results = await asyncio.gather(*searches)
         results = [item for group in grouped_results for item in group]
         results.sort(key=lambda item: item["score"], reverse=True)
+        if should_rerank:
+            results = await self._rerank_results(
+                query=clean_query,
+                results=results,
+                reranker_model=reranker_model,
+            )
         results = results[:final_top_k]
         await self._attach_document_metadata(results)
 
@@ -85,6 +133,22 @@ class KnowledgeRetrievalService:
             return bases
         allowed_ids = {int(item) for item in requested_ids}
         return [base for base in bases if base.id in allowed_ids]
+
+    def _resolve_query_params(self, *, bases: list[Any], explicit: dict[str, Any]) -> dict[str, Any]:
+        params = dict(DEFAULT_QUERY_PARAMS)
+        if bases:
+            params.update(self._saved_query_options(bases[0]))
+        params.update({key: value for key, value in explicit.items() if value is not None})
+        return params
+
+    def _saved_query_options(self, knowledge_base: Any) -> dict[str, Any]:
+        metadata = knowledge_base.metadata_ or {}
+        query_params = metadata.get("query_params") or {}
+        options = query_params.get("options") if isinstance(query_params, dict) else {}
+        if isinstance(options, dict):
+            return dict(options)
+        legacy_options = metadata.get("query_config")
+        return dict(legacy_options) if isinstance(legacy_options, dict) else {}
 
     async def _search_base(
         self,
@@ -132,6 +196,33 @@ class KnowledgeRetrievalService:
                 error,
             )
             return []
+
+    async def _rerank_results(
+        self,
+        *,
+        query: str,
+        results: list[dict[str, Any]],
+        reranker_model: str | None,
+    ) -> list[dict[str, Any]]:
+        if not results:
+            return results
+        documents = [str(item.get("content") or "") for item in results]
+        if not any(document.strip() for document in documents):
+            return results
+
+        try:
+            reranker = get_rerank_service(model_name=reranker_model)
+            scores = await reranker.rerank(query=query, documents=documents)
+            if len(scores) != len(results):
+                raise ValueError(f"Rerank returned {len(scores)} scores for {len(results)} results.")
+        except Exception as error:
+            logger.warning("Knowledge rerank failed; falling back to original retrieval order: %s", error)
+            return results
+
+        for item, score in zip(results, scores, strict=True):
+            item["rerank_score"] = float(score)
+        results.sort(key=lambda item: item.get("rerank_score", item.get("score", 0.0)), reverse=True)
+        return results
 
     async def _attach_document_metadata(self, results: list[dict[str, Any]]) -> None:
         document_ids = sorted(
