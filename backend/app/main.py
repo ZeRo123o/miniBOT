@@ -12,6 +12,7 @@ from app.db.session import AsyncSessionLocal, init_db
 from app.plugins.registry import seed_builtin_resources
 from app.agents.backends.sandbox import shutdown_sandbox_provider
 from app.agents.checkpoints import checkpoint_manager
+from app.llm.providers import ensure_builtin_model_providers_in_db, refresh_model_runtime_cache
 
 
 # psycopg's async PostgreSQL pool is incompatible with Windows' Proactor loop.
@@ -38,6 +39,8 @@ async def lifespan(app: FastAPI):
     await checkpoint_manager.initialize()
     async with AsyncSessionLocal() as session:
         await seed_builtin_resources(session)
+        await ensure_builtin_model_providers_in_db(session)
+        await refresh_model_runtime_cache(session)
     try:
         yield
     finally:

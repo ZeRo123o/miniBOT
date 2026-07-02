@@ -107,15 +107,10 @@ class DashScopeRerankService(HTTPRerankService):
     def _build_payload(self, *, query: str, documents: list[str]) -> dict[str, Any]:
         return {
             "model": self.model_name,
-            "input": {
-                "query": query,
-                "documents": documents,
-            },
-            "parameters": {
-                "top_n": len(documents),
-                "return_documents": False,
-            },
+            "query": query,
+            "documents": documents,
+            "top_n": len(documents),
         }
 
     def _extract_results(self, data: dict[str, Any]) -> list[dict[str, Any]]:
-        return list((data.get("output") or {}).get("results") or [])
+        return list(data.get("results") or (data.get("output") or {}).get("results") or [])

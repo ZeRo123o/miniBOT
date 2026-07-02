@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
 
     database_url: str = "postgresql+asyncpg://minibot:minibot@localhost:5432/minibot"
+    redis_url: str = "redis://localhost:6379/0"
+    redis_socket_timeout_seconds: float = 2.0
+    model_cache_redis_key: str = "minibot:model_cache"
+    model_cache_local_ttl_seconds: float = 5.0
     langgraph_checkpoint_pool_min_size: int = 1
     langgraph_checkpoint_pool_max_size: int = 10
     storage_provider: str = "minio"

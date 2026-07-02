@@ -4,6 +4,7 @@ import ChatBox from '../components/ChatBox.vue'
 import ConversationSidebar from '../components/ConversationSidebar.vue'
 import ExtensionManagementView from '../components/ExtensionManagementView.vue'
 import KnowledgeBaseView from '../components/KnowledgeBaseView.vue'
+import ModelProviderView from '../components/ModelProviderView.vue'
 import WorkspaceSidebar from '../components/WorkspaceSidebar.vue'
 import { loadConversations } from '../stores/conversationStore'
 import { loadWorkspace, selectionStore } from '../stores/selectionStore'
@@ -13,9 +14,17 @@ const workspaceCollapsed = ref(false)
 const navigationState = reactive({
   activeView: 'chat',
 })
+const visitedViews = reactive({
+  knowledge: false,
+  extensions: false,
+  models: false,
+})
 
 function setActiveView(view) {
   navigationState.activeView = view
+  if (view in visitedViews) {
+    visitedViews[view] = true
+  }
 }
 
 onMounted(async () => {
@@ -34,6 +43,7 @@ onMounted(async () => {
       'workspace-collapsed': workspaceCollapsed,
       'knowledge-page-active': navigationState.activeView === 'knowledge',
       'extension-page-active': navigationState.activeView === 'extensions',
+      'model-page-active': navigationState.activeView === 'models',
     }"
   >
     <ConversationSidebar
@@ -44,9 +54,20 @@ onMounted(async () => {
     />
 
     <section class="workspace">
-      <KnowledgeBaseView v-if="navigationState.activeView === 'knowledge'" />
-      <ExtensionManagementView v-else-if="navigationState.activeView === 'extensions'" />
-      <ChatBox v-else />
+      <KnowledgeBaseView
+        v-if="visitedViews.knowledge"
+        v-show="navigationState.activeView === 'knowledge'"
+        :active="navigationState.activeView === 'knowledge'"
+      />
+      <ExtensionManagementView
+        v-if="visitedViews.extensions"
+        v-show="navigationState.activeView === 'extensions'"
+      />
+      <ModelProviderView
+        v-if="visitedViews.models"
+        v-show="navigationState.activeView === 'models'"
+      />
+      <ChatBox v-if="navigationState.activeView === 'chat'" />
     </section>
 
     <WorkspaceSidebar

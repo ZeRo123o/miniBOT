@@ -41,7 +41,7 @@ const navigationItems = [
   { key: 'chat', label: '工作区', icon: BriefcaseBusiness, enabled: true },
   { key: 'knowledge', label: '知识库', icon: BookOpenText, enabled: true },
   { key: 'extensions', label: '扩展管理', icon: Blocks, enabled: true },
-  { key: 'models', label: '模型配置', icon: Box, enabled: false },
+  { key: 'models', label: '模型配置', icon: Box, enabled: true },
   { key: 'dashboard', label: 'Dashboard', icon: BarChart3, enabled: false },
 ]
 

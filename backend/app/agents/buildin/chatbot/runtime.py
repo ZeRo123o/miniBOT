@@ -21,11 +21,6 @@ logger = logging.getLogger(__name__)
 
 
 class AgentRuntime(BaseChatRuntime):
-    MISSING_OPENAI_API_KEY_ERROR = "MINIBOT_OPENAI_API_KEY is required for OpenAI-compatible provider."
-    MISSING_OPENAI_API_KEY_REPLY = (
-        "当前未配置模型 API Key，暂时无法调用真实大模型。\n\n"
-        "请在后端 .env 中配置 MINIBOT_OPENAI_API_KEY，或将模型 provider 切换为 mock 后重试。"
-    )
     MODEL_TIMEOUT_REPLY = (
         "模型服务响应超时，本次请求没有完成。请稍后重试；"
         "如果任务较复杂，可以适当提高 MINIBOT_OPENAI_TIMEOUT_SECONDS。"
@@ -105,18 +100,6 @@ class AgentRuntime(BaseChatRuntime):
                     "subagent_runs": assistant_metadata["subagent_runs"],
                 },
             )
-        except ValueError as error:
-            if str(error) != self.MISSING_OPENAI_API_KEY_ERROR:
-                await finish_run(str(parent_run["id"]), status="failed", error=error)
-                raise
-            answer = self.MISSING_OPENAI_API_KEY_REPLY
-            assistant_metadata = {
-                "resources": resources,
-                "tool_calls": serialize_tool_calls(context.tool_events),
-                "workflow": "agent",
-                "error": "missing_openai_api_key",
-            }
-            await finish_run(str(parent_run["id"]), status="failed", error=error)
         except ModelRequestTimeoutError:
             logger.warning(
                 "Agent model request timed out: user_id=%s conversation_id=%s",
@@ -181,7 +164,7 @@ class AgentRuntime(BaseChatRuntime):
         thread_id: str,
         run_id: str,
     ) -> AgentContext:
-        """把数据库资源和运行时配置整理成 AgentContext。"""
+        """Build the runtime context from persisted resources and settings."""
         settings = get_settings()
         knowledge_base_ids = knowledge_selection.get("knowledge_base_ids", []) or []
         logger.info(
@@ -336,19 +319,6 @@ class AgentRuntime(BaseChatRuntime):
                     "subagent_runs": assistant_metadata["subagent_runs"],
                 },
             )
-        except ValueError as error:
-            if str(error) != self.MISSING_OPENAI_API_KEY_ERROR:
-                await finish_run(str(parent_run["id"]), status="failed", error=error)
-                raise
-            answer = self.MISSING_OPENAI_API_KEY_REPLY
-            event_sink({"type": "token", "content": answer})
-            assistant_metadata = {
-                "resources": resources,
-                "tool_calls": serialize_tool_calls(context.tool_events),
-                "workflow": "agent",
-                "error": "missing_openai_api_key",
-            }
-            await finish_run(str(parent_run["id"]), status="failed", error=error)
         except ModelRequestTimeoutError:
             logger.warning("Agent model request timed out: user_id=%s conversation_id=%s", user_id, conversation_id)
             answer = self.MODEL_TIMEOUT_REPLY
@@ -394,13 +364,14 @@ class AgentRuntime(BaseChatRuntime):
 
 
     def _current_datetime(self, timezone_name: str) -> str:
-        """根据配置时区生成当前时间字符串，供 prompt 注入使用。"""
+        """Return the current datetime string for prompt injection."""
         try:
             current_timezone = ZoneInfo(timezone_name)
         except ZoneInfoNotFoundError:
             current_timezone = timezone_utc8()
         return datetime.now(current_timezone).strftime("%Y-%m-%d %H:%M:%S")
 
+
 def timezone_utc8() -> timezone:
-    """在 Windows 缺少 IANA 时区数据库时，提供 Asia/Shanghai 等价的 UTC+8 时区。"""
+    """Fallback UTC+8 timezone for Windows environments without IANA timezone data."""
     return timezone(timedelta(hours=8), name="Asia/Shanghai")

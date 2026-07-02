@@ -20,3 +20,4 @@ openpyxl>=3.1.0
 pymilvus>=2.5.0
 lightrag-hku==1.4.16
 neo4j>=5.26.0,<6.0.0
+redis>=5.2.0

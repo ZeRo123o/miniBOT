@@ -29,10 +29,10 @@ miniBOT 是一个受 YUXI 资源编排思路启发的小型全栈脚手架：前
 
 ## 2. 开发与调试流程
 
-启动 PostgreSQL、MinIO 和 Agent 沙盒 provisioner：
+启动 PostgreSQL、Redis、MinIO 和 Agent 沙盒 provisioner：
 
 ```powershell
-docker compose up -d postgres minio sandbox-provisioner
+docker compose up -d postgres redis minio sandbox-provisioner
 ```
 
 启动后端：
@@ -51,9 +51,13 @@ uvicorn app.main:app --reload
 postgresql+asyncpg://minibot:minibot@localhost:5432/minibot
 ```
 
-默认对象存储：
+默认 Redis 和对象存储：
 
 ```env
+MINIBOT_REDIS_URL=redis://localhost:6379/0
+MINIBOT_REDIS_SOCKET_TIMEOUT_SECONDS=2
+MINIBOT_MODEL_CACHE_REDIS_KEY=minibot:model_cache
+MINIBOT_MODEL_CACHE_LOCAL_TTL_SECONDS=5
 MINIBOT_STORAGE_PROVIDER=minio
 MINIBOT_STORAGE_BUCKET=minibot
 MINIBOT_MINIO_ENDPOINT=localhost:9000
@@ -65,14 +69,13 @@ MINIBOT_MINIO_SECURE=false
 模型配置支持分用途管理：
 
 ```env
-MINIBOT_DEFAULT_MODEL_PROVIDER=mock
-MINIBOT_DEFAULT_MODEL_NAME=mock
-MINIBOT_CHAT_MODEL_PROVIDER=openai
-MINIBOT_CHAT_MODEL_NAME=qwen-plus
-MINIBOT_DEEP_RESEARCH_MODEL_PROVIDER=openai
-MINIBOT_DEEP_RESEARCH_MODEL_NAME=qwen-plus
-MINIBOT_OPENAI_API_KEY=your_api_key
-MINIBOT_OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+# 模型运行时由「模型配置页 -> PostgreSQL -> Redis cache」主导，
+# 不再读取 MINIBOT_CHAT_MODEL_* / MINIBOT_DEEP_RESEARCH_MODEL_* 作为主 Agent 兜底。
+# Provider 的密钥可以继续放在环境变量中，并在模型配置页通过 api_key_env 引用。
+
+DASHSCOPE_API_KEY=your_api_key
+SILICONFLOW_API_KEY=
+OPENAI_API_KEY=
 MINIBOT_OPENAI_TEMPERATURE=0.2
 MINIBOT_OPENAI_TIMEOUT_SECONDS=180
 MINIBOT_RERANK_ENABLED=false

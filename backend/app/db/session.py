@@ -35,3 +35,12 @@ async def init_db() -> None:
         )
         await conn.execute(text("ALTER TABLE user_selections DROP COLUMN IF EXISTS direct_tool_names"))
         await conn.execute(text("ALTER TABLE user_selections DROP COLUMN IF EXISTS direct_mcp_names"))
+        await conn.execute(
+            text("CREATE UNIQUE INDEX IF NOT EXISTS ix_model_providers_provider_id ON model_providers(provider_id)")
+        )
+        await conn.execute(
+            text("CREATE INDEX IF NOT EXISTS ix_model_providers_is_enabled ON model_providers(is_enabled)")
+        )
+        await conn.execute(
+            text("CREATE UNIQUE INDEX IF NOT EXISTS ix_model_use_configs_model_use ON model_use_configs(model_use)")
+        )

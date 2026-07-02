@@ -28,6 +28,7 @@ class MiniBotChatModel(BaseChatModel):
     base_url: str = "https://api.openai.com/v1"
     temperature: float = 0.2
     timeout_seconds: float = 180.0
+    request_headers: dict[str, str] = Field(default_factory=dict)
     tools: list[dict[str, Any]] = Field(default_factory=list)
     tool_choice: str | dict[str, Any] | None = None
 
@@ -178,10 +179,11 @@ class MiniBotChatModel(BaseChatModel):
     def _openai_headers(self) -> dict[str, str]:
         """构造 OpenAI-compatible 请求头，并校验 API Key。"""
         if not self.api_key:
-            raise ValueError("MINIBOT_OPENAI_API_KEY is required for OpenAI-compatible provider.")
+            raise ValueError("模型 API Key 未配置，请在模型配置页设置 API Key 或 API Key 环境变量。")
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
+            **self.request_headers,
         }
 
     def _openai_compatible_result(self, messages: list[BaseMessage]) -> ChatResult:

@@ -13,6 +13,7 @@ from app.services.knowledge_service import (
     KnowledgeResourceBusyError,
     KnowledgeService,
 )
+from app.storage.base import StorageUnavailableError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -293,6 +294,18 @@ async def upload_knowledge_document(
             error,
         )
         raise HTTPException(status_code=422, detail=str(error)) from error
+    except StorageUnavailableError as error:
+        logger.warning(
+            "Knowledge document upload storage unavailable: user_id=%s knowledge_base_id=%s filename=%s error=%s",
+            user_id,
+            knowledge_base_id,
+            file.filename,
+            error,
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Object storage is unavailable. Please start MinIO and retry the upload.",
+        ) from error
     except Exception:
         logger.exception(
             "Knowledge document upload failed: user_id=%s knowledge_base_id=%s filename=%s",

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { BarChart3, ClipboardList, FileText, Loader2, MoreVertical, Plus, Save, Search, Trash2, UploadCloud, X } from 'lucide-vue-next'
 import {
   createKnowledgeBase,
@@ -33,6 +33,13 @@ const detailTabs = [
 const acceptedTypes = '.md,.markdown,.txt,.pdf,.docx,.xlsx,.csv'
 const processingStatuses = new Set(['uploaded', 'parsing', 'chunking', 'embedding', 'indexing'])
 const documentPollIntervalMs = 3000
+
+const props = defineProps({
+  active: {
+    type: Boolean,
+    default: true,
+  },
+})
 
 const searchText = ref('')
 const knowledgeBases = ref([])
@@ -144,14 +151,34 @@ function normalizeQueryConfig(config) {
 onMounted(() => {
   loadKnowledgeBases()
   loadChunkPresets()
-  documentPollTimer = window.setInterval(refreshProcessingDocuments, documentPollIntervalMs)
+  if (props.active) startDocumentPolling()
 })
 
 onBeforeUnmount(() => {
-  if (documentPollTimer) {
-    window.clearInterval(documentPollTimer)
-  }
+  stopDocumentPolling()
 })
+
+watch(
+  () => props.active,
+  (active) => {
+    if (active) {
+      startDocumentPolling()
+    } else {
+      stopDocumentPolling()
+    }
+  },
+)
+
+function startDocumentPolling() {
+  if (documentPollTimer) return
+  documentPollTimer = window.setInterval(refreshProcessingDocuments, documentPollIntervalMs)
+}
+
+function stopDocumentPolling() {
+  if (!documentPollTimer) return
+  window.clearInterval(documentPollTimer)
+  documentPollTimer = null
+}
 
 async function loadChunkPresets() {
   try {

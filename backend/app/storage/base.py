@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 
 
+class StorageUnavailableError(RuntimeError):
+    """Raised when the configured object storage service cannot be reached."""
+
+
 class StorageService(ABC):
     @abstractmethod
     async def put_bytes(self, object_key: str, data: bytes, content_type: str | None = None) -> str:

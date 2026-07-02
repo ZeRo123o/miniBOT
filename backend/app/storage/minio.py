@@ -3,8 +3,9 @@ from io import BytesIO
 
 from minio import Minio
 from minio.error import S3Error
+from urllib3.exceptions import HTTPError
 
-from app.storage.base import StorageService
+from app.storage.base import StorageService, StorageUnavailableError
 
 
 class MinioStorageService(StorageService):
@@ -40,17 +41,23 @@ class MinioStorageService(StorageService):
         await asyncio.to_thread(self._delete_prefix_sync, prefix)
 
     def _put_bytes_sync(self, object_key: str, data: bytes, content_type: str | None) -> None:
-        self._ensure_bucket()
-        self.client.put_object(
-            self.bucket,
-            object_key,
-            BytesIO(data),
-            length=len(data),
-            content_type=content_type or "application/octet-stream",
-        )
+        try:
+            self._ensure_bucket()
+            self.client.put_object(
+                self.bucket,
+                object_key,
+                BytesIO(data),
+                length=len(data),
+                content_type=content_type or "application/octet-stream",
+            )
+        except (HTTPError, OSError) as error:
+            raise StorageUnavailableError("Object storage is unavailable.") from error
 
     def _get_bytes_sync(self, object_key: str) -> bytes:
-        response = self.client.get_object(self.bucket, object_key)
+        try:
+            response = self.client.get_object(self.bucket, object_key)
+        except (HTTPError, OSError) as error:
+            raise StorageUnavailableError("Object storage is unavailable.") from error
         try:
             return response.read()
         finally:
@@ -58,10 +65,13 @@ class MinioStorageService(StorageService):
             response.release_conn()
 
     def _delete_prefix_sync(self, prefix: str) -> None:
-        if not self.client.bucket_exists(self.bucket):
-            return
-        for item in self.client.list_objects(self.bucket, prefix=prefix, recursive=True):
-            self.client.remove_object(self.bucket, item.object_name)
+        try:
+            if not self.client.bucket_exists(self.bucket):
+                return
+            for item in self.client.list_objects(self.bucket, prefix=prefix, recursive=True):
+                self.client.remove_object(self.bucket, item.object_name)
+        except (HTTPError, OSError) as error:
+            raise StorageUnavailableError("Object storage is unavailable.") from error
 
     def _ensure_bucket(self) -> None:
         try:
@@ -69,3 +79,5 @@ class MinioStorageService(StorageService):
                 self.client.make_bucket(self.bucket)
         except S3Error:
             raise
+        except (HTTPError, OSError) as error:
+            raise StorageUnavailableError("Object storage is unavailable.") from error

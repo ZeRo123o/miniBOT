@@ -1,7 +1,12 @@
 <script setup>
 import { Blocks, Plug, Search, Wrench } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
-import { listResources, listSkills, upsertResource } from '../apis/resources'
+import { upsertResource } from '../apis/resources'
+import {
+  extensionResourceStore,
+  loadExtensionResources,
+  updateCachedExtensionResource,
+} from '../stores/extensionResourceStore'
 
 const categories = [
   { key: 'tool', label: '工具', icon: Wrench },
@@ -10,15 +15,11 @@ const categories = [
 ]
 
 const activeCategory = ref('tool')
-const resourcesByKind = ref({
-  tool: [],
-  mcp: [],
-  skill: [],
-})
+const resourcesByKind = computed(() => extensionResourceStore.resourcesByKind)
 const keyword = ref('')
-const loading = ref(false)
+const loading = computed(() => extensionResourceStore.loading)
 const updatingName = ref('')
-const errorMessage = ref('')
+const errorMessage = computed(() => extensionResourceStore.error)
 
 function dependencyItems(resource) {
   const dependencies = resource.kind === 'skill'
@@ -64,34 +65,11 @@ const filteredResources = computed(() => {
   )
 })
 
-async function loadResources() {
-  loading.value = true
-  errorMessage.value = ''
-  try {
-    const results = await Promise.all(
-      categories.map((category) =>
-        category.key === 'skill' ? listSkills() : listResources(category.key),
-      ),
-    )
-    categories.forEach((category, index) => {
-      resourcesByKind.value[category.key] = results[index].map((resource) => ({
-        ...resource,
-        kind: category.key,
-        enabled: category.key === 'skill' ? true : resource.enabled,
-      }))
-    })
-  } catch (error) {
-    errorMessage.value = error.message
-  } finally {
-    loading.value = false
-  }
-}
-
 async function toggleResource(resource) {
   if (resource.kind === 'skill') return
   if (updatingName.value) return
   updatingName.value = resource.name
-  errorMessage.value = ''
+  extensionResourceStore.error = ''
   try {
     const updated = await upsertResource({
       kind: resource.kind,
@@ -101,17 +79,15 @@ async function toggleResource(resource) {
       enabled: !resource.enabled,
       config: resource.config || {},
     })
-    const resources = resourcesByKind.value[resource.kind] || []
-    const index = resources.findIndex((item) => item.name === resource.name)
-    if (index !== -1) resources[index] = updated
+    updateCachedExtensionResource(resource.kind, updated)
   } catch (error) {
-    errorMessage.value = error.message
+    extensionResourceStore.error = error.message
   } finally {
     updatingName.value = ''
   }
 }
 
-onMounted(loadResources)
+onMounted(loadExtensionResources)
 </script>
 
 <template>

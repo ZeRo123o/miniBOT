@@ -86,6 +86,83 @@ class Skill(Base, TimestampMixin):
         }
 
 
+class ModelProvider(Base, TimestampMixin):
+    """Model provider configuration and its enabled runtime model list."""
+
+    __tablename__ = "model_providers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    provider_type: Mapped[str] = mapped_column(String(32), default="openai", nullable=False)
+    default_protocol: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    base_url: Mapped[str] = mapped_column(String(500), nullable=False)
+    embedding_base_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    rerank_base_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    models_endpoint: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    embedding_models_endpoint: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    rerank_models_endpoint: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    api_key_env: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    api_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    capabilities: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    enabled_models: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, default=list, nullable=False)
+    headers_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    extra_json: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(100), nullable=True)
+
+    def to_dict(self, *, mask_api_key: bool = False) -> dict[str, Any]:
+        api_key = self.api_key
+        if mask_api_key and api_key:
+            api_key = "********"
+        return {
+            "id": self.id,
+            "provider_id": self.provider_id,
+            "display_name": self.display_name,
+            "provider_type": self.provider_type,
+            "default_protocol": self.default_protocol,
+            "base_url": self.base_url,
+            "embedding_base_url": self.embedding_base_url,
+            "rerank_base_url": self.rerank_base_url,
+            "models_endpoint": self.models_endpoint,
+            "embedding_models_endpoint": self.embedding_models_endpoint,
+            "rerank_models_endpoint": self.rerank_models_endpoint,
+            "api_key_env": self.api_key_env,
+            "api_key": api_key,
+            "capabilities": self.capabilities or [],
+            "enabled_models": self.enabled_models or [],
+            "headers_json": self.headers_json or {},
+            "extra_json": self.extra_json or {},
+            "is_enabled": self.is_enabled,
+            "is_builtin": self.is_builtin,
+            "created_by": self.created_by,
+            "updated_by": self.updated_by,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class ModelUseConfig(Base, TimestampMixin):
+    """Map a model use such as chat_model to one provider_id:model_id spec."""
+
+    __tablename__ = "model_use_configs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    model_use: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    model_spec: Mapped[str] = mapped_column(String(512), nullable=False)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "model_use": self.model_use,
+            "model_spec": self.model_spec,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class UserSelection(Base, TimestampMixin):
     __tablename__ = "user_selections"
 
