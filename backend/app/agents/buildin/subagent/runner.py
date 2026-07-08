@@ -93,6 +93,7 @@ class SubAgentRunner:
             runtime_event_sink=parent_context.runtime_event_sink,
             system_prompt=profile.system_prompt,
             model_use=profile.model_use or parent_context.model_use,
+            model_spec=None if profile.model_use else parent_context.model_spec,
             current_datetime=parent_context.current_datetime,
             timezone=parent_context.timezone,
             skills=self._authorized_skills(parent_context, profile),

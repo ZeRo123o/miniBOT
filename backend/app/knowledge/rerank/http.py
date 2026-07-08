@@ -20,6 +20,7 @@ class HTTPRerankService(RerankService):
         batch_size: int,
         max_length: int,
         normalize_scores: bool,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.model_name = model_name
         self.api_key = api_key
@@ -28,6 +29,7 @@ class HTTPRerankService(RerankService):
         self.batch_size = max(int(batch_size), 1)
         self.max_length = max(int(max_length), 1)
         self.normalize_scores = bool(normalize_scores)
+        self.headers = dict(headers or {})
 
     async def rerank(self, *, query: str, documents: list[str]) -> list[float]:
         if not query.strip() or not documents:
@@ -53,6 +55,7 @@ class HTTPRerankService(RerankService):
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
+                    **self.headers,
                 },
                 json=payload,
             )
@@ -103,7 +106,7 @@ class OpenAIRerankService(HTTPRerankService):
         return list(data.get("results") or [])
 
 
-class DashScopeRerankService(HTTPRerankService):
+class DashScopeCompatibleRerankService(HTTPRerankService):
     def _build_payload(self, *, query: str, documents: list[str]) -> dict[str, Any]:
         return {
             "model": self.model_name,
@@ -114,3 +117,21 @@ class DashScopeRerankService(HTTPRerankService):
 
     def _extract_results(self, data: dict[str, Any]) -> list[dict[str, Any]]:
         return list(data.get("results") or (data.get("output") or {}).get("results") or [])
+
+
+class DashScopeRerankService(HTTPRerankService):
+    def _build_payload(self, *, query: str, documents: list[str]) -> dict[str, Any]:
+        return {
+            "model": self.model_name,
+            "input": {
+                "query": query,
+                "documents": documents,
+            },
+            "parameters": {
+                "top_n": len(documents),
+                "return_documents": False,
+            },
+        }
+
+    def _extract_results(self, data: dict[str, Any]) -> list[dict[str, Any]]:
+        return list((data.get("output") or {}).get("results") or data.get("results") or [])

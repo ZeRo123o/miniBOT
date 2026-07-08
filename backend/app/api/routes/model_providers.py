@@ -68,6 +68,9 @@ async def list_models_v2(
     db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     grouped = model_cache.get_specs_grouped_by_provider(model_type)
+    if not grouped:
+        await refresh_model_runtime_cache(db)
+        grouped = model_cache.get_specs_grouped_by_provider(model_type)
     providers = {item.provider_id: item for item in await list_model_providers(db)}
     result = {}
     for provider_id, models in grouped.items():

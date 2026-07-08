@@ -16,11 +16,18 @@ class KnowledgeBackend(ABC):
         filename: str,
         markdown: str,
         chunks: list[dict[str, Any]],
+        knowledge_base_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """把一个已解析文档写入当前知识库后端。"""
 
     @abstractmethod
-    async def delete_document(self, *, knowledge_base_id: int, document_id: int) -> None:
+    async def delete_document(
+        self,
+        *,
+        knowledge_base_id: int,
+        document_id: int,
+        knowledge_base_metadata: dict[str, Any] | None = None,
+    ) -> None:
         """删除文档在当前知识库后端中的索引。"""
 
     @abstractmethod
@@ -29,6 +36,7 @@ class KnowledgeBackend(ABC):
         *,
         knowledge_base_id: int,
         document_ids: list[int],
+        knowledge_base_metadata: dict[str, Any] | None = None,
     ) -> None:
         """Delete all backend data owned by one knowledge base."""
 

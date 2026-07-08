@@ -1,13 +1,14 @@
 <script setup>
-import { Paperclip, SendHorizontal, X } from 'lucide-vue-next'
-import { nextTick, ref } from 'vue'
+import { ChevronDown, Paperclip, Plus, SendHorizontal, X } from 'lucide-vue-next'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { sendChatStream } from '../apis/resources'
+import { loadModelProviderWorkspace, modelProviderStore } from '../stores/modelProviderStore'
 import {
   activeMessages,
   addPendingChatMessage,
   appendPendingAssistantContent,
-  appendPendingToolEvent,
   appendPendingSubagentToken,
+  appendPendingToolEvent,
   applyChatResponse,
   applyStreamConversation,
   conversationStore,
@@ -24,6 +25,38 @@ const messagesEl = ref(null)
 const sending = ref(false)
 const errorMessage = ref('')
 const selectedFiles = ref([])
+const selectedModelSpec = ref('')
+const plusMenuOpen = ref(false)
+
+const chatModelOptions = computed(() =>
+  Object.values(modelProviderStore.chatModelsByProvider).flatMap((group) =>
+    (group.models || []).map((model) => ({
+      ...model,
+      label: model.display_name || model.id,
+      providerLabel: group.provider_display_name || group.provider_id,
+    })),
+  ),
+)
+
+const activeModelLabel = computed(() => {
+  const option = chatModelOptions.value.find((model) => model.spec === selectedModelSpec.value)
+  return option?.label || selectedModelSpec.value || '选择模型'
+})
+
+onMounted(() => {
+  loadModelProviderWorkspace()
+})
+
+watch(
+  chatModelOptions,
+  () => {
+    if (selectedModelSpec.value && chatModelOptions.value.some((model) => model.spec === selectedModelSpec.value)) {
+      return
+    }
+    selectedModelSpec.value = chatModelOptions.value[0]?.spec || ''
+  },
+  { immediate: true },
+)
 
 async function resizeInput() {
   await nextTick()
@@ -41,11 +74,16 @@ async function scrollToBottom() {
 async function submit() {
   const text = input.value.trim()
   if (!text || sending.value) return
+  if (!selectedModelSpec.value) {
+    errorMessage.value = '请先在输入框右侧选择聊天模型'
+    return
+  }
 
   input.value = ''
   const filesToSend = [...selectedFiles.value]
   selectedFiles.value = []
   sending.value = true
+  plusMenuOpen.value = false
   errorMessage.value = ''
   const conversationId = conversationStore.activeId
   const optimisticUploads = filesToSend.map((file) => ({
@@ -90,6 +128,7 @@ async function submit() {
         },
       },
       filesToSend,
+      selectedModelSpec.value,
     )
   } catch (error) {
     removePendingAssistantMessage(streamConversationId)
@@ -100,8 +139,14 @@ async function submit() {
   }
 }
 
+function togglePlusMenu() {
+  if (sending.value) return
+  plusMenuOpen.value = !plusMenuOpen.value
+}
+
 function openFilePicker() {
   if (sending.value) return
+  plusMenuOpen.value = false
   fileInputEl.value?.click()
 }
 
@@ -168,9 +213,17 @@ function chartUrls(message) {
 
     <form class="chat-form" @submit.prevent="submit">
       <input ref="fileInputEl" class="file-input" type="file" multiple @change="onFilesSelected" />
-      <button type="button" :disabled="sending" title="添加附件" @click="openFilePicker">
-        <Paperclip :size="18" />
-      </button>
+      <div class="chat-plus-wrap">
+        <button type="button" class="chat-plus-button" :disabled="sending" title="更多功能" @click="togglePlusMenu">
+          <Plus :size="22" />
+        </button>
+        <div v-if="plusMenuOpen" class="chat-plus-menu">
+          <button type="button" class="chat-plus-menu-item" @click="openFilePicker">
+            <Paperclip :size="16" />
+            <span>上传附件</span>
+          </button>
+        </div>
+      </div>
       <textarea
         ref="inputEl"
         v-model="input"
@@ -179,8 +232,20 @@ function chartUrls(message) {
         @input="resizeInput"
         @keydown.enter.exact.prevent="submit"
       />
-      <button type="submit" :disabled="sending || !input.trim()" title="发送">
-        <SendHorizontal :size="18" />
+      <div class="chat-model-select-wrap">
+        <select v-model="selectedModelSpec" class="chat-model-select" :disabled="sending || !chatModelOptions.length">
+          <option v-if="!chatModelOptions.length" value="">未配置模型</option>
+          <option v-for="model in chatModelOptions" :key="model.spec" :value="model.spec">
+            {{ model.providerLabel }} / {{ model.label }}
+          </option>
+        </select>
+        <span class="chat-model-pill">
+          <span>{{ activeModelLabel }}</span>
+          <ChevronDown :size="15" />
+        </span>
+      </div>
+      <button type="submit" class="chat-send-button" :disabled="sending || !input.trim() || !selectedModelSpec" title="发送">
+        <SendHorizontal :size="20" />
       </button>
     </form>
   </section>

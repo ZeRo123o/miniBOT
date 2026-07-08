@@ -15,6 +15,7 @@ from app.knowledge.chunking import (
 )
 from app.db.repositories import KnowledgeBaseRepository, KnowledgeChunkRepository, KnowledgeDocumentRepository
 from app.knowledge.backends import get_knowledge_backend, normalize_knowledge_backend_type
+from app.llm.providers.cache import model_cache
 from app.storage import get_storage
 from app.knowledge.parser import parse_document_to_markdown
 
@@ -55,9 +56,16 @@ class KnowledgeService:
         kb_type: str = "milvus",
         chunk_preset_id: str = "general",
         chunk_parser_config: dict | None = None,
+        embedding_model_spec: str | None = None,
+        extraction_model_spec: str | None = None,
     ) -> dict:
         normalized_kb_type = normalize_knowledge_backend_type(kb_type)
         chunk_params = resolve_chunk_processing_params(chunk_preset_id, chunk_parser_config)
+        model_metadata = self._validate_knowledge_base_models(
+            kb_type=normalized_kb_type,
+            embedding_model_spec=embedding_model_spec,
+            extraction_model_spec=extraction_model_spec,
+        )
         item = await self.base_repo.create(
             name=name,
             description=description,
@@ -65,6 +73,7 @@ class KnowledgeService:
             metadata={
                 **chunk_params,
                 "kb_type": normalized_kb_type,
+                **model_metadata,
             },
         )
         logger.info(
@@ -123,6 +132,7 @@ class KnowledgeService:
         await backend.delete_document(
             knowledge_base_id=knowledge_base.id,
             document_id=document.id,
+            knowledge_base_metadata=knowledge_base.metadata_ or {},
         )
         await self.storage.delete_object(document.original_object_key)
         await self.storage.delete_object(document.markdown_object_key)
@@ -153,6 +163,7 @@ class KnowledgeService:
         await backend.delete_knowledge_base(
             knowledge_base_id=knowledge_base.id,
             document_ids=[document.id for document in documents],
+            knowledge_base_metadata=knowledge_base.metadata_ or {},
         )
         await self.storage.delete_prefix(f"knowledge-bases/{knowledge_base.id}/")
         await self.base_repo.delete_with_selection_cleanup(knowledge_base)
@@ -333,7 +344,7 @@ class KnowledgeService:
                         "document_id": document.id,
                         "chunk_id": chunk["chunk_id"],
                         "chunk_index": chunk["chunk_index"],
-                        "content": "",
+                        "content": chunk["content"],
                         "token_count": chunk["token_count"],
                         "start_char_pos": chunk["start_char_pos"],
                         "end_char_pos": chunk["end_char_pos"],
@@ -374,6 +385,7 @@ class KnowledgeService:
                 filename=document.filename,
                 markdown=markdown,
                 chunks=chunks,
+                knowledge_base_metadata=knowledge_base.metadata_ or {},
             )
             logger.info(
                 "Knowledge document indexed: document_id=%s chunks=%s backend=%s",
@@ -426,6 +438,31 @@ class KnowledgeService:
         item["chunk_preset_id"] = normalize_chunk_preset_id(chunk_params["chunk_preset_id"])
         item["chunk_parser_config"] = chunk_params["chunk_parser_config"]
         return item
+
+    @staticmethod
+    def _validate_knowledge_base_models(
+        *,
+        kb_type: str,
+        embedding_model_spec: str | None,
+        extraction_model_spec: str | None,
+    ) -> dict:
+        embedding_model_spec = str(embedding_model_spec or "").strip()
+        extraction_model_spec = str(extraction_model_spec or "").strip()
+        if not embedding_model_spec:
+            raise ValueError("Embedding model is required.")
+        embedding_info = model_cache.get_model_info(embedding_model_spec)
+        if embedding_info is None or embedding_info.model_type != "embedding":
+            raise ValueError("Embedding model is unavailable. Please enable it on the model config page and refresh cache.")
+
+        metadata: dict[str, str] = {"embedding_model_spec": embedding_model_spec}
+        if kb_type == "lightrag":
+            if not extraction_model_spec:
+                raise ValueError("LightRAG extraction model is required.")
+            extraction_info = model_cache.get_model_info(extraction_model_spec)
+            if extraction_info is None or extraction_info.model_type != "chat":
+                raise ValueError("LightRAG extraction model is unavailable. Please select an enabled chat model.")
+            metadata["extraction_model_spec"] = extraction_model_spec
+        return metadata
 
     def _original_object_key(self, knowledge_base_id: int, file_hash: str, filename: str) -> str:
         safe_filename = self._safe_filename(filename)

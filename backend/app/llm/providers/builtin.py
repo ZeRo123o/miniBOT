@@ -22,7 +22,13 @@ BUILTIN_PROVIDERS: list[dict[str, Any]] = [
                 "display_name": "text-embedding-v4",
                 "dimension": 1024,
             },
-            {"id": "qwen3-rerank", "type": "rerank", "source": "manual", "display_name": "qwen3-rerank"},
+            {
+                "id": "qwen3-rerank",
+                "type": "rerank",
+                "source": "manual",
+                "display_name": "qwen3-rerank",
+                "extra": {"rerank_protocol": "dashscope_compatible"},
+            },
         ],
     },
     {

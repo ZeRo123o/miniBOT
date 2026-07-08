@@ -11,7 +11,6 @@ class MilvusKnowledgeBackend(KnowledgeBackend):
     backend_type = "milvus"
 
     def __init__(self) -> None:
-        self.embedding_service = get_embedding_service()
         self.vector_store = get_vector_store()
 
     async def index_document(
@@ -22,24 +21,33 @@ class MilvusKnowledgeBackend(KnowledgeBackend):
         filename: str,
         markdown: str,
         chunks: list[dict[str, Any]],
+        knowledge_base_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        embedding_service = get_embedding_service((knowledge_base_metadata or {}).get("embedding_model_spec"))
         texts = [chunk["content"] for chunk in chunks]
-        embeddings = await self.embedding_service.embed_texts(texts)
+        embeddings = await embedding_service.embed_texts(texts)
         await self.vector_store.upsert_chunks(
             knowledge_base_id=knowledge_base_id,
             document_id=document_id,
             chunks=chunks,
             embeddings=embeddings,
-            dimension=self.embedding_service.dimension,
+            dimension=embedding_service.dimension,
         )
         return {
             "content_store": "milvus",
             "embedding_count": len(embeddings),
-            "embedding_model": self.embedding_service.model_name,
+            "embedding_model": embedding_service.model_name,
+            "embedding_model_spec": (knowledge_base_metadata or {}).get("embedding_model_spec"),
             "vector_store": "milvus",
         }
 
-    async def delete_document(self, *, knowledge_base_id: int, document_id: int) -> None:
+    async def delete_document(
+        self,
+        *,
+        knowledge_base_id: int,
+        document_id: int,
+        knowledge_base_metadata: dict[str, Any] | None = None,
+    ) -> None:
         await self.vector_store.delete_document_chunks(
             knowledge_base_id=knowledge_base_id,
             document_id=document_id,
@@ -50,6 +58,7 @@ class MilvusKnowledgeBackend(KnowledgeBackend):
         *,
         knowledge_base_id: int,
         document_ids: list[int],
+        knowledge_base_metadata: dict[str, Any] | None = None,
     ) -> None:
         await self.vector_store.delete_knowledge_base(knowledge_base_id=knowledge_base_id)
 
@@ -63,7 +72,8 @@ class MilvusKnowledgeBackend(KnowledgeBackend):
         document_ids: list[int] | None = None,
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
-        query_embedding = (await self.embedding_service.embed_texts([query_text]))[0]
+        embedding_service = get_embedding_service(kwargs.get("embedding_model_spec"))
+        query_embedding = (await embedding_service.embed_texts([query_text]))[0]
         return await self.vector_store.search_chunks(
             knowledge_base_id=knowledge_base_id,
             query_text=query_text,

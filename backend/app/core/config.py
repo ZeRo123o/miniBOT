@@ -42,9 +42,9 @@ class Settings(BaseSettings):
     lightrag_milvus_uri: str = ""
     lightrag_milvus_token: str = ""
     lightrag_milvus_db: str = "minibot_lightrag"
-    embedding_provider: str = "mock"
-    embedding_model_name: str = "mock"
-    embedding_dimension: int = 384
+    embedding_provider: str = "openai"
+    embedding_model_name: str = "text-embedding-v4"
+    embedding_dimension: int = 1024
     embedding_batch_size: int = 10
     rerank_enabled: bool = True
     rerank_provider: str = "openai"
@@ -56,13 +56,6 @@ class Settings(BaseSettings):
     rerank_max_length: int = 512
     rerank_normalize_scores: bool = True
 
-    default_model: str = "mock"
-    default_model_provider: str = "mock"
-    default_model_name: str = "mock"
-    chat_model_provider: str = ""
-    chat_model_name: str = ""
-    deep_research_model_provider: str = ""
-    deep_research_model_name: str = ""
     openai_api_key: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
     openai_temperature: float = 0.2

@@ -30,11 +30,15 @@ class BaseAgentContext:
         },
     )
     model_use: Annotated[str, {"__template_metadata__": {"kind": "llm_use"}}] = field(
-        default="chat_model",
+        default="",
         metadata={
             "name": "模型用途",
-            "description": "用于从配置中选择具体模型，例如 chat_model 或 deep_research_model。",
+            "description": "用于从配置中选择具体模型，例如 deep_research_model；聊天模型由请求 model_spec 指定。",
         },
+    )
+    model_spec: str | None = field(
+        default=None,
+        metadata={"configurable": False, "hide": True},
     )
     current_datetime: str = field(
         default="",

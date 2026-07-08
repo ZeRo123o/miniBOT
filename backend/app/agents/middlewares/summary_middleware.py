@@ -32,7 +32,7 @@ from app.agents.backends.filesystem import (
 )
 from app.agents.buildin.chatbot.context import AgentContext
 from app.agents.backends.sandbox.paths import VIRTUAL_WORKSPACE_ROOT
-from app.llm import get_model
+from app.llm import get_model, get_model_by_spec
 
 TokenCounter = Callable[[Iterable[MessageLikeRepresentation]], int]
 
@@ -173,7 +173,7 @@ class SummaryMiddleware(AgentMiddleware):
 
         # Step3 补齐 message id，保证后续 RemoveMessage + add_messages reducer 可稳定工作。
         self._ensure_message_ids(messages)
-        model = get_model(context.model_use)
+        model = get_model_by_spec(context.model_spec) if context.model_spec else get_model(context.model_use)
         token_counter = _get_approximate_token_counter(model)
         total_tokens = token_counter(messages)
         if not self._should_summarize(context, messages, total_tokens):
@@ -254,7 +254,7 @@ class SummaryMiddleware(AgentMiddleware):
 
         # Step3 补齐 message id，保证后续 RemoveMessage + add_messages reducer 可稳定工作。
         self._ensure_message_ids(messages)
-        model = get_model(context.model_use)
+        model = get_model_by_spec(context.model_spec) if context.model_spec else get_model(context.model_use)
         token_counter = _get_approximate_token_counter(model)
         total_tokens = token_counter(messages)
         if not self._should_summarize(context, messages, total_tokens):

@@ -18,7 +18,7 @@ from app.agents.middlewares import (
     SummaryMiddleware,
 )
 from app.agents.middlewares.subagent_middleware import SubAgentMiddleware
-from app.llm import get_model
+from app.llm import get_model, get_model_by_spec
 
 
 async def build_chat_agent(context: AgentContext | None = None) -> Any:
@@ -51,8 +51,9 @@ async def build_chat_agent(context: AgentContext | None = None) -> Any:
             ModelRetryMiddleware(),
         ]
     )
+    model = get_model_by_spec(agent_context.model_spec) if agent_context.model_spec else get_model(agent_context.model_use)
     return create_agent(
-        model=get_model(agent_context.model_use),
+        model=model,
         tools=runtime_tools,
         system_prompt=build_system_prompt(agent_context),
         middleware=middleware,

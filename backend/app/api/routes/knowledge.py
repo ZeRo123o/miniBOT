@@ -78,6 +78,8 @@ async def create_knowledge_base(
             kb_type=payload.kb_type,
             chunk_preset_id=payload.chunk_preset_id,
             chunk_parser_config=payload.chunk_parser_config,
+            embedding_model_spec=payload.embedding_model_spec,
+            extraction_model_spec=payload.extraction_model_spec,
         )
         logger.info(
             "Knowledge base created: user_id=%s knowledge_base_id=%s name=%s",
@@ -361,5 +363,7 @@ async def delete_knowledge_document(
         return {"message": "删除成功"}
     except KnowledgeResourceBusyError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
+    except StorageUnavailableError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error

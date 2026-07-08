@@ -207,6 +207,7 @@ http://localhost:5173
 - `GET /api/knowledge-bases/{knowledge_base_id}/query-params?user_id=default`
 - `PUT /api/knowledge-bases/{knowledge_base_id}/query-params`
 - `POST /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default`
+- `POST /api/knowledge-bases/{knowledge_base_id}/evaluation/datasets/generate`
 - `DELETE /api/knowledge-documents/{document_id}?user_id=default`
 
 `/api/chat` 负责：

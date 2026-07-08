@@ -22,8 +22,8 @@ from app.llm.providers.repository import (
 
 VALID_MODEL_TYPES = {"chat", "embedding", "rerank"}
 VALID_MODEL_SOURCES = {"manual", "remote"}
-VALID_PROVIDER_TYPES = {"mock", "openai", "anthropic", "gemini", "openrouter"}
-VALID_MODEL_USES = {"chat_model", "deep_research_model"}
+VALID_PROVIDER_TYPES = {"openai", "anthropic", "gemini", "openrouter"}
+VALID_MODEL_USES = {"deep_research_model"}
 PROVIDER_ID_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]{1,99}$")
 
 
@@ -171,7 +171,7 @@ async def ensure_builtin_model_providers_in_db(db: AsyncSession) -> None:
                 await db.flush()
             continue
         payload = normalize_provider_payload({**provider_def, "is_builtin": True, "created_by": "system", "updated_by": "system"})
-        payload["is_enabled"] = provider_id == "mock"
+        payload["is_enabled"] = False
         await create_model_provider(db, payload)
 
     await db.commit()
@@ -181,7 +181,11 @@ async def refresh_model_runtime_cache(db: AsyncSession) -> None:
     from app.llm.providers.cache import model_cache
 
     providers = await list_model_providers(db)
-    model_uses = await list_model_use_configs(db)
+    model_uses = [
+        item
+        for item in await list_model_use_configs(db)
+        if item.model_use in VALID_MODEL_USES
+    ]
     model_cache.rebuild(providers, model_uses)
 
 
@@ -355,8 +359,6 @@ async def test_model_status_by_spec(spec: str) -> dict[str, Any]:
         info = model_cache.get_model_info(spec)
         if info is None:
             raise ValueError(f"Unknown model spec: {spec}")
-        if info.provider_type == "mock":
-            return {"spec": spec, "status": "available", "message": "mock model is available", "model_type": info.model_type}
         if info.model_type == "embedding":
             return await _test_embedding_model(info)
         if info.model_type == "rerank":

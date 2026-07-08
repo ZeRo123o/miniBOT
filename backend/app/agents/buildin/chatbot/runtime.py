@@ -13,7 +13,6 @@ from app.agents.middlewares.subagent_middleware import create_parent_run, finish
 from app.agents.runtime_base import BaseChatRuntime, RuntimeResult
 from app.agents.toolkits.governance import serialize_tool_calls
 from app.core.config import get_settings
-from app.llm.factory import CHAT_MODEL
 from app.llm.chat_model import ModelRequestTimeoutError
 from app.services.attachment_service import build_attachment_state_files
 
@@ -35,6 +34,7 @@ class AgentRuntime(BaseChatRuntime):
         knowledge_selection: dict,
         resources: dict[str, list[dict]],
         uploads: list[dict] | None = None,
+        model_spec: str | None = None,
         event_sink: Callable[[dict], None] | None = None,
     ) -> RuntimeResult:
         graph_messages = await self.conversation_service.load_langchain_messages(conversation_id)
@@ -57,6 +57,7 @@ class AgentRuntime(BaseChatRuntime):
             resources=resources,
             thread_id=thread_id,
             run_id=str(parent_run["id"]),
+            model_spec=model_spec,
         )
         context.runtime_event_sink = event_sink
         try:
@@ -163,6 +164,7 @@ class AgentRuntime(BaseChatRuntime):
         resources: dict[str, list[dict]],
         thread_id: str,
         run_id: str,
+        model_spec: str | None = None,
     ) -> AgentContext:
         """Build the runtime context from persisted resources and settings."""
         settings = get_settings()
@@ -190,7 +192,7 @@ class AgentRuntime(BaseChatRuntime):
             user_id=user_id,
             conversation_id=conversation_id,
             system_prompt=settings.default_system_prompt,
-            model_use=CHAT_MODEL,
+            model_spec=model_spec,
             current_datetime=self._current_datetime(settings.runtime_timezone),
             timezone=settings.runtime_timezone,
             mcps=resources["mcps"],
@@ -218,6 +220,7 @@ class AgentRuntime(BaseChatRuntime):
         knowledge_selection: dict,
         resources: dict[str, list[dict]],
         uploads: list[dict],
+        model_spec: str | None = None,
     ) -> AsyncIterator[dict | RuntimeResult]:
         """Forward true model chunks and runtime events while the parent graph is running."""
         event_queue: asyncio.Queue[dict] = asyncio.Queue()
@@ -229,6 +232,7 @@ class AgentRuntime(BaseChatRuntime):
                 knowledge_selection=knowledge_selection,
                 resources=resources,
                 uploads=uploads,
+                model_spec=model_spec,
                 event_sink=event_queue.put_nowait,
             )
         )
@@ -250,6 +254,7 @@ class AgentRuntime(BaseChatRuntime):
         knowledge_selection: dict,
         resources: dict[str, list[dict]],
         uploads: list[dict],
+        model_spec: str | None,
         event_sink: Callable[[dict], None],
     ) -> RuntimeResult:
         """Run `astream` and persist the final checkpoint state after true token streaming."""
@@ -273,6 +278,7 @@ class AgentRuntime(BaseChatRuntime):
             resources=resources,
             thread_id=thread_id,
             run_id=str(parent_run["id"]),
+            model_spec=model_spec,
         )
         context.runtime_event_sink = event_sink
         try:

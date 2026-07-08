@@ -6,9 +6,10 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.repositories import EvaluationRepository, KnowledgeBaseRepository
+from app.db.repositories import EvaluationRepository, KnowledgeBaseRepository, KnowledgeChunkRepository
+from app.knowledge.eval.benchmark_generation import iter_generated_benchmark_items
 from app.knowledge.eval.evaluator import aggregate_metrics, evaluate_question
-from app.llm.factory import get_chat_model
+from app.llm.factory import get_model_by_spec
 from app.services.knowledge_retrieval_service import DEFAULT_QUERY_PARAMS, KnowledgeRetrievalService
 
 
@@ -25,6 +26,7 @@ class EvaluationService:
         self.db = db
         self.eval_repo = EvaluationRepository(db)
         self.base_repo = KnowledgeBaseRepository(db)
+        self.chunk_repo = KnowledgeChunkRepository(db)
 
     def _dataset_to_dict(self, row: Any) -> dict[str, Any]:
         return row.to_dict()
@@ -146,6 +148,84 @@ class EvaluationService:
         )
         return self._dataset_to_dict(dataset)
 
+    async def generate_dataset(
+        self,
+        *,
+        knowledge_base_id: int,
+        user_id: str,
+        count: int = 10,
+        context_count: int = 3,
+        concurrency_count: int = 4,
+        llm_model_spec: str | None = None,
+        name: str | None = None,
+        description: str = "",
+    ) -> dict[str, Any]:
+        knowledge_base = await self._require_base(knowledge_base_id, user_id)
+        kb_type = (knowledge_base.metadata_ or {}).get("kb_type") or "milvus"
+        if kb_type != "milvus":
+            raise ValueError("Only Milvus knowledge bases support automatic benchmark generation")
+
+        chunks = [
+            {
+                "id": chunk.chunk_id,
+                "chunk_id": chunk.chunk_id,
+                "content": chunk.content or "",
+                "knowledge_base_id": chunk.knowledge_base_id,
+                "document_id": chunk.document_id,
+                "chunk_index": chunk.chunk_index,
+            }
+            for chunk in await self.chunk_repo.list_by_knowledge_base(knowledge_base_id)
+            if (chunk.content or "").strip()
+        ]
+        if not chunks:
+            raise ValueError("No chunks found in knowledge base")
+
+        if not llm_model_spec:
+            raise ValueError("Benchmark generation requires an LLM model spec.")
+        llm = get_model_by_spec(llm_model_spec)
+        questions = [
+            item
+            async for item in iter_generated_benchmark_items(
+                knowledge_base_id=knowledge_base_id,
+                all_chunks=chunks,
+                count=min(max(int(count), 1), 100),
+                context_count=context_count,
+                llm=llm,
+                concurrency_count=concurrency_count,
+            )
+        ]
+        if not questions:
+            raise ValueError("未生成有效评估题目，请检查模型配置或知识库内容")
+
+        dataset_id = f"dataset_{uuid.uuid4().hex[:8]}"
+        dataset = await self.eval_repo.create_dataset_with_items(
+            {
+                "dataset_id": dataset_id,
+                "knowledge_base_id": knowledge_base_id,
+                "user_id": user_id,
+                "name": (name or "").strip() or f"auto-benchmark-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}",
+                "description": description,
+                "item_count": len(questions),
+                "has_gold_chunks": True,
+                "has_gold_answers": True,
+                "build_metadata": {
+                    "source": "auto_generate",
+                    "status": "completed",
+                    "progress": 100,
+                    "requested_count": count,
+                    "context_count": context_count,
+                    "concurrency_count": concurrency_count,
+                    "llm_model_spec": llm_model_spec,
+                },
+            },
+            self._build_dataset_items(
+                dataset_id=dataset_id,
+                knowledge_base_id=knowledge_base_id,
+                questions=questions,
+            ),
+        )
+        return self._dataset_to_dict(dataset)
+
     async def list_datasets(self, knowledge_base_id: int, user_id: str) -> list[dict[str, Any]]:
         await self._require_base(knowledge_base_id, user_id)
         rows = await self.eval_repo.list_datasets(knowledge_base_id, user_id)
@@ -255,8 +335,14 @@ class EvaluationService:
     async def _run_evaluation(self, run: Any, dataset: Any, retrieval_config: dict[str, Any]) -> None:
         items = await self.eval_repo.list_all_dataset_items(dataset.dataset_id)
         retrieval_service = KnowledgeRetrievalService(self.db)
-        answer_llm = get_chat_model() if retrieval_config.get("answer_llm_enabled") else None
-        judge_llm = get_chat_model() if retrieval_config.get("judge_llm_enabled") else None
+        answer_llm_spec = str(retrieval_config.get("answer_llm_model_spec") or "").strip()
+        judge_llm_spec = str(retrieval_config.get("judge_llm_model_spec") or "").strip()
+        if retrieval_config.get("answer_llm_enabled") and not answer_llm_spec:
+            raise ValueError("Answer generation model is required when answer generation is enabled.")
+        if retrieval_config.get("judge_llm_enabled") and not judge_llm_spec:
+            raise ValueError("Judge model is required when answer judging is enabled.")
+        answer_llm = get_model_by_spec(answer_llm_spec) if answer_llm_spec else None
+        judge_llm = get_model_by_spec(judge_llm_spec) if judge_llm_spec else None
         all_retrieval_metrics = []
         all_answer_metrics = []
 

@@ -34,6 +34,7 @@ async def chat(payload: ChatRequest, db: AsyncSession = Depends(get_db)) -> dict
             user_id=payload.user_id,
             message=payload.message,
             conversation_id=payload.conversation_id,
+            model_spec=payload.model_spec,
             uploads=[item.model_dump() for item in payload.uploads],
         )
         logger.info(
@@ -68,6 +69,7 @@ async def _parse_stream_payload(
         message = form.get("message")
         user_id = str(form.get("user_id") or "default")
         raw_conversation_id = form.get("conversation_id")
+        model_spec = str(form.get("model_spec") or "").strip() or None
         conversation_id = int(raw_conversation_id) if str(raw_conversation_id or "").strip() else None
         files = [
             value
@@ -77,7 +79,7 @@ async def _parse_stream_payload(
         if not message or not message.strip():
             raise HTTPException(status_code=422, detail="message is required")
         return (
-            ChatRequest(message=str(message), user_id=user_id, conversation_id=conversation_id),
+            ChatRequest(message=str(message), user_id=user_id, conversation_id=conversation_id, model_spec=model_spec),
             files,
         )
     payload = ChatRequest.model_validate(await request.json())
@@ -116,6 +118,7 @@ async def chat_stream(
                 message=payload.message,
                 conversation_id=payload.conversation_id,
                 uploads=[item.model_dump() for item in payload.uploads] + uploads,
+                model_spec=payload.model_spec,
             ):
                 yield sse_event(event)
             logger.info(

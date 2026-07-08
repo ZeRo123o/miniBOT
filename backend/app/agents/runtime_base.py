@@ -33,7 +33,11 @@ class BaseChatRuntime(ABC):
         message: str,
         conversation_id: int | None = None,
         uploads: list[dict] | None = None,
+        model_spec: str | None = None,
     ) -> dict:
+        model_spec = (model_spec or "").strip()
+        if not model_spec:
+            raise ValueError("请选择聊天模型后再发送消息。")
         logger.info(
             "Runtime run started: user_id=%s conversation_id=%s message_chars=%s",
             user_id,
@@ -78,6 +82,7 @@ class BaseChatRuntime(ABC):
             knowledge_selection=knowledge_selection,
             resources=resources,
             uploads=upload_items,
+            model_spec=model_spec,
         )
 
         await self.conversation_service.save_assistant_message(
@@ -107,7 +112,11 @@ class BaseChatRuntime(ABC):
         message: str,
         conversation_id: int | None = None,
         uploads: list[dict] | None = None,
+        model_spec: str | None = None,
     ) -> AsyncIterator[dict]:
+        model_spec = (model_spec or "").strip()
+        if not model_spec:
+            raise ValueError("请选择聊天模型后再发送消息。")
         logger.info(
             "Runtime stream started: user_id=%s conversation_id=%s message_chars=%s",
             user_id,
@@ -159,6 +168,7 @@ class BaseChatRuntime(ABC):
             knowledge_selection=knowledge_selection,
             resources=resources,
             uploads=upload_items,
+            model_spec=model_spec,
         ):
             if isinstance(stream_item, RuntimeResult):
                 result = stream_item
@@ -197,6 +207,7 @@ class BaseChatRuntime(ABC):
         knowledge_selection: dict,
         resources: dict[str, list[dict]],
         uploads: list[dict],
+        model_spec: str | None = None,
     ) -> RuntimeResult:
         """Generate the assistant answer."""
 
@@ -209,6 +220,7 @@ class BaseChatRuntime(ABC):
         knowledge_selection: dict,
         resources: dict[str, list[dict]],
         uploads: list[dict],
+        model_spec: str | None = None,
     ) -> AsyncIterator[dict | RuntimeResult]:
         """Yield runtime SSE events followed by the final result; default runtimes have no events."""
         yield await self._generate_result(
@@ -218,6 +230,7 @@ class BaseChatRuntime(ABC):
             knowledge_selection=knowledge_selection,
             resources=resources,
             uploads=uploads,
+            model_spec=model_spec,
         )
 
     def _build_response(self, response: dict, result: RuntimeResult) -> dict:

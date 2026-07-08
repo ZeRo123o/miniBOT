@@ -13,7 +13,6 @@ import {
   Home,
   KeyRound,
   List,
-  MessageCircle,
   PlayCircle,
   Plus,
   RefreshCw,
@@ -36,7 +35,6 @@ import {
 } from '../stores/modelProviderStore'
 
 const RUNTIME_USES = [
-  { key: 'chat_model', icon: MessageCircle },
   { key: 'deep_research_model', icon: Search },
 ]
 
@@ -130,14 +128,16 @@ const summary = computed(() => {
       (total, provider) => total + (provider.enabled_models?.length || 0),
       0,
     ),
-    modelUseTotal: modelUses.value.filter((item) => item.model_spec).length,
+    modelUseTotal: modelUses.value.filter(
+      (item) => item.model_spec && RUNTIME_USES.some((modelUse) => modelUse.key === item.model_use),
+    ).length,
   }
 })
 
 const recentActions = computed(() => [
   {
     title: '更新运行用途',
-    detail: modelLabel(modelUseSpec('chat_model')),
+    detail: statusMessage.value || '等待刷新或测试',
     time: '刚刚',
     level: 'ok',
   },
@@ -640,7 +640,6 @@ onMounted(loadAll)
               <label>
                 <span>Provider Type</span>
                 <select v-model="providerForm.provider_type">
-                  <option value="mock">mock</option>
                   <option value="openai">openai</option>
                   <option value="anthropic">anthropic</option>
                   <option value="gemini">gemini</option>

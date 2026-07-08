@@ -65,7 +65,7 @@ class ModelRuntimeCache:
 
         models: dict[str, ModelInfo] = {}
         for provider in providers:
-            if not provider.is_enabled:
+            if not provider.is_enabled or provider.provider_type == "mock":
                 continue
             api_key = resolve_api_key(provider) or ""
             for model in provider.enabled_models or []:
@@ -74,6 +74,11 @@ class ModelRuntimeCache:
                     continue
                 model_type = str(model.get("type") or "chat").strip()
                 base_url = model.get("base_url_override") or self._base_url_for_type(provider, model_type)
+                extra = {
+                    **dict(provider.extra_json or {}),
+                    **dict(model.get("extra") or {}),
+                }
+                self._apply_builtin_model_defaults(provider.provider_id, model_id, model_type, extra)
                 info = ModelInfo(
                     provider_id=provider.provider_id,
                     model_id=model_id,
@@ -83,7 +88,7 @@ class ModelRuntimeCache:
                     base_url=base_url,
                     provider_type=provider.provider_type,
                     headers=dict(provider.headers_json or {}),
-                    extra=dict(provider.extra_json or {}),
+                    extra=extra,
                     dimension=model.get("dimension"),
                     batch_size=int(model.get("batch_size") or 40),
                 )
@@ -92,7 +97,7 @@ class ModelRuntimeCache:
         model_uses = {
             item.model_use: item.model_spec
             for item in (model_use_configs or [])
-            if item.model_use and item.model_spec
+            if item.model_use and item.model_spec in models
         }
         snapshot = ModelCacheSnapshot(models=models, model_uses=model_uses)
         self._save_snapshot(snapshot)
@@ -177,6 +182,11 @@ class ModelRuntimeCache:
         if model_type == "rerank" and provider.rerank_base_url:
             return provider.rerank_base_url
         return provider.base_url
+
+    @staticmethod
+    def _apply_builtin_model_defaults(provider_id: str, model_id: str, model_type: str, extra: dict[str, Any]) -> None:
+        if model_type == "rerank" and provider_id == "alibaba" and model_id == "qwen3-rerank":
+            extra.setdefault("rerank_protocol", "dashscope_compatible")
 
 
 model_cache = ModelRuntimeCache()

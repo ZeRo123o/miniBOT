@@ -35,7 +35,7 @@ class MinioStorageService(StorageService):
 
     async def delete_object(self, object_key: str) -> None:
         if object_key:
-            await asyncio.to_thread(self.client.remove_object, self.bucket, object_key)
+            await asyncio.to_thread(self._delete_object_sync, object_key)
 
     async def delete_prefix(self, prefix: str) -> None:
         await asyncio.to_thread(self._delete_prefix_sync, prefix)
@@ -63,6 +63,12 @@ class MinioStorageService(StorageService):
         finally:
             response.close()
             response.release_conn()
+
+    def _delete_object_sync(self, object_key: str) -> None:
+        try:
+            self.client.remove_object(self.bucket, object_key)
+        except (HTTPError, OSError) as error:
+            raise StorageUnavailableError("Object storage is unavailable.") from error
 
     def _delete_prefix_sync(self, prefix: str) -> None:
         try:

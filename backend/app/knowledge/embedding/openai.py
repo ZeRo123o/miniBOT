@@ -14,12 +14,14 @@ class OpenAIEmbeddingService(EmbeddingService):
         base_url: str,
         dimension: int,
         batch_size: int = 10,
+        request_headers: dict[str, str] | None = None,
     ):
         self.model_name = model_name
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.dimension = dimension
         self.batch_size = max(int(batch_size), 1)
+        self.request_headers = request_headers or {}
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
         if not texts:
@@ -43,11 +45,12 @@ class OpenAIEmbeddingService(EmbeddingService):
         }
         async with httpx.AsyncClient(timeout=120) as client:
             response = await client.post(
-                f"{self.base_url}/embeddings",
+                self._url_with_endpoint("embeddings"),
                 json=payload,
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
+                    **self.request_headers,
                 },
             )
             try:
@@ -60,3 +63,9 @@ class OpenAIEmbeddingService(EmbeddingService):
             data = response.json()
 
         return [item["embedding"] for item in sorted(data["data"], key=lambda item: item["index"])]
+
+    def _url_with_endpoint(self, endpoint: str) -> str:
+        normalized = endpoint.strip("/")
+        if self.base_url.rstrip("/").endswith(f"/{normalized}"):
+            return self.base_url
+        return f"{self.base_url}/{normalized}"

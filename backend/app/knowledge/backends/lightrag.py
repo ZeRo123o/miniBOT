@@ -5,25 +5,25 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-import httpx
 import numpy as np
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from app.core.config import get_settings
 from app.knowledge.backends.base import KnowledgeBackend
 from app.knowledge.embedding import get_embedding_service
+from app.llm.factory import get_model_by_spec
 
 logger = logging.getLogger(__name__)
 
 
 class LightRAGKnowledgeBackend(KnowledgeBackend):
-    """使用 LightRAG 管理独立的向量集合、文档状态和 Neo4j 图数据。"""
+    """Use LightRAG as an independent graph/vector knowledge backend."""
 
     backend_type = "lightrag"
     _chunk_delimiter = "\n<|MINIBOT_CHUNK_DELIM|>\n"
 
     def __init__(self) -> None:
         self.settings = get_settings()
-        self.embedding_service = get_embedding_service()
         self._instances: dict[int, Any] = {}
         self._instance_locks: dict[int, asyncio.Lock] = {}
         self._write_locks: dict[int, asyncio.Lock] = {}
@@ -37,10 +37,12 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
         filename: str,
         markdown: str,
         chunks: list[dict[str, Any]],
+        knowledge_base_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         lock = await self._get_lock(self._write_locks, knowledge_base_id)
         async with lock:
-            rag = await self._get_instance(knowledge_base_id)
+            metadata = knowledge_base_metadata or {}
+            rag = await self._get_instance(knowledge_base_id, metadata)
             payload = self._chunk_delimiter.join(
                 str(chunk.get("content") or "").strip()
                 for chunk in chunks
@@ -52,7 +54,6 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
             insert_kwargs = {
                 "input": payload,
                 "ids": str(document_id),
-                # 使用 document_id 作为 LightRAG file_path，便于检索结果映射回业务文档。
                 "file_paths": str(document_id),
                 "split_by_character": self._chunk_delimiter if len(chunks) > 1 else None,
                 "split_by_character_only": False,
@@ -60,7 +61,6 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
             try:
                 await rag.ainsert(**insert_kwargs)
             except TypeError:
-                # 兼容不支持预分块参数的 LightRAG 小版本。
                 await rag.ainsert(input=payload, ids=str(document_id), file_paths=str(document_id))
 
             await self._ensure_document_processed(rag, str(document_id))
@@ -69,12 +69,20 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
                 "graph_store": "neo4j",
                 "vector_store": "lightrag_milvus",
                 "lightrag_workspace": self._workspace(knowledge_base_id),
+                "embedding_model_spec": metadata.get("embedding_model_spec"),
+                "extraction_model_spec": metadata.get("extraction_model_spec"),
             }
 
-    async def delete_document(self, *, knowledge_base_id: int, document_id: int) -> None:
+    async def delete_document(
+        self,
+        *,
+        knowledge_base_id: int,
+        document_id: int,
+        knowledge_base_metadata: dict[str, Any] | None = None,
+    ) -> None:
         lock = await self._get_lock(self._write_locks, knowledge_base_id)
         async with lock:
-            rag = await self._get_instance(knowledge_base_id)
+            rag = await self._get_instance(knowledge_base_id, knowledge_base_metadata or {})
             await rag.adelete_by_doc_id(str(document_id))
 
     async def delete_knowledge_base(
@@ -82,11 +90,15 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
         *,
         knowledge_base_id: int,
         document_ids: list[int],
+        knowledge_base_metadata: dict[str, Any] | None = None,
     ) -> None:
-        """Delete every LightRAG document, then release and remove its workspace."""
         lock = await self._get_lock(self._write_locks, knowledge_base_id)
         async with lock:
-            rag = await self._get_instance(knowledge_base_id) if document_ids else self._instances.get(knowledge_base_id)
+            rag = (
+                await self._get_instance(knowledge_base_id, knowledge_base_metadata or {})
+                if document_ids
+                else self._instances.get(knowledge_base_id)
+            )
             if rag is not None:
                 for document_id in document_ids:
                     await rag.adelete_by_doc_id(str(document_id), delete_llm_cache=True)
@@ -112,7 +124,7 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
         **kwargs: Any,
     ) -> list[dict[str, Any]]:
         _, QueryParam, _, _ = self._load_lightrag()
-        rag = await self._get_instance(knowledge_base_id)
+        rag = await self._get_instance(knowledge_base_id, kwargs)
         mode = self._normalize_query_mode(
             kwargs.get("lightrag_query_mode") or self.settings.lightrag_query_mode
         )
@@ -137,7 +149,7 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
             document_ids=document_ids,
         )
 
-    async def _get_instance(self, knowledge_base_id: int) -> Any:
+    async def _get_instance(self, knowledge_base_id: int, metadata: dict[str, Any]) -> Any:
         cached = self._instances.get(knowledge_base_id)
         if cached is not None:
             return cached
@@ -153,14 +165,38 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
             await asyncio.to_thread(self._ensure_milvus_database)
             working_dir = Path(self.settings.lightrag_work_dir) / self._workspace(knowledge_base_id)
             working_dir.mkdir(parents=True, exist_ok=True)
+
+            embedding_service = get_embedding_service(metadata.get("embedding_model_spec"))
+            extraction_model_spec = str(metadata.get("extraction_model_spec") or "").strip()
+            if not extraction_model_spec:
+                raise ValueError("LightRAG extraction model is not configured for this knowledge base.")
+
+            async def llm_complete(
+                prompt: str,
+                system_prompt: str | None = None,
+                history_messages: list[dict[str, Any]] | None = None,
+                **kwargs: Any,
+            ) -> str:
+                return await self._llm_complete(
+                    extraction_model_spec=extraction_model_spec,
+                    prompt=prompt,
+                    system_prompt=system_prompt,
+                    history_messages=history_messages,
+                    **kwargs,
+                )
+
+            async def embed_texts(texts: list[str]) -> np.ndarray:
+                embeddings = await embedding_service.embed_texts(texts)
+                return np.asarray(embeddings, dtype=np.float32)
+
             rag = LightRAG(
                 working_dir=str(working_dir),
                 workspace=self._workspace(knowledge_base_id),
-                llm_model_func=self._llm_complete,
+                llm_model_func=llm_complete,
                 embedding_func=EmbeddingFunc(
-                    embedding_dim=self.embedding_service.dimension,
+                    embedding_dim=embedding_service.dimension,
                     max_token_size=self.settings.lightrag_embedding_max_tokens,
-                    func=self._embed_texts,
+                    func=embed_texts,
                 ),
                 vector_storage="MilvusVectorDBStorage",
                 kv_storage="JsonKVStorage",
@@ -175,54 +211,21 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
 
     async def _llm_complete(
         self,
+        *,
+        extraction_model_spec: str,
         prompt: str,
         system_prompt: str | None = None,
         history_messages: list[dict[str, Any]] | None = None,
         **kwargs: Any,
     ) -> str:
-        provider = (
-            self.settings.lightrag_model_provider
-            or self.settings.chat_model_provider
-            or self.settings.default_model_provider
-        ).lower()
-        model_name = (
-            self.settings.lightrag_model_name
-            or self.settings.chat_model_name
-            or self.settings.default_model_name
-            or self.settings.default_model
-        )
-        if provider == "mock" or model_name == "mock":
-            raise ValueError("LightRAG requires a real OpenAI-compatible LLM configuration.")
-        if not self.settings.openai_api_key:
-            raise ValueError("MINIBOT_OPENAI_API_KEY is required for LightRAG.")
-
-        messages: list[dict[str, Any]] = []
+        model = get_model_by_spec(extraction_model_spec)
+        messages = []
         if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.extend(history_messages or [])
-        messages.append({"role": "user", "content": prompt})
-        payload = {
-            "model": model_name,
-            "messages": messages,
-            "temperature": self.settings.openai_temperature,
-        }
-        async with httpx.AsyncClient(timeout=self.settings.lightrag_llm_timeout) as client:
-            response = await client.post(
-                f"{self.settings.openai_base_url.rstrip('/')}/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.settings.openai_api_key}",
-                    "Content-Type": "application/json",
-                },
-                json=payload,
-            )
-            response.raise_for_status()
-            data = response.json()
-        return str(data["choices"][0]["message"].get("content") or "")
-
-    async def _embed_texts(self, texts: list[str]) -> np.ndarray:
-        """把项目 Embedding 服务结果转换为 LightRAG 期望的二维数组。"""
-        embeddings = await self.embedding_service.embed_texts(texts)
-        return np.asarray(embeddings, dtype=np.float32)
+            messages.append(SystemMessage(content=system_prompt))
+        messages.extend(self._convert_history_messages(history_messages or []))
+        messages.append(HumanMessage(content=prompt))
+        response = await model.ainvoke(messages)
+        return str(response.content or "")
 
     def _normalize_query_results(
         self,
@@ -299,6 +302,20 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
         return normalized[:final_top_k]
 
     @staticmethod
+    def _convert_history_messages(history_messages: list[dict[str, Any]]) -> list[Any]:
+        converted = []
+        for item in history_messages:
+            role = str(item.get("role") or "user").lower()
+            content = str(item.get("content") or "")
+            if role in {"system", "developer"}:
+                converted.append(SystemMessage(content=content))
+            elif role in {"assistant", "ai"}:
+                converted.append(AIMessage(content=content))
+            else:
+                converted.append(HumanMessage(content=content))
+        return converted
+
+    @staticmethod
     def _get_stored_chunk(rag: Any, chunk_id: Any) -> dict[str, Any]:
         if not chunk_id:
             return {}
@@ -342,7 +359,6 @@ class LightRAGKnowledgeBackend(KnowledgeBackend):
         os.environ["NEO4J_PASSWORD"] = self.settings.neo4j_password
 
     def _ensure_milvus_database(self) -> None:
-        """在 LightRAG 初始化 storage 前确保独立 Milvus database 已存在。"""
         from pymilvus import MilvusClient
 
         client = MilvusClient(

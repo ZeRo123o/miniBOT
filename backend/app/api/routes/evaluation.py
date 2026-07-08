@@ -17,6 +17,16 @@ class RunEvaluationRequest(BaseModel):
     retrieval_config: dict[str, Any] = Field(default_factory=dict, alias="model_config")
 
 
+class GenerateEvaluationDatasetRequest(BaseModel):
+    user_id: str = Field(default="default", min_length=1, max_length=128)
+    name: str | None = Field(default=None, max_length=255)
+    description: str = Field(default="", max_length=2000)
+    count: int = Field(default=10, ge=1, le=100)
+    candidate_chunk_count: int = Field(default=2, ge=0, le=7)
+    llm_model_spec: str | None = Field(default=None, min_length=1, max_length=255)
+    concurrency_count: int = Field(default=4, ge=1, le=10)
+
+
 @router.post("/knowledge-bases/{knowledge_base_id}/evaluation/datasets/upload")
 async def upload_evaluation_dataset(
     knowledge_base_id: int,
@@ -36,6 +46,28 @@ async def upload_evaluation_dataset(
             filename=file.filename or "",
             name=name,
             description=description,
+        )
+        return {"message": "success", "data": data}
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@router.post("/knowledge-bases/{knowledge_base_id}/evaluation/datasets/generate")
+async def generate_evaluation_dataset(
+    knowledge_base_id: int,
+    payload: GenerateEvaluationDatasetRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    try:
+        data = await EvaluationService(db).generate_dataset(
+            knowledge_base_id=knowledge_base_id,
+            user_id=payload.user_id,
+            name=payload.name,
+            description=payload.description,
+            count=payload.count,
+            context_count=payload.candidate_chunk_count + 1,
+            concurrency_count=payload.concurrency_count,
+            llm_model_spec=payload.llm_model_spec,
         )
         return {"message": "success", "data": data}
     except ValueError as error:

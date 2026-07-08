@@ -145,7 +145,7 @@ class ModelProvider(Base, TimestampMixin):
 
 
 class ModelUseConfig(Base, TimestampMixin):
-    """Map a model use such as chat_model to one provider_id:model_id spec."""
+    """Map a named runtime model use to one provider_id:model_id spec."""
 
     __tablename__ = "model_use_configs"
 

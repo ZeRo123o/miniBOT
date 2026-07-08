@@ -238,6 +238,14 @@ class KnowledgeChunkRepository:
         )
         return list(result.scalars().all())
 
+    async def list_by_knowledge_base(self, knowledge_base_id: int) -> list[KnowledgeChunk]:
+        result = await self.db.execute(
+            select(KnowledgeChunk)
+            .where(KnowledgeChunk.knowledge_base_id == knowledge_base_id)
+            .order_by(KnowledgeChunk.document_id, KnowledgeChunk.chunk_index, KnowledgeChunk.id)
+        )
+        return list(result.scalars().all())
+
     async def delete_by_document(self, document_id: int) -> None:
         await self.db.execute(delete(KnowledgeChunk).where(KnowledgeChunk.document_id == document_id))
         await self.db.commit()

@@ -16,6 +16,7 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
     user_id: str = "default"
     conversation_id: int | None = None
+    model_spec: str | None = None
     uploads: list[ChatUpload] = Field(default_factory=list)
 
 
@@ -48,6 +49,8 @@ class KnowledgeBaseCreate(BaseModel):
     kb_type: Literal["milvus", "lightrag"] = "milvus"
     chunk_preset_id: str = Field(default="general", min_length=1, max_length=32)
     chunk_parser_config: dict[str, Any] = Field(default_factory=dict)
+    embedding_model_spec: str | None = None
+    extraction_model_spec: str | None = None
 
 
 class KnowledgeQueryTestRequest(BaseModel):

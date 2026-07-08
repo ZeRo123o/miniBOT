@@ -183,6 +183,7 @@ class KnowledgeRetrievalService:
                 bm25_drop_ratio_search=bm25_drop_ratio_search,
                 include_distances=include_distances,
                 document_ids=document_ids,
+                embedding_model_spec=metadata.get("embedding_model_spec"),
                 lightrag_query_mode=metadata.get("lightrag_query_mode") or None,
             )
         except ValueError as error:
@@ -222,6 +223,11 @@ class KnowledgeRetrievalService:
         for item, score in zip(results, scores, strict=True):
             item["rerank_score"] = float(score)
         results.sort(key=lambda item: item.get("rerank_score", item.get("score", 0.0)), reverse=True)
+        logger.info(
+            "Knowledge rerank completed: model=%s candidates=%s",
+            reranker_model or "default",
+            len(results),
+        )
         return results
 
     async def _attach_document_metadata(self, results: list[dict[str, Any]]) -> None:

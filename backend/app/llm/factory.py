@@ -4,13 +4,10 @@ from app.core.config import get_settings
 from app.llm.chat_model import MiniBotChatModel
 from app.llm.providers.cache import ModelInfo, model_cache
 
-CHAT_MODEL = "chat_model"
 DEEP_RESEARCH_MODEL = "deep_research_model"
 
 
 def _runtime_provider(provider_type: str) -> str:
-    if provider_type == "mock":
-        return "mock"
     if provider_type in {"openai", "openai-compatible", "openrouter"}:
         return "openai-compatible"
     raise ValueError(f"Unsupported model provider type: {provider_type}")
@@ -42,7 +39,7 @@ def _chat_model_from_info(info: ModelInfo) -> MiniBotChatModel:
     )
 
 
-def get_model(model_use: str = CHAT_MODEL) -> BaseChatModel:
+def get_model(model_use: str) -> BaseChatModel:
     return _chat_model_from_info(_model_info_for_use(model_use))
 
 
@@ -53,10 +50,6 @@ def get_model_by_spec(model_spec: str) -> BaseChatModel:
     if info.model_type != "chat":
         raise ValueError(f"Model {model_spec} is not a chat model")
     return _chat_model_from_info(info)
-
-
-def get_chat_model() -> BaseChatModel:
-    return get_model(CHAT_MODEL)
 
 
 def get_deep_research_model() -> BaseChatModel:

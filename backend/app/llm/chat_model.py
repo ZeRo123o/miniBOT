@@ -4,10 +4,10 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
-from langchain_core.language_models import LanguageModelInput
 from langchain_core.callbacks import AsyncCallbackManagerForLLMRun, CallbackManagerForLLMRun
+from langchain_core.language_models import LanguageModelInput
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, AIMessageChunk, BaseMessage, ToolMessage
 from langchain_core.outputs import ChatGeneration, ChatGenerationChunk, ChatResult
 from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool
@@ -18,12 +18,12 @@ logger = logging.getLogger(__name__)
 
 
 class ModelRequestTimeoutError(RuntimeError):
-    """OpenAI-compatible 模型服务在配置的读取超时内未返回。"""
+    """Raised when the configured model endpoint does not respond in time."""
 
 
 class MiniBotChatModel(BaseChatModel):
-    provider: str = "mock"
-    model_name: str = "mock"
+    provider: str = "openai-compatible"
+    model_name: str = ""
     api_key: str = ""
     base_url: str = "https://api.openai.com/v1"
     temperature: float = 0.2
@@ -34,7 +34,6 @@ class MiniBotChatModel(BaseChatModel):
 
     @property
     def _llm_type(self) -> str:
-        """返回当前模型适配器的类型标识。"""
         return f"minibot-{self.provider}"
 
     def bind_tools(
@@ -44,7 +43,6 @@ class MiniBotChatModel(BaseChatModel):
         tool_choice: str | dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Runnable[LanguageModelInput, BaseMessage]:
-        """绑定 LangChain 工具定义，并转换为 OpenAI-compatible tool schema。"""
         converted_tools = [convert_to_openai_tool(item) for item in tools]
         return self.model_copy(update={"tools": converted_tools, "tool_choice": tool_choice})
 
@@ -55,10 +53,7 @@ class MiniBotChatModel(BaseChatModel):
         run_manager: CallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
-        """同步生成模型回复，兼容 LangChain BaseChatModel 接口。"""
-        if self.provider == "mock":
-            return self._mock_result(messages)
-        return self._openai_compatible_result(messages)
+        return self._openai_compatible_result(messages, stop=stop)
 
     async def _agenerate(
         self,
@@ -67,10 +62,7 @@ class MiniBotChatModel(BaseChatModel):
         run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> ChatResult:
-        """异步生成模型回复，供 create_agent 主流程调用。"""
-        if self.provider == "mock":
-            return self._mock_result(messages)
-        return await self._aopenai_compatible_result(messages)
+        return await self._aopenai_compatible_result(messages, stop=stop)
 
     async def _astream(
         self,
@@ -79,24 +71,8 @@ class MiniBotChatModel(BaseChatModel):
         run_manager: AsyncCallbackManagerForLLMRun | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[ChatGenerationChunk]:
-        """Stream OpenAI-compatible SSE deltas as LangChain message chunks.
-
-        LangGraph can now forward these chunks directly to the chat SSE endpoint.
-        Tool-call deltas are retained as `tool_call_chunks`, matching Yuxi's model
-        stream contract and allowing the UI to merge their incremental arguments.
-        """
-        if self.provider == "mock":
-            # Keep local development deterministic while still exercising the streaming path.
-            message = self._mock_result(messages).generations[0].message
-            yield ChatGenerationChunk(
-                message=AIMessageChunk(content=str(message.content), chunk_position="last"),
-            )
-            return
-
-        payload = self._openai_payload(messages)
+        payload = self._openai_payload(messages, stop=stop)
         payload["stream"] = True
-        if stop:
-            payload["stop"] = stop
         try:
             async with httpx.AsyncClient(timeout=self._http_timeout()) as client:
                 async with client.stream(
@@ -114,7 +90,6 @@ class MiniBotChatModel(BaseChatModel):
             self._raise_timeout(error)
 
     def _stream_chunk_from_line(self, line: str) -> ChatGenerationChunk | None:
-        """Convert one OpenAI SSE `data:` line into a LangChain generation chunk."""
         if not line.startswith("data:"):
             return None
         raw_data = line[5:].strip()
@@ -131,7 +106,6 @@ class MiniBotChatModel(BaseChatModel):
             return None
         choice = choices[0] or {}
         delta = choice.get("delta") or {}
-        content = delta.get("content") or ""
         tool_call_chunks = []
         for item in delta.get("tool_calls") or []:
             function = item.get("function") or {}
@@ -146,7 +120,7 @@ class MiniBotChatModel(BaseChatModel):
             )
         finish_reason = choice.get("finish_reason")
         message = AIMessageChunk(
-            content=content,
+            content=delta.get("content") or "",
             tool_call_chunks=tool_call_chunks,
             id=data.get("id"),
             response_metadata={"model": data.get("model") or self.model_name},
@@ -157,19 +131,16 @@ class MiniBotChatModel(BaseChatModel):
             generation_info={"finish_reason": finish_reason} if finish_reason else None,
         )
 
-    def _mock_result(self, messages: list[BaseMessage]) -> ChatResult:
-        """生成本地 mock 回复，便于无 API Key 时开发调试。"""
-        last_user = next((message.content for message in reversed(messages) if isinstance(message, HumanMessage)), "")
-        message = AIMessage(content=f"收到：{last_user}\n\n当前使用 mock 模型。配置真实 provider 后会调用大模型。")
-        return ChatResult(generations=[ChatGeneration(message=message)])
-
-    def _openai_payload(self, messages: list[BaseMessage]) -> dict[str, Any]:
-        """把 LangChain 消息和工具 schema 转成 OpenAI-compatible 请求体。"""
+    def _openai_payload(self, messages: list[BaseMessage], stop: list[str] | None = None) -> dict[str, Any]:
+        if not self.model_name:
+            raise ValueError("Model name is not configured.")
         payload: dict[str, Any] = {
             "model": self.model_name,
             "messages": [self._convert_message(message) for message in messages],
             "temperature": self.temperature,
         }
+        if stop:
+            payload["stop"] = stop
         if self.tools:
             payload["tools"] = self.tools
         if self.tool_choice:
@@ -177,22 +148,20 @@ class MiniBotChatModel(BaseChatModel):
         return payload
 
     def _openai_headers(self) -> dict[str, str]:
-        """构造 OpenAI-compatible 请求头，并校验 API Key。"""
         if not self.api_key:
-            raise ValueError("模型 API Key 未配置，请在模型配置页设置 API Key 或 API Key 环境变量。")
+            raise ValueError("Model API key is not configured. Please set it on the model config page or via api_key_env.")
         return {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
             **self.request_headers,
         }
 
-    def _openai_compatible_result(self, messages: list[BaseMessage]) -> ChatResult:
-        """同步调用 OpenAI-compatible chat completions 接口。"""
+    def _openai_compatible_result(self, messages: list[BaseMessage], stop: list[str] | None = None) -> ChatResult:
         try:
             with httpx.Client(timeout=self._http_timeout()) as client:
                 response = client.post(
                     f"{self.base_url.rstrip('/')}/chat/completions",
-                    json=self._openai_payload(messages),
+                    json=self._openai_payload(messages, stop=stop),
                     headers=self._openai_headers(),
                 )
                 response.raise_for_status()
@@ -201,13 +170,16 @@ class MiniBotChatModel(BaseChatModel):
             self._raise_timeout(error)
         return self._result_from_openai_data(data)
 
-    async def _aopenai_compatible_result(self, messages: list[BaseMessage]) -> ChatResult:
-        """异步调用 OpenAI-compatible chat completions 接口。"""
+    async def _aopenai_compatible_result(
+        self,
+        messages: list[BaseMessage],
+        stop: list[str] | None = None,
+    ) -> ChatResult:
         try:
             async with httpx.AsyncClient(timeout=self._http_timeout()) as client:
                 response = await client.post(
                     f"{self.base_url.rstrip('/')}/chat/completions",
-                    json=self._openai_payload(messages),
+                    json=self._openai_payload(messages, stop=stop),
                     headers=self._openai_headers(),
                 )
                 response.raise_for_status()
@@ -217,7 +189,6 @@ class MiniBotChatModel(BaseChatModel):
         return self._result_from_openai_data(data)
 
     def _http_timeout(self) -> httpx.Timeout:
-        """连接超时保持较短，模型生成阶段使用可配置读取超时。"""
         return httpx.Timeout(
             connect=min(20.0, self.timeout_seconds),
             read=self.timeout_seconds,
@@ -233,23 +204,19 @@ class MiniBotChatModel(BaseChatModel):
             self.timeout_seconds,
         )
         raise ModelRequestTimeoutError(
-            f"模型服务在 {self.timeout_seconds:g} 秒内未返回结果"
+            f"Model service did not respond within {self.timeout_seconds:g} seconds."
         ) from error
 
     def _result_from_openai_data(self, data: dict[str, Any]) -> ChatResult:
-        """把 OpenAI-compatible 响应转换为 LangChain ChatResult。"""
         raw_message = data["choices"][0]["message"]
-        content = raw_message.get("content") or ""
-        tool_calls = self._parse_tool_calls(raw_message.get("tool_calls") or [])
         message = AIMessage(
-            content=content,
-            tool_calls=tool_calls,
+            content=raw_message.get("content") or "",
+            tool_calls=self._parse_tool_calls(raw_message.get("tool_calls") or []),
             response_metadata={"model": self.model_name, "raw": data},
         )
         return ChatResult(generations=[ChatGeneration(message=message)])
 
     def _convert_message(self, message: BaseMessage) -> dict[str, Any]:
-        """把 LangChain message 转换为 OpenAI-compatible message 字典。"""
         role = getattr(message, "type", "human")
         if role == "human":
             role = "user"
@@ -274,7 +241,6 @@ class MiniBotChatModel(BaseChatModel):
         return payload
 
     def _parse_tool_calls(self, tool_calls: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """把 OpenAI-compatible 的 tool_calls 转成 LangChain AIMessage 可识别的结构。"""
         parsed = []
         for item in tool_calls:
             function = item.get("function") or {}

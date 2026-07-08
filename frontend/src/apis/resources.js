@@ -146,6 +146,13 @@ export async function uploadEvaluationDataset(knowledgeBaseId, userId, file, nam
   return response.json()
 }
 
+export function generateEvaluationDataset(knowledgeBaseId, payload) {
+  return request(`/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/evaluation/datasets/generate`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 export function listEvaluationDatasets(knowledgeBaseId, userId) {
   return request(
     `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/evaluation/datasets?user_id=${encodeURIComponent(userId)}`,
@@ -190,17 +197,17 @@ export function deleteEvaluationRun(knowledgeBaseId, runId, userId) {
   )
 }
 
-export async function sendChatStream(message, userId, conversationId = null, handlers = {}, files = []) {
+export async function sendChatStream(message, userId, conversationId = null, handlers = {}, files = [], modelSpec = null) {
   const hasFiles = Array.isArray(files) && files.length > 0
   const requestOptions = hasFiles
     ? {
         method: 'POST',
-        body: buildChatFormData(message, userId, conversationId, files),
+        body: buildChatFormData(message, userId, conversationId, files, modelSpec),
       }
     : {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, user_id: userId, conversation_id: conversationId }),
+        body: JSON.stringify({ message, user_id: userId, conversation_id: conversationId, model_spec: modelSpec }),
       }
 
   const response = await fetch(`${API_BASE}/chat/stream`, requestOptions)
@@ -238,10 +245,13 @@ export async function sendChatStream(message, userId, conversationId = null, han
   }
 }
 
-function buildChatFormData(message, userId, conversationId, files) {
+function buildChatFormData(message, userId, conversationId, files, modelSpec = null) {
   const formData = new FormData()
   formData.append('message', message)
   formData.append('user_id', userId)
+  if (modelSpec) {
+    formData.append('model_spec', modelSpec)
+  }
   if (conversationId !== null && conversationId !== undefined) {
     formData.append('conversation_id', String(conversationId))
   }
