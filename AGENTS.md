@@ -149,7 +149,8 @@ http://localhost:5173
 - `backend/app/agents/buildin/chatbot/graph.py` 使用 LangChain `create_agent` 构建 agent，不手写 node/edge 编排。
 - Agent 业务中间件放在 `backend/app/agents/middlewares`，新增上下文裁剪、记忆、工具权限等能力时优先新增独立 middleware 文件。
 - 知识库工具由 `backend/app/agents/middlewares/knowledge_base.py` 注册，工具实现继续放在 `backend/app/agents/toolkits/kbs`。
-- 上下文压缩放在 `backend/app/agents/middlewares/summary.py`；默认按估算 token 达到 90K 触发，先将超阈值 ToolMessage 结果卸载到 `/mnt/user-data/workspace/.minibot/summary_offload`，卸载后仍超过 `summary_max_retention_ratio * summary_trigger_tokens` 时再清理历史并生成滚动摘要，始终保留 System Message。
+- 工具输出预算放在 `backend/app/agents/middlewares/tool_output_budget.py`；超阈值 ToolMessage 在工具返回边界或历史兜底模型调用边界写入 `/mnt/user-data/workspace/.minibot/tool_outputs`，消息里只保留预览和可分段读取路径。
+- 上下文压缩放在 `backend/app/agents/middlewares/summary_middleware.py`；默认按估算 token 达到 90K 触发，超过 `summary_max_retention_ratio * summary_trigger_tokens` 时清理历史并生成滚动摘要，始终保留 System Message；SummaryMiddleware 不负责工具结果卸载。
 - 智能助手提示词组装放在 `backend/app/agents/buildin/chatbot/prompt.py`；基础 prompt 在 `create_agent` 时构建，资源、Skill 和工具策略由 middleware 在每次模型调用前增量追加，不要在 provider 中拼 prompt。
 - Skill 元数据存放在独立 `skills` 表中，`AgentContext.skills` 只保存 slug；不在 runtime 中预加载或缓存 Skill 元数据。`SkillsMiddleware.abefore_agent` 直接通过 Repository 加载提示元数据和依赖图、展开 `skill_dependencies`，并将 Skill 提示段合并到 `AgentContext.system_prompt`；`awrap_model_call` 再次从数据库读取依赖图并处理动态依赖；读取可见 Skill 的 `/mnt/skills/<slug>/SKILL.md` 后由同步或异步 tool wrapper 写入 `activated_skills`。`RuntimeConfigMiddleware.awrap_model_call` 每次从 context 读取最新 system prompt 并覆盖模型请求。
 - 普通 Tool 与 MCP 在 graph 构建时按当前用户已启用资源注入；Skill 依赖必须经过 `backend/app/agents/toolkits/dependencies.py` 的 provider 和统一工具 resolver，在读取对应 `SKILL.md` 并激活后才动态追加。Skill 依赖不得绕过资源启用状态或用户可见范围。

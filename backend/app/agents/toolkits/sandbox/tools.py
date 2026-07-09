@@ -5,7 +5,7 @@ from pathlib import PurePosixPath
 from typing import Annotated, Any
 
 from langgraph.prebuilt.tool_node import ToolRuntime
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from app.agents.backends.filesystem import create_agent_filesystem_backend
 from app.agents.backends.sandbox.paths import (
@@ -40,6 +40,39 @@ SandboxSearchPattern = Annotated[
     str,
     Field(description="要搜索的文本或正则表达式"),
 ]
+
+
+SandboxLineNumber = Annotated[
+    int | None,
+    Field(default=None, ge=1, description="1-based line number for ranged file reads"),
+]
+
+
+class SandboxReadFileInput(BaseModel):
+    path: SandboxPath
+    start_line: SandboxLineNumber = None
+    end_line: SandboxLineNumber = None
+
+
+class SandboxWriteFileInput(BaseModel):
+    path: SandboxPath
+    content: SandboxContent
+
+
+class SandboxPathInput(BaseModel):
+    path: SandboxPath
+
+
+class SandboxGlobInput(BaseModel):
+    path: SandboxPath
+    pattern: SandboxGlobPattern
+
+
+class SandboxGrepInput(BaseModel):
+    path: SandboxPath
+    pattern: SandboxSearchPattern
+    glob: Annotated[str, Field(description="Candidate file glob")] = "**/*"
+    literal: Annotated[bool, Field(description="Treat pattern as plain text")] = True
 
 
 def _runtime_context(runtime: ToolRuntime | None) -> Any:
@@ -116,28 +149,109 @@ def _truncate(text: str, limit: int) -> tuple[str, bool]:
     return encoded[:limit].decode("utf-8", errors="ignore"), True
 
 
+def _resolve_read_window(
+    start_line: int | None,
+    end_line: int | None,
+    default_lines: int,
+) -> tuple[int, int]:
+    default_lines = max(1, default_lines)
+    if start_line is None and end_line is None:
+        return 1, default_lines
+    start = 1 if start_line is None else max(1, int(start_line))
+    end = start + default_lines - 1 if end_line is None else max(start, int(end_line))
+    return start, end
+
+
+def _format_read_output(
+    *,
+    path: str,
+    content: str,
+    start_line: int | None,
+    end_line: int | None,
+    total_lines: int | None,
+    truncated: bool,
+) -> str:
+    if not content:
+        return "(empty)"
+
+    lines = [f"File: {path}"]
+    if start_line is not None and end_line is not None and total_lines is not None:
+        lines.append(f"Lines: {start_line}-{end_line} of {total_lines}")
+    lines.extend(["", content])
+
+    hints: list[str] = []
+    if truncated:
+        hints.append("Output was truncated by the read limit.")
+    if (
+        start_line is not None
+        and end_line is not None
+        and total_lines is not None
+        and end_line < total_lines
+    ):
+        next_start = end_line + 1
+        next_end = min(total_lines, end_line + max(1, end_line - start_line + 1))
+        hints.append(
+            "Use sandbox_read_file("
+            f'path="{path}", start_line={next_start}, end_line={next_end}'
+            ") to continue."
+        )
+    if hints:
+        lines.extend(["", "[" + " ".join(hints) + "]"])
+    return "\n".join(lines)
+
+
 @tool(
     category="sandbox",
     tags=["沙盒", "文件", "只读"],
     display_name="读取沙盒文件",
+    args_schema=SandboxReadFileInput,
 )
-async def sandbox_read_file(path: SandboxPath, runtime: ToolRuntime) -> str:
+async def sandbox_read_file(
+    path: SandboxPath,
+    runtime: ToolRuntime,
+    start_line: SandboxLineNumber = None,
+    end_line: SandboxLineNumber = None,
+) -> str:
     """读取 workspace、uploads、outputs 或 skills 中的 UTF-8 文本文件。"""
     context = _runtime_context(runtime)
-    event = start_tool_call(context, tool_name="sandbox_read_file", payload={"path": path})
+    event = start_tool_call(
+        context,
+        tool_name="sandbox_read_file",
+        payload={"path": path, "start_line": start_line, "end_line": end_line},
+    )
     try:
         normalized = _validate_path(path, operation="read")
         backend = _filesystem_backend(runtime)
-        result = await backend.aread(normalized)
+        settings = get_settings()
+        resolved_start, resolved_end = _resolve_read_window(
+            start_line,
+            end_line,
+            settings.sandbox_read_default_lines,
+        )
+        result = await backend.aread(
+            normalized,
+            start_line=resolved_start,
+            end_line=resolved_end,
+            max_chars=settings.sandbox_read_max_chars,
+        )
         if result.error:
             raise ValueError(result.error)
-        output, truncated = _truncate(result.content, get_settings().sandbox_max_output_bytes)
         finish_tool_call(
             event,
             virtual_path=normalized,
-            truncated=truncated,
+            start_line=result.start_line,
+            end_line=result.end_line,
+            total_lines=result.total_lines,
+            truncated=result.truncated,
         )
-        return output or "(empty)"
+        return _format_read_output(
+            path=normalized,
+            content=result.content,
+            start_line=result.start_line,
+            end_line=result.end_line,
+            total_lines=result.total_lines,
+            truncated=result.truncated,
+        )
     except Exception as exc:  # noqa: BLE001
         fail_tool_call(event, exc)
         return f"Error: {exc}"
@@ -147,6 +261,7 @@ async def sandbox_read_file(path: SandboxPath, runtime: ToolRuntime) -> str:
     category="sandbox",
     tags=["沙盒", "文件", "写入"],
     display_name="写入沙盒文件",
+    args_schema=SandboxWriteFileInput,
 )
 async def sandbox_write_file(
     path: SandboxPath,
@@ -185,6 +300,7 @@ async def sandbox_write_file(
     category="sandbox",
     tags=["沙盒", "文件", "目录"],
     display_name="列出沙盒目录",
+    args_schema=SandboxPathInput,
 )
 async def sandbox_ls(path: SandboxPath, runtime: ToolRuntime) -> str:
     """列出受控沙盒目录的直接子项。"""
@@ -220,6 +336,7 @@ async def sandbox_ls(path: SandboxPath, runtime: ToolRuntime) -> str:
     category="sandbox",
     tags=["沙盒", "文件", "搜索"],
     display_name="匹配沙盒文件",
+    args_schema=SandboxGlobInput,
 )
 async def sandbox_glob(
     path: SandboxPath,
@@ -257,6 +374,7 @@ async def sandbox_glob(
     category="sandbox",
     tags=["沙盒", "文件", "搜索"],
     display_name="搜索沙盒文件内容",
+    args_schema=SandboxGrepInput,
 )
 async def sandbox_grep(
     path: SandboxPath,

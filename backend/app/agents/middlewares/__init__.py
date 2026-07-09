@@ -7,6 +7,7 @@ from app.agents.middlewares.runtime_prompt import RuntimePromptMiddleware
 from app.agents.middlewares.Skills_middleware import SkillsMiddleware
 from app.agents.middlewares.subagent_middleware import SubAgentMiddleware
 from app.agents.middlewares.summary_middleware import SummaryMiddleware
+from app.agents.middlewares.tool_output_budget import ToolOutputBudgetMiddleware
 from app.agents.backends.sandbox.middleware import SandboxMiddleware
 
 __all__ = [
@@ -18,4 +19,5 @@ __all__ = [
     "SkillsMiddleware",
     "SubAgentMiddleware",
     "SummaryMiddleware",
+    "ToolOutputBudgetMiddleware",
 ]

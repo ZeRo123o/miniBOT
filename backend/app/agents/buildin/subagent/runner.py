@@ -107,9 +107,12 @@ class SubAgentRunner:
             summary_trigger_messages=parent_context.summary_trigger_messages,
             summary_keep_messages=parent_context.summary_keep_messages,
             summary_trim_tokens_to_summarize=parent_context.summary_trim_tokens_to_summarize,
-            summary_offload_threshold_tokens=parent_context.summary_offload_threshold_tokens,
-            summary_offload_preview_lines=parent_context.summary_offload_preview_lines,
             summary_max_retention_ratio=parent_context.summary_max_retention_ratio,
+            tool_output_budget_enabled=parent_context.tool_output_budget_enabled,
+            tool_output_offload_threshold_chars=parent_context.tool_output_offload_threshold_chars,
+            tool_output_preview_head_chars=parent_context.tool_output_preview_head_chars,
+            tool_output_preview_tail_chars=parent_context.tool_output_preview_tail_chars,
+            tool_output_fallback_max_chars=parent_context.tool_output_fallback_max_chars,
         )
 
     def _authorized_tools(

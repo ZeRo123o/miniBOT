@@ -16,6 +16,7 @@ from app.agents.middlewares import (
     SandboxMiddleware,
     SkillsMiddleware,
     SummaryMiddleware,
+    ToolOutputBudgetMiddleware,
 )
 from app.agents.middlewares.subagent_middleware import SubAgentMiddleware
 from app.llm import get_model, get_model_by_spec
@@ -40,6 +41,7 @@ async def build_chat_agent(context: AgentContext | None = None) -> Any:
         middleware.append(SubAgentMiddleware())
     middleware.extend(
         [
+            ToolOutputBudgetMiddleware(),
             ToolCallLimitMiddleware(
                 run_limit=agent_context.max_tool_calls,
                 exit_behavior="continue",

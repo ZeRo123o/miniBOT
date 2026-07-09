@@ -81,13 +81,18 @@ class Settings(BaseSettings):
     sandbox_keepalive_interval_seconds: int = 30
     sandbox_max_output_bytes: int = 262144
     sandbox_max_write_bytes: int = 81920
+    sandbox_read_default_lines: int = 200
+    sandbox_read_max_chars: int = 50000
     summary_trigger_tokens: int = 90000
     summary_trigger_messages: int = 0
     summary_keep_messages: int = 20
     summary_trim_tokens_to_summarize: int = 4000
-    summary_offload_threshold_tokens: int = 1000
-    summary_offload_preview_lines: int = 10
     summary_max_retention_ratio: float = 0.6
+    tool_output_budget_enabled: bool = True
+    tool_output_offload_threshold_chars: int = 16000
+    tool_output_preview_head_chars: int = 4000
+    tool_output_preview_tail_chars: int = 2000
+    tool_output_fallback_max_chars: int = 8000
     default_system_prompt: str = DEFAULT_SYSTEM_PROMPT
 
     model_config = SettingsConfigDict(env_file=".env", env_prefix="MINIBOT_", extra="ignore")

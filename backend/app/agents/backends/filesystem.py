@@ -40,6 +40,10 @@ class BackendReadResult:
     path: str
     content: str = ""
     error: str | None = None
+    start_line: int | None = None
+    end_line: int | None = None
+    total_lines: int | None = None
+    truncated: bool = False
 
 
 @dataclass(slots=True)
@@ -153,7 +157,14 @@ class AgentFilesystemBackend:
             raise ValueError("glob traversal is not allowed")
         return clean
 
-    def read(self, path: str) -> BackendReadResult:
+    def read(
+        self,
+        path: str,
+        *,
+        start_line: int | None = None,
+        end_line: int | None = None,
+        max_chars: int | None = None,
+    ) -> BackendReadResult:
         try:
             normalized = normalize_virtual_path(path)
             if not can_read(normalized):
@@ -165,12 +176,62 @@ class AgentFilesystemBackend:
             if not host_path.is_file():
                 raise IsADirectoryError(f"path is a directory: {normalized}")
             content = host_path.read_text(encoding="utf-8")
+            lines = content.splitlines()
+            total_lines = len(lines)
+            selected_start, selected_end = self._normalize_line_window(
+                start_line,
+                end_line,
+                total_lines,
+            )
+            if selected_start is not None and selected_end is not None:
+                content = "\n".join(lines[selected_start - 1 : selected_end])
+            content, truncated = self._truncate_chars(content, max_chars)
         except Exception as exc:  # noqa: BLE001
             return BackendReadResult(path=path, error=str(exc))
-        return BackendReadResult(path=normalized, content=content)
+        return BackendReadResult(
+            path=normalized,
+            content=content,
+            start_line=selected_start,
+            end_line=selected_end,
+            total_lines=total_lines,
+            truncated=truncated,
+        )
 
-    async def aread(self, path: str) -> BackendReadResult:
-        return await asyncio.to_thread(self.read, path)
+    async def aread(
+        self,
+        path: str,
+        *,
+        start_line: int | None = None,
+        end_line: int | None = None,
+        max_chars: int | None = None,
+    ) -> BackendReadResult:
+        return await asyncio.to_thread(
+            self.read,
+            path,
+            start_line=start_line,
+            end_line=end_line,
+            max_chars=max_chars,
+        )
+
+    @staticmethod
+    def _normalize_line_window(
+        start_line: int | None,
+        end_line: int | None,
+        total_lines: int,
+    ) -> tuple[int | None, int | None]:
+        if start_line is None and end_line is None:
+            return None, None
+        if total_lines <= 0:
+            return 1, 0
+        start = 1 if start_line is None else max(1, int(start_line))
+        end = total_lines if end_line is None else max(start, int(end_line))
+        return min(start, total_lines), min(end, total_lines)
+
+    @staticmethod
+    def _truncate_chars(content: str, max_chars: int | None) -> tuple[str, bool]:
+        if max_chars is None or max_chars <= 0 or len(content) <= max_chars:
+            return content, False
+        return content[:max_chars], True
 
     def write(self, path: str, content: str) -> BackendWriteResult:
         try:

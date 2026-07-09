@@ -206,9 +206,12 @@ class AgentRuntime(BaseChatRuntime):
             summary_trigger_messages=settings.summary_trigger_messages,
             summary_keep_messages=settings.summary_keep_messages,
             summary_trim_tokens_to_summarize=settings.summary_trim_tokens_to_summarize,
-            summary_offload_threshold_tokens=settings.summary_offload_threshold_tokens,
-            summary_offload_preview_lines=settings.summary_offload_preview_lines,
             summary_max_retention_ratio=settings.summary_max_retention_ratio,
+            tool_output_budget_enabled=settings.tool_output_budget_enabled,
+            tool_output_offload_threshold_chars=settings.tool_output_offload_threshold_chars,
+            tool_output_preview_head_chars=settings.tool_output_preview_head_chars,
+            tool_output_preview_tail_chars=settings.tool_output_preview_tail_chars,
+            tool_output_fallback_max_chars=settings.tool_output_fallback_max_chars,
         )
 
     async def _generate_stream_result(

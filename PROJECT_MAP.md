@@ -83,7 +83,8 @@ backend/app
 |   |   |-- runtime_config.py  杩愯鏃跺伐鍏锋敞鍐屼笌妯″瀷鍙鎬х瓫閫?
 |   |   |-- Skills_middleware.py  Skill DB 鍔犺浇銆佹憳瑕佹敞鍏ャ€佽鍙栨縺娲诲拰渚濊禆鎸夐渶鍔犺浇
 |   |   |-- runtime_prompt.py  璧勬簮鍜屽伐鍏风瓥鐣ュ閲忔敞鍏?
-|   |   |-- summary.py         闀夸笂涓嬫枃鍘嬬缉涓庡伐鍏风粨鏋滃嵏杞?
+|   |   |-- summary_middleware.py  long-context summarization
+|   |   |-- tool_output_budget.py  ToolMessage output budgeting and offload
 |   |   `-- system_message.py  system message 杩藉姞宸ュ叿
 |   |-- mcp/                  Yuxi 椋庢牸 MCP service锛氬唴缃０鏄庛€佸彂鐜扮紦瀛樹笌宸ュ叿杩囨护
 |   |-- skills/
@@ -273,7 +274,8 @@ ToolCallLimitMiddleware    缁熶竴闄愬埗鍗曟 Agent 杩愯鐨勫伐�
 KnowledgeBaseMiddleware    娉ㄥ唽 list_kbs / query_kb 鐭ヨ瘑搴撳伐鍏?
 SkillsMiddleware          鐢熷懡鍛ㄦ湡鍐呯洿鎺ユ煡璇?Skill Repository锛屾敞鍏?prompt銆佸睍寮€渚濊禆骞跺鐞嗗姩鎬佹縺娲?
 RuntimeConfigMiddleware   姣忔妯″瀷璋冪敤璇诲彇 context.system_prompt锛屽苟瑕嗙洊鏈妯″瀷璇锋眰
-SummaryMiddleware          浼扮畻 token 杈惧埌 90K 鏃跺厛鍗歌浇澶?ToolMessage锛屽繀瑕佹椂鍐嶇敓鎴愭粴鍔ㄦ憳瑕佸苟瑁佸壀鍘嗗彶
+ToolOutputBudgetMiddleware controls oversized ToolMessage output by saving full content under `.minibot/tool_outputs` and keeping a compact preview in messages
+SummaryMiddleware          controls long conversation history only; it generates rolling summaries and trims old messages, but does not offload tool output
 RuntimePromptMiddleware    姣忔妯″瀷璋冪敤鍓嶅閲忚拷鍔犺祫婧愬拰宸ュ叿绛栫暐
 ```
 
@@ -371,7 +373,8 @@ DELETE /api/knowledge-documents/{document_id}?user_id=default
 - `backend/app/agents/buildin/chatbot/context.py`
 
 淇敼涓婁笅鏂囧帇缂╋細
-- `backend/app/agents/middlewares/summary.py`
+- `backend/app/agents/middlewares/summary_middleware.py`
+- `backend/app/agents/middlewares/tool_output_budget.py`
 - `backend/app/agents/buildin/chatbot/context.py`
 - `backend/app/core/config.py`
 

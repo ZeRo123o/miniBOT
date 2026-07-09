@@ -21,6 +21,7 @@ from app.agents.middlewares.runtime_config_middleware import RuntimeConfigMiddle
 from app.agents.middlewares.runtime_prompt import RuntimePromptMiddleware
 from app.agents.middlewares.Skills_middleware import SkillsMiddleware
 from app.agents.middlewares.summary_middleware import SummaryMiddleware
+from app.agents.middlewares.tool_output_budget import ToolOutputBudgetMiddleware
 from app.agents.toolkits import merge_runtime_tools, resolve_runtime_mcps, resolve_runtime_tools
 from app.llm import get_model, get_model_by_spec
 
@@ -70,6 +71,7 @@ async def build_subagent_agent(context: SubAgentContext | None = None) -> Any:
             SandboxMiddleware(),
             AttachmentMiddleware(),
             KnowledgeBaseMiddleware(),
+            ToolOutputBudgetMiddleware(),
             ToolCallLimitMiddleware(
                 run_limit=agent_context.max_tool_calls,
                 exit_behavior="continue",
