@@ -1,5 +1,5 @@
 <script setup>
-import { ChevronDown, Paperclip, Plus, SendHorizontal, X } from 'lucide-vue-next'
+import { Paperclip, Plus, SendHorizontal, X } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { sendChatStream } from '../apis/resources'
 import { loadModelProviderWorkspace, modelProviderStore } from '../stores/modelProviderStore'
@@ -15,6 +15,7 @@ import {
   removePendingAssistantMessage,
 } from '../stores/conversationStore'
 import { selectionStore } from '../stores/selectionStore'
+import AppSelect from './AppSelect.vue'
 import MarkdownMessage from './MarkdownMessage.vue'
 import ToolCallsGroup from './ToolCallsGroup.vue'
 
@@ -38,9 +39,15 @@ const chatModelOptions = computed(() =>
   ),
 )
 
-const activeModelLabel = computed(() => {
-  const option = chatModelOptions.value.find((model) => model.spec === selectedModelSpec.value)
-  return option?.label || selectedModelSpec.value || '选择模型'
+const chatSelectOptions = computed(() => {
+  if (!chatModelOptions.value.length) {
+    return [{ value: '', label: '未配置模型' }]
+  }
+  return chatModelOptions.value.map((model) => ({
+    value: model.spec,
+    label: `${model.providerLabel} / ${model.label}`,
+    selectedLabel: model.label,
+  }))
 })
 
 onMounted(() => {
@@ -80,9 +87,11 @@ async function submit() {
   }
 
   input.value = ''
+  sending.value = true
+  // 长文本发送后立即恢复单行高度，不等待流式请求结束。
+  await resizeInput()
   const filesToSend = [...selectedFiles.value]
   selectedFiles.value = []
-  sending.value = true
   plusMenuOpen.value = false
   errorMessage.value = ''
   const conversationId = conversationStore.activeId
@@ -165,6 +174,7 @@ function chartUrls(message) {
     .map((toolCall) => toolCall.chart_url)
     .filter(Boolean)
 }
+
 </script>
 
 <template>
@@ -189,7 +199,7 @@ function chartUrls(message) {
         <MarkdownMessage
           v-if="!message.metadata?.loading"
           :content="message.content"
-          :hidden-image-urls="chartUrls(message)"
+          :image-urls="chartUrls(message)"
         />
         <div v-if="message.metadata?.uploads?.length" class="message-attachments">
           <span v-for="upload in message.metadata.uploads" :key="upload.path || upload.file_name" class="attachment-pill">
@@ -232,18 +242,15 @@ function chartUrls(message) {
         @input="resizeInput"
         @keydown.enter.exact.prevent="submit"
       />
-      <div class="chat-model-select-wrap">
-        <select v-model="selectedModelSpec" class="chat-model-select" :disabled="sending || !chatModelOptions.length">
-          <option v-if="!chatModelOptions.length" value="">未配置模型</option>
-          <option v-for="model in chatModelOptions" :key="model.spec" :value="model.spec">
-            {{ model.providerLabel }} / {{ model.label }}
-          </option>
-        </select>
-        <span class="chat-model-pill">
-          <span>{{ activeModelLabel }}</span>
-          <ChevronDown :size="15" />
-        </span>
-      </div>
+      <AppSelect
+        v-model="selectedModelSpec"
+        class="chat-model-app-select"
+        aria-label="聊天模型"
+        :disabled="sending || !chatModelOptions.length"
+        menu-align="start"
+        :menu-width="260"
+        :options="chatSelectOptions"
+      />
       <button type="submit" class="chat-send-button" :disabled="sending || !input.trim() || !selectedModelSpec" title="发送">
         <SendHorizontal :size="20" />
       </button>

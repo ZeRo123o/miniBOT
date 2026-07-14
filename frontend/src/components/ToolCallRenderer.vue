@@ -9,7 +9,6 @@ import {
   Search,
   Wrench,
 } from 'lucide-vue-next'
-import ChartToolResult from './ChartToolResult.vue'
 
 const props = defineProps({
   toolCall: { type: Object, required: true },
@@ -87,9 +86,7 @@ function toggle() {
         />
       </template>
       <pre v-else-if="detail" class="tool-args">{{ detail }}</pre>
-      <ChartToolResult v-if="toolCall.chart_url" :url="toolCall.chart_url" />
     </div>
-    <ChartToolResult v-else-if="toolCall.chart_url" :url="toolCall.chart_url" />
   </div>
 </template>
 

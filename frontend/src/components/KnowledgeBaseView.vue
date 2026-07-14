@@ -23,9 +23,27 @@ import {
   uploadKnowledgeDocument,
 } from '../apis/resources'
 import { listModels } from '../apis/modelProviders'
+import {
+  loadModelProviderWorkspace,
+  modelProviderStore,
+} from '../stores/modelProviderStore'
 import { selectionStore } from '../stores/selectionStore'
+import AppSelect from './AppSelect.vue'
 
-const knowledgeTypes = ['全部类型', '文档知识库', '知识图谱']
+const knowledgeTypeFilterOptions = [
+  { value: 'all', label: '全部类型' },
+  { value: 'milvus', label: '文档知识库' },
+  { value: 'lightrag', label: '知识图谱' },
+]
+const knowledgeBaseTypeOptions = [
+  { value: 'milvus', label: 'Milvus 文档知识库' },
+  { value: 'lightrag', label: 'LightRAG 图知识库' },
+]
+const searchModeOptions = [
+  { value: 'hybrid', label: '混合检索' },
+  { value: 'vector', label: '向量检索' },
+  { value: 'keyword', label: '关键词检索' },
+]
 const detailTabs = [
   { key: 'documents', label: '文档管理' },
   { key: 'query', label: '检索测试' },
@@ -44,6 +62,7 @@ const props = defineProps({
 })
 
 const searchText = ref('')
+const knowledgeTypeFilter = ref('all')
 const knowledgeBases = ref([])
 const chunkPresets = ref([])
 const documentsByBaseId = ref({})
@@ -83,8 +102,6 @@ const datasetUploadDialogOpen = ref(false)
 const datasetUploadFile = ref(null)
 const benchmarkGenerating = ref(false)
 const benchmarkGenerateDialogOpen = ref(false)
-const chatModelsByProvider = ref({})
-const chatModelsLoading = ref(false)
 const embeddingModelsByProvider = ref({})
 const embeddingModelsLoading = ref(false)
 const datasetUploadForm = ref({
@@ -128,9 +145,14 @@ let documentRefreshPending = false
 
 const filteredKnowledgeBases = computed(() => {
   const keyword = searchText.value.trim().toLowerCase()
-  if (!keyword) return knowledgeBases.value
   return knowledgeBases.value.filter((item) => {
-    return [item.name, item.description].some((value) => String(value || '').toLowerCase().includes(keyword))
+    const matchesType = knowledgeTypeFilter.value === 'all' || item.kb_type === knowledgeTypeFilter.value
+    const matchesKeyword =
+      !keyword ||
+      [item.name, item.description].some((value) =>
+        String(value || '').toLowerCase().includes(keyword),
+      )
+    return matchesType && matchesKeyword
   })
 })
 
@@ -152,13 +174,93 @@ const rerankModelOptions = computed(() =>
 )
 
 const chatModelOptions = computed(() =>
-  Object.values(chatModelsByProvider.value).flatMap((group) =>
+  Object.values(modelProviderStore.chatModelsByProvider).flatMap((group) =>
     (group.models || []).map((model) => ({
       ...model,
       provider_display_name: group.provider_display_name,
     })),
   ),
 )
+
+// 与聊天输入框共享加载状态和模型缓存，避免两个页面展示不同版本的模型列表。
+const chatModelsLoading = computed(() =>
+  modelProviderStore.loading && !chatModelOptions.value.length,
+)
+
+const evaluationDatasetOptions = computed(() => [
+  { value: '', label: '请选择评估基准' },
+  ...selectedEvaluationDatasets.value.map((dataset) => ({
+    value: dataset.dataset_id,
+    label: `${dataset.name}（${dataset.item_count}题）`,
+  })),
+])
+
+const answerModelOptions = computed(() => [
+  { value: '', label: '不启用答案生成' },
+  ...chatModelOptions.value.map((model) => ({
+    value: model.spec,
+    label: `${model.provider_display_name} / ${model.display_name}`,
+  })),
+])
+
+const judgeModelOptions = computed(() => [
+  { value: '', label: '不启用评判模型' },
+  ...chatModelOptions.value.map((model) => ({
+    value: model.spec,
+    label: `${model.provider_display_name} / ${model.display_name}`,
+  })),
+])
+
+const embeddingSelectOptions = computed(() => [
+  {
+    value: '',
+    label: embeddingModelsLoading.value ? '加载中...' : '请选择 Embedding 模型',
+  },
+  ...embeddingModelOptions.value.map((model) => ({
+    value: model.spec,
+    label: `${model.provider_display_name} / ${model.display_name}`,
+  })),
+])
+
+const extractionModelOptions = computed(() => [
+  {
+    value: '',
+    label: chatModelsLoading.value ? '加载中...' : '请选择知识抽取模型',
+  },
+  ...chatModelOptions.value.map((model) => ({
+    value: model.spec,
+    label: `${model.provider_display_name} / ${model.display_name}`,
+  })),
+])
+
+const chunkPresetOptions = computed(() =>
+  chunkPresets.value.map((preset) => ({ value: preset.value, label: preset.label })),
+)
+
+const rerankerSelectOptions = computed(() => {
+  const options = [{ value: '', label: '默认配置' }]
+  if (queryConfig.value.reranker_model && !selectedRerankerIsKnown.value) {
+    options.push({
+      value: queryConfig.value.reranker_model,
+      label: `${queryConfig.value.reranker_model}（当前保存）`,
+    })
+  }
+  return [
+    ...options,
+    ...rerankModelOptions.value.map((model) => ({
+      value: model.spec,
+      label: `${model.provider_display_name} / ${model.display_name}`,
+    })),
+  ]
+})
+
+const benchmarkModelOptions = computed(() => [
+  { value: '', label: '请选择模型' },
+  ...chatModelOptions.value.map((model) => ({
+    value: model.spec,
+    label: `${model.provider_display_name} / ${model.display_name}`,
+  })),
+])
 
 const embeddingModelOptions = computed(() =>
   Object.values(embeddingModelsByProvider.value).flatMap((group) =>
@@ -350,16 +452,13 @@ async function loadRerankModels() {
 }
 
 async function loadChatModels({ force = false } = {}) {
-  if (chatModelsLoading.value) return
-  if (!force && chatModelOptions.value.length) return
-  chatModelsLoading.value = true
-  try {
-    chatModelsByProvider.value = await listModels('chat') || {}
+  await loadModelProviderWorkspace({ force })
+  if (modelProviderStore.error) {
+    evaluationErrorMessage.value = modelProviderStore.error
+    return
+  }
+  if (!benchmarkGenerateForm.value.llm_model_spec) {
     benchmarkGenerateForm.value.llm_model_spec = chatModelOptions.value[0]?.spec || ''
-  } catch (error) {
-    evaluationErrorMessage.value = error.message
-  } finally {
-    chatModelsLoading.value = false
   }
 }
 
@@ -482,7 +581,7 @@ function buildBenchmarkName() {
 async function openBenchmarkGenerateDialog() {
   if (!selectedKnowledgeBase.value) return
   evaluationErrorMessage.value = ''
-  await loadChatModels({ force: !chatModelOptions.value.length })
+  await loadChatModels()
   if (!benchmarkGenerateForm.value.name.trim()) {
     benchmarkGenerateForm.value.name = buildBenchmarkName()
   }
@@ -649,8 +748,8 @@ async function selectKnowledgeBase(knowledgeBaseId) {
 function selectDetailTab(tabKey) {
   activeDetailTab.value = tabKey
   openDocumentMenuId.value = null
-  if ((tabKey === 'evaluation' || tabKey === 'benchmark') && !chatModelOptions.value.length) {
-    loadChatModels({ force: true })
+  if (tabKey === 'evaluation' || tabKey === 'benchmark') {
+    loadChatModels()
   }
   if (tabKey === 'evaluation' && selectedBaseId.value) {
     loadEvaluationRuns(selectedBaseId.value)
@@ -942,9 +1041,11 @@ function statusText(status) {
         <Search :size="16" />
         <input v-model="searchText" type="search" placeholder="搜索知识库..." />
       </label>
-      <select aria-label="知识库类型筛选">
-        <option v-for="type in knowledgeTypes" :key="type">{{ type }}</option>
-      </select>
+      <AppSelect
+        v-model="knowledgeTypeFilter"
+        aria-label="知识库类型筛选"
+        :options="knowledgeTypeFilterOptions"
+      />
       <span />
       <button type="button" class="knowledge-create-button" @click="openCreateDialog">
         <Plus :size="16" />
@@ -1124,11 +1225,11 @@ function statusText(status) {
 
             <label>
               <span>检索模式</span>
-              <select v-model="queryConfig.search_mode">
-                <option value="hybrid">混合检索</option>
-                <option value="vector">向量检索</option>
-                <option value="keyword">关键词检索</option>
-              </select>
+              <AppSelect
+                v-model="queryConfig.search_mode"
+                aria-label="检索模式"
+                :options="searchModeOptions"
+              />
             </label>
 
             <label>
@@ -1173,18 +1274,12 @@ function statusText(status) {
 
             <label>
               <span>Rerank 模型</span>
-              <select v-model="queryConfig.reranker_model" :disabled="!queryConfig.use_reranker || rerankModelsLoading">
-                <option value="">默认配置</option>
-                <option
-                  v-if="queryConfig.reranker_model && !selectedRerankerIsKnown"
-                  :value="queryConfig.reranker_model"
-                >
-                  {{ queryConfig.reranker_model }}（当前保存）
-                </option>
-                <option v-for="model in rerankModelOptions" :key="model.spec" :value="model.spec">
-                  {{ model.provider_display_name }} / {{ model.display_name }}
-                </option>
-              </select>
+              <AppSelect
+                v-model="queryConfig.reranker_model"
+                aria-label="Rerank 模型"
+                :disabled="!queryConfig.use_reranker || rerankModelsLoading"
+                :options="rerankerSelectOptions"
+              />
             </label>
           </aside>
         </section>
@@ -1210,33 +1305,32 @@ function statusText(status) {
                 <span>评估名称</span>
                 <input v-model="evaluationForm.name" type="text" placeholder="默认自动生成 eval-日期-编号" />
               </label>
-              <label>
+              <div class="knowledge-evaluation-field">
                 <span>评估基准</span>
-                <select v-model="evaluationForm.dataset_id">
-                  <option value="">请选择评估基准</option>
-                  <option v-for="dataset in selectedEvaluationDatasets" :key="dataset.dataset_id" :value="dataset.dataset_id">
-                    {{ dataset.name }}（{{ dataset.item_count }}题）
-                  </option>
-                </select>
-              </label>
-              <label>
+                <AppSelect
+                  v-model="evaluationForm.dataset_id"
+                  aria-label="评估基准"
+                  :options="evaluationDatasetOptions"
+                />
+              </div>
+              <div class="knowledge-evaluation-field">
                 <span>答案生成模型</span>
-                <select v-model="evaluationForm.answer_llm_model_spec" :disabled="chatModelsLoading">
-                  <option value="">不启用答案生成</option>
-                  <option v-for="model in chatModelOptions" :key="`answer-${model.spec}`" :value="model.spec">
-                    {{ model.provider_display_name }} / {{ model.display_name }}
-                  </option>
-                </select>
-              </label>
-              <label>
+                <AppSelect
+                  v-model="evaluationForm.answer_llm_model_spec"
+                  aria-label="答案生成模型"
+                  :disabled="chatModelsLoading"
+                  :options="answerModelOptions"
+                />
+              </div>
+              <div class="knowledge-evaluation-field">
                 <span>评判模型</span>
-                <select v-model="evaluationForm.judge_llm_model_spec" :disabled="chatModelsLoading">
-                  <option value="">不启用评判模型</option>
-                  <option v-for="model in chatModelOptions" :key="`judge-${model.spec}`" :value="model.spec">
-                    {{ model.provider_display_name }} / {{ model.display_name }}
-                  </option>
-                </select>
-              </label>
+                <AppSelect
+                  v-model="evaluationForm.judge_llm_model_spec"
+                  aria-label="评判模型"
+                  :disabled="chatModelsLoading"
+                  :options="judgeModelOptions"
+                />
+              </div>
             </div>
 
             <div class="knowledge-metric-grid">
@@ -1353,39 +1447,40 @@ function statusText(status) {
 
             <label>
               <span>知识库类型</span>
-              <select v-model="createForm.kb_type">
-                <option value="milvus">Milvus 文档知识库</option>
-                <option value="lightrag">LightRAG 图知识库</option>
-              </select>
+              <AppSelect
+                v-model="createForm.kb_type"
+                aria-label="知识库类型"
+                :options="knowledgeBaseTypeOptions"
+              />
             </label>
 
             <label>
               <span>Embedding 模型</span>
-              <select v-model="createForm.embedding_model_spec" :disabled="embeddingModelsLoading">
-                <option value="">{{ embeddingModelsLoading ? '加载中...' : '请选择 Embedding 模型' }}</option>
-                <option v-for="model in embeddingModelOptions" :key="model.spec" :value="model.spec">
-                  {{ model.provider_display_name }} / {{ model.display_name }}
-                </option>
-              </select>
+              <AppSelect
+                v-model="createForm.embedding_model_spec"
+                aria-label="Embedding 模型"
+                :disabled="embeddingModelsLoading"
+                :options="embeddingSelectOptions"
+              />
             </label>
 
             <label v-if="createForm.kb_type === 'lightrag'">
               <span>知识抽取模型</span>
-              <select v-model="createForm.extraction_model_spec" :disabled="chatModelsLoading">
-                <option value="">{{ chatModelsLoading ? '加载中...' : '请选择知识抽取模型' }}</option>
-                <option v-for="model in chatModelOptions" :key="`extract-${model.spec}`" :value="model.spec">
-                  {{ model.provider_display_name }} / {{ model.display_name }}
-                </option>
-              </select>
+              <AppSelect
+                v-model="createForm.extraction_model_spec"
+                aria-label="知识抽取模型"
+                :disabled="chatModelsLoading"
+                :options="extractionModelOptions"
+              />
             </label>
 
             <label>
               <span>分块策略</span>
-              <select v-model="createForm.chunk_preset_id">
-                <option v-for="preset in chunkPresets" :key="preset.value" :value="preset.value">
-                  {{ preset.label }}
-                </option>
-              </select>
+              <AppSelect
+                v-model="createForm.chunk_preset_id"
+                aria-label="分块策略"
+                :options="chunkPresetOptions"
+              />
             </label>
           </div>
 
@@ -1500,12 +1595,12 @@ function statusText(status) {
 
           <label>
             <span><b>*</b> LLM模型配置</span>
-            <select v-model="benchmarkGenerateForm.llm_model_spec" required :disabled="chatModelsLoading">
-              <option value="">请选择模型</option>
-              <option v-for="model in chatModelOptions" :key="model.spec" :value="model.spec">
-                {{ model.provider_display_name }} / {{ model.display_name }}
-              </option>
-            </select>
+            <AppSelect
+              v-model="benchmarkGenerateForm.llm_model_spec"
+              aria-label="LLM模型配置"
+              :disabled="chatModelsLoading"
+              :options="benchmarkModelOptions"
+            />
           </label>
 
           <div class="benchmark-param-grid">

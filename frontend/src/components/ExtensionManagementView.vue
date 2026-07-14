@@ -2,6 +2,7 @@
 import { Blocks, Plug, Search, Wrench } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { upsertResource } from '../apis/resources'
+import AppSelect from './AppSelect.vue'
 import {
   extensionResourceStore,
   loadExtensionResources,
@@ -17,24 +18,16 @@ const categories = [
 const activeCategory = ref('tool')
 const resourcesByKind = computed(() => extensionResourceStore.resourcesByKind)
 const keyword = ref('')
+const statusFilter = ref('all')
 const loading = computed(() => extensionResourceStore.loading)
 const updatingName = ref('')
 const errorMessage = computed(() => extensionResourceStore.error)
 
-function dependencyItems(resource) {
-  const dependencies = resource.kind === 'skill'
-    ? {
-        tools: resource.tool_dependencies || [],
-        mcps: resource.mcp_dependencies || [],
-        skills: resource.skill_dependencies || [],
-      }
-    : resource.config?.dependencies || {}
-  return [
-    ...(dependencies.tools || []).map((name) => ({ kind: 'Tool', name })),
-    ...(dependencies.mcps || []).map((name) => ({ kind: 'MCP', name })),
-    ...(dependencies.skills || []).map((name) => ({ kind: 'Skill', name })),
-  ]
-}
+const statusOptions = [
+  { value: 'all', label: '全部状态' },
+  { value: 'enabled', label: '已启用' },
+  { value: 'disabled', label: '已停用' },
+]
 
 function resourceKey(resource) {
   return resource.kind === 'skill' ? resource.slug : resource.name
@@ -58,11 +51,15 @@ const activeConfig = computed(
 const filteredResources = computed(() => {
   const query = keyword.value.trim().toLowerCase()
   const resources = resourcesByKind.value[activeCategory.value] || []
-  if (!query) return resources
-  return resources.filter((resource) =>
-    [resourceKey(resource), resourceTitle(resource), resource.description]
-      .some((value) => String(value || '').toLowerCase().includes(query)),
-  )
+  return resources.filter((resource) => {
+    const matchesStatus = statusFilter.value === 'all'
+      || (statusFilter.value === 'enabled' && resource.enabled)
+      || (statusFilter.value === 'disabled' && !resource.enabled)
+    if (!matchesStatus) return false
+    if (!query) return true
+    return [resourceKey(resource), resourceTitle(resource), resource.description]
+      .some((value) => String(value || '').toLowerCase().includes(query))
+  })
 })
 
 async function toggleResource(resource) {
@@ -93,15 +90,22 @@ onMounted(loadExtensionResources)
 <template>
   <section class="extension-page">
     <header class="extension-header">
-      <div>
-        <span class="extension-eyebrow">Extensions</span>
+      <div class="extension-title">
         <h1>扩展管理</h1>
-        <p>查看并管理 Agent 可使用的工具与扩展资源。</p>
+        <p>管理 Agent 可使用的工具、MCP 与技能资源。</p>
       </div>
-      <label class="extension-search">
-        <Search :size="17" />
-        <input v-model="keyword" type="search" placeholder="搜索名称、标识或描述" />
-      </label>
+      <div class="extension-header-controls">
+        <label class="extension-search">
+          <Search :size="16" />
+          <input v-model="keyword" type="search" placeholder="搜索名称或描述" />
+        </label>
+        <AppSelect
+          v-model="statusFilter"
+          class="extension-status-filter"
+          aria-label="扩展状态"
+          :options="statusOptions"
+        />
+      </div>
     </header>
 
     <nav class="extension-tabs" aria-label="扩展类型">
@@ -112,34 +116,37 @@ onMounted(loadExtensionResources)
         :class="{ active: activeCategory === category.key }"
         @click="activeCategory = category.key"
       >
-        <component :is="category.icon" :size="17" />
         <span>{{ category.label }}</span>
         <em>{{ resourcesByKind[category.key].length }}</em>
       </button>
     </nav>
 
-    <div class="extension-summary">
-      <div>
-        <h2>{{ activeConfig.label }}</h2>
-        <p>已启用 {{ resourcesByKind[activeCategory].filter((item) => item.enabled).length }} 个，共 {{ resourcesByKind[activeCategory].length }} 个。</p>
-      </div>
-    </div>
-
     <div v-if="loading" class="extension-empty">正在加载扩展资源...</div>
     <div v-else-if="!filteredResources.length" class="extension-empty">暂无匹配的扩展资源。</div>
     <div v-else class="extension-grid">
       <article
-        v-for="resource in filteredResources"
+        v-for="(resource, resourceIndex) in filteredResources"
         :key="`${resource.kind}:${resourceKey(resource)}`"
         class="extension-card"
         :class="{ disabled: !resource.enabled }"
       >
         <header>
-          <div class="extension-icon">
-            <component :is="activeConfig.icon" :size="20" />
+          <div class="extension-card-identity">
+            <div class="extension-icon" :class="`tone-${resourceIndex % 6}`">
+              <component :is="activeConfig.icon" :size="19" />
+            </div>
+            <div class="extension-name-row">
+              <h3 :title="resourceTitle(resource)">{{ resourceTitle(resource) }}</h3>
+              <div class="extension-badges">
+                <span v-if="isBuiltinTool(resource)" class="builtin">内置工具</span>
+                <span v-if="resource.kind === 'skill' && resource.is_builtin" class="builtin">
+                  内置 Skill
+                </span>
+              </div>
+            </div>
           </div>
           <button
-            v-if="resource.kind !== 'skill' && !isBuiltinTool(resource)"
+            v-if="resource.kind !== 'skill'"
             class="extension-switch"
             type="button"
             role="switch"
@@ -151,48 +158,11 @@ onMounted(loadExtensionResources)
           >
             <span />
           </button>
+          <span v-else class="extension-skill-state">可用</span>
         </header>
-        <div class="extension-card-body">
-          <div class="extension-name-row">
-            <h3>{{ resourceTitle(resource) }}</h3>
-            <div class="extension-badges">
-              <span
-                v-if="isBuiltinTool(resource)"
-                class="builtin"
-              >
-                内置工具
-              </span>
-              <span
-                v-if="isBuiltinTool(resource)"
-                class="builtin"
-              >
-                始终启用
-              </span>
-              <span
-                v-if="resource.kind === 'skill' && resource.is_builtin"
-                class="builtin"
-              >
-                内置 Skill
-              </span>
-              <span :class="{ enabled: resource.enabled }">
-                {{ resource.kind === 'skill' ? '可用' : (resource.enabled ? '已启用' : '已停用') }}
-              </span>
-            </div>
-          </div>
-          <code>{{ resourceKey(resource) }}</code>
-          <p>{{ resource.description || '暂无描述。' }}</p>
-          <div
-            v-if="resource.kind === 'skill' && dependencyItems(resource).length"
-            class="extension-dependencies"
-          >
-            <span
-              v-for="dependency in dependencyItems(resource)"
-              :key="`${dependency.kind}:${dependency.name}`"
-            >
-              {{ dependency.kind }} · {{ dependency.name }}
-            </span>
-          </div>
-        </div>
+        <p class="extension-card-description" :title="resource.description || '暂无描述。'">
+          {{ resource.description || '暂无描述。' }}
+        </p>
       </article>
     </div>
 

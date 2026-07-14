@@ -8,7 +8,7 @@ const props = defineProps({
     type: String,
     required: true,
   },
-  hiddenImageUrls: {
+  imageUrls: {
     type: Array,
     default: () => [],
   },
@@ -26,21 +26,25 @@ const md = new MarkdownIt({
   },
 })
 
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+function contentWithToolImages(content) {
+  const missingUrls = [...new Set(props.imageUrls)]
+    .filter((url) => url && !content.includes(String(url)))
+
+  if (!missingUrls.length) return content
+
+  const images = missingUrls
+    .map((url) => `![生成的图表](<${String(url).replaceAll('>', '%3E')}>)`)
+    .join('\n\n')
+
+  // 工具只返回图片地址时，将图表补到正文第一段之后，保持回答的阅读顺序。
+  const firstParagraphEnd = content.indexOf('\n\n')
+  if (firstParagraphEnd === -1) return `${content}\n\n${images}`
+
+  return `${content.slice(0, firstParagraphEnd)}\n\n${images}${content.slice(firstParagraphEnd)}`
 }
 
-function withoutRenderedChartImages(content) {
-  return props.hiddenImageUrls.reduce(
-    (result, url) => result.replace(
-      new RegExp(`!\\[[^\\]]*\\]\\(${escapeRegExp(String(url))}(?:\\s+[^)]*)?\\)`, 'g'),
-      '',
-    ),
-    content,
-  )
-}
 </script>
 
 <template>
-  <div class="markdown-body" v-html="md.render(withoutRenderedChartImages(props.content))" />
+  <div class="markdown-body" v-html="md.render(contentWithToolImages(props.content))" />
 </template>

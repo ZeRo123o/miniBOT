@@ -12,8 +12,6 @@ import {
   FlaskConical,
   Home,
   KeyRound,
-  List,
-  PlayCircle,
   Plus,
   RefreshCw,
   Save,
@@ -33,10 +31,19 @@ import {
   loadModelProviderWorkspace,
   modelProviderStore,
 } from '../stores/modelProviderStore'
+import AppSelect from './AppSelect.vue'
 
 const RUNTIME_USES = [
   { key: 'deep_research_model', icon: Search },
 ]
+const providerTypeOptions = ['openai', 'anthropic', 'gemini', 'openrouter'].map((value) => ({
+  value,
+  label: value,
+}))
+const modelTypeOptions = ['chat', 'embedding', 'rerank'].map((value) => ({
+  value,
+  label: value,
+}))
 
 const providers = computed(() => modelProviderStore.providers)
 const modelUses = computed(() => modelProviderStore.modelUses)
@@ -118,6 +125,14 @@ const chatModelOptions = computed(() =>
     })),
   ),
 )
+
+const runtimeModelOptions = computed(() => [
+  { value: '', label: '未选择' },
+  ...chatModelOptions.value.map((model) => ({
+    value: model.spec,
+    label: `${model.provider_display_name} / ${model.display_name}`,
+  })),
+])
 
 const summary = computed(() => {
   const enabledProviders = providers.value.filter((provider) => provider.is_enabled)
@@ -496,12 +511,12 @@ onMounted(loadAll)
           <span class="use-icon"><component :is="modelUse.icon" :size="17" /></span>
           <span class="use-name">{{ modelUse.key }}</span>
           <i>已启用</i>
-          <select :value="modelUseSpec(modelUse.key)" @change="saveModelUse(modelUse.key, $event.target.value)">
-            <option value="">未选择</option>
-            <option v-for="model in chatModelOptions" :key="`${modelUse.key}:${model.spec}`" :value="model.spec">
-              {{ model.provider_display_name }} / {{ model.display_name }}
-            </option>
-          </select>
+          <AppSelect
+            :model-value="modelUseSpec(modelUse.key)"
+            :aria-label="`${modelUse.key} 模型`"
+            :options="runtimeModelOptions"
+            @update:model-value="saveModelUse(modelUse.key, $event)"
+          />
         </label>
       </div>
 
@@ -555,7 +570,6 @@ onMounted(loadAll)
 
               <footer>
                 <button type="button" @click="testProvider(provider)">
-                  <FlaskConical :size="15" />
                   测试
                 </button>
                 <button
@@ -563,11 +577,9 @@ onMounted(loadAll)
                   :class="provider.is_enabled ? 'danger-outline' : 'success-outline'"
                   @click="toggleProvider(provider)"
                 >
-                  <PlayCircle :size="15" />
                   {{ providerToggleLabel(provider) }}
                 </button>
                 <button type="button" class="detail-outline" @click="openProviderDetail(provider)">
-                  <List :size="15" />
                   详情
                 </button>
               </footer>
@@ -639,12 +651,11 @@ onMounted(loadAll)
               <label><span>显示名称</span><input v-model="providerForm.display_name" /></label>
               <label>
                 <span>Provider Type</span>
-                <select v-model="providerForm.provider_type">
-                  <option value="openai">openai</option>
-                  <option value="anthropic">anthropic</option>
-                  <option value="gemini">gemini</option>
-                  <option value="openrouter">openrouter</option>
-                </select>
+                <AppSelect
+                  v-model="providerForm.provider_type"
+                  aria-label="Provider Type"
+                  :options="providerTypeOptions"
+                />
               </label>
               <label><span>默认协议</span><input v-model="providerForm.default_protocol" /></label>
               <label class="wide"><span>能力</span><input v-model="providerForm.capabilitiesText" placeholder="chat, embedding, rerank" /></label>
@@ -698,11 +709,11 @@ onMounted(loadAll)
             </header>
             <div class="detail-model-add-row">
               <input v-model="modelForm.id" placeholder="例如 qwen-plus" />
-              <select v-model="modelForm.type">
-                <option value="chat">chat</option>
-                <option value="embedding">embedding</option>
-                <option value="rerank">rerank</option>
-              </select>
+              <AppSelect
+                v-model="modelForm.type"
+                aria-label="模型类型"
+                :options="modelTypeOptions"
+              />
               <input v-model="modelForm.dimension" placeholder="例如 1024" />
               <button type="button" class="model-action-button primary-action" @click="addModel">添加</button>
             </div>
