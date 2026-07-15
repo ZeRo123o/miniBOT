@@ -117,25 +117,7 @@ Copy-Item .env.example backend/.env
 
 ### 3. 启动基础依赖
 
-智能对话、会话持久化、文件存储和沙盒所需的基础服务：
-
-```powershell
-docker compose up -d postgres redis minio sandbox-provisioner
-```
-
-如需使用 Milvus 文档知识库，再启动：
-
-```powershell
-docker compose up -d milvus
-```
-
-如需使用 LightRAG 图知识库，还需要 Neo4j：
-
-```powershell
-docker compose up -d milvus neo4j
-```
-
-也可以一次启动全部服务：
+一次启动全部服务：
 
 ```powershell
 docker compose up -d
