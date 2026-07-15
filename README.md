@@ -1,6 +1,6 @@
 # miniBOT
 
-miniBOT 是一个面向学习、实验与二次开发的模块化 AI Agent 全栈脚手架。项目受 YUXI 的资源编排思路启发，以 Vue 3 + FastAPI 提供可视化交互界面，并通过 LangChain `create_agent`、LangGraph checkpoint、middleware 和统一工具注册体系，将模型、MCP、Tool、Skill、Subagent、知识库与受控沙盒组合到同一套运行时中。
+miniBOT 是一个可扩展的 AI Agent 全栈脚手架，致力于降低复杂智能体应用的开发与集成成本。项目以 Vue 3 和 FastAPI 为基础，通过 LangChain、LangGraph、Middleware 与统一资源注册体系，将大模型、MCP、Tool、Skill、Subagent、知识库和受控沙盒整合进同一运行时，覆盖对话持久化、资源编排、子任务执行、知识检索及上下文治理等核心能力。
 
 
 ## 功能概览
@@ -233,6 +233,12 @@ npm run build
 ```
 
 涉及 PostgreSQL、Redis、MinIO、Milvus、Neo4j、沙盒或 API 行为的修改，应启动对应服务后完成真实接口验证。
+
+## 致谢
+
+- [Yuxi](https://github.com/xerrors/Yuxi) - 参考项目的前端ui设计与知识库设计
+- [DeerFlow](https://github.com/bytedance/deer-flow) - 参考项目的沙盒设计
+
 
 ## 安全说明
 
