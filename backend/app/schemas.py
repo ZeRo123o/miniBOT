@@ -17,6 +17,7 @@ class ChatRequest(BaseModel):
     user_id: str = "default"
     conversation_id: int | None = None
     model_spec: str | None = None
+    request_id: str | None = Field(default=None, min_length=1, max_length=128)
     uploads: list[ChatUpload] = Field(default_factory=list)
 
 

@@ -1,29 +1,32 @@
 <script setup>
 import {
   ArrowLeft,
-  Box,
-  CheckCircle2,
-  CircleAlert,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CloudDownload,
-  Copy,
   X,
   Eye,
   EyeOff,
   FlaskConical,
   Home,
   KeyRound,
+  MoreHorizontal,
   Plus,
   RefreshCw,
   Save,
   Search,
   Trash2,
 } from 'lucide-vue-next'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import {
   createModelProvider,
+  deleteModelProvider,
   fetchRemoteModels,
-  getModelStatus,
   refreshModelCache,
+  testModelProviderCredentials,
+  testProviderModel,
   updateModelProvider,
   updateModelUse,
 } from '../apis/modelProviders'
@@ -32,10 +35,9 @@ import {
   modelProviderStore,
 } from '../stores/modelProviderStore'
 import AppSelect from './AppSelect.vue'
+import ProviderIcon from './ProviderIcon.vue'
 
-const RUNTIME_USES = [
-  { key: 'deep_research_model', icon: Search },
-]
+const RUNTIME_USES = [{ key: 'deep_research_model' }]
 const providerTypeOptions = ['openai', 'anthropic', 'gemini', 'openrouter'].map((value) => ({
   value,
   label: value,
@@ -65,7 +67,53 @@ const showApiKey = ref(false)
 const statusMessage = ref('')
 const errorMessage = ref('')
 const lastTestResult = ref(null)
+const credentialTesting = ref(false)
+const credentialTestResult = ref(null)
+const credentialTestSignature = ref('')
+const modelTestResults = reactive({})
 const remoteModels = ref([])
+const modelPageRef = ref(null)
+const modelToasts = ref([])
+const modelPage = ref(1)
+const modelPageSize = ref(10)
+const modelPageSizeOptions = [10, 20, 50].map((value) => ({
+  value,
+  label: `${value} 条/页`,
+}))
+let statusMessageTimer = null
+let errorMessageTimer = null
+let nextToastId = 0
+const toastTimers = new Map()
+
+function enqueueModelToast(message, type, duration) {
+  const id = ++nextToastId
+  modelToasts.value.push({ id, message, type })
+  const timer = window.setTimeout(() => {
+    modelToasts.value = modelToasts.value.filter((toast) => toast.id !== id)
+    toastTimers.delete(id)
+  }, duration)
+  toastTimers.set(id, timer)
+}
+
+watch(statusMessage, (message) => {
+  window.clearTimeout(statusMessageTimer)
+  if (message) {
+    enqueueModelToast(message, 'success', 2000)
+    statusMessageTimer = window.setTimeout(() => {
+      statusMessage.value = ''
+    }, 2000)
+  }
+})
+
+watch(errorMessage, (message) => {
+  window.clearTimeout(errorMessageTimer)
+  if (message) {
+    enqueueModelToast(message, 'error', 3000)
+    errorMessageTimer = window.setTimeout(() => {
+      errorMessage.value = ''
+    }, 3000)
+  }
+})
 
 const providerForm = reactive({
   provider_id: '',
@@ -98,10 +146,53 @@ const activeProvider = computed(() =>
 
 const providerFormModels = computed(() => activeProvider.value?.enabled_models || [])
 
-const testStatusClass = computed(() => ({
-  ok: lastTestResult.value?.status === 'available',
-  error: lastTestResult.value && lastTestResult.value.status !== 'available',
+const currentCredentialSignature = computed(() => JSON.stringify({
+  base_url: providerForm.base_url.trim(),
+  models_endpoint: providerForm.models_endpoint.trim(),
+  api_key_env: providerForm.api_key_env.trim(),
+  api_key: providerForm.api_key,
+  headers: providerForm.headersText,
 }))
+
+const credentialTestState = computed(() => {
+  if (credentialTesting.value) return 'testing'
+  if (!credentialTestResult.value) return 'idle'
+  if (credentialTestSignature.value !== currentCredentialSignature.value) return 'stale'
+  return credentialTestResult.value.status === 'available' ? 'success' : 'error'
+})
+
+const modelPageCount = computed(() =>
+  Math.max(1, Math.ceil(providerFormModels.value.length / modelPageSize.value)),
+)
+
+const paginatedProviderModels = computed(() => {
+  const start = (modelPage.value - 1) * modelPageSize.value
+  return providerFormModels.value.slice(start, start + modelPageSize.value)
+})
+
+// 页数较多时仅展示当前页附近的五个页码，避免分页栏挤压模型表格。
+const visibleModelPages = computed(() => {
+  const total = modelPageCount.value
+  if (total <= 5) return Array.from({ length: total }, (_, index) => index + 1)
+  const start = Math.min(Math.max(modelPage.value - 2, 1), total - 4)
+  return Array.from({ length: 5 }, (_, index) => start + index)
+})
+
+watch(activeProviderId, () => {
+  modelPage.value = 1
+})
+
+watch(modelPageSize, () => {
+  modelPage.value = 1
+})
+
+watch(
+  () => providerFormModels.value.length,
+  () => {
+    // 删除当前页最后一项后自动退回有效页，避免出现空白页面。
+    modelPage.value = Math.min(modelPage.value, modelPageCount.value)
+  },
+)
 
 const filteredRemoteModels = computed(() => {
   const query = remoteKeyword.value.trim().toLowerCase()
@@ -134,36 +225,6 @@ const runtimeModelOptions = computed(() => [
   })),
 ])
 
-const summary = computed(() => {
-  const enabledProviders = providers.value.filter((provider) => provider.is_enabled)
-  return {
-    providerTotal: providers.value.length,
-    enabledProviderTotal: enabledProviders.length,
-    enabledModelTotal: providers.value.reduce(
-      (total, provider) => total + (provider.enabled_models?.length || 0),
-      0,
-    ),
-    modelUseTotal: modelUses.value.filter(
-      (item) => item.model_spec && RUNTIME_USES.some((modelUse) => modelUse.key === item.model_use),
-    ).length,
-  }
-})
-
-const recentActions = computed(() => [
-  {
-    title: '更新运行用途',
-    detail: statusMessage.value || '等待刷新或测试',
-    time: '刚刚',
-    level: 'ok',
-  },
-  {
-    title: '模型缓存',
-    detail: statusMessage.value || '等待刷新或测试',
-    time: '',
-    level: statusMessage.value ? 'ok' : 'idle',
-  },
-])
-
 const filteredProviders = computed(() => {
   const query = keyword.value.trim().toLowerCase()
   return providers.value
@@ -192,10 +253,6 @@ function providerModelCount(provider, type) {
 function isModelEnabled(model) {
   const modelType = model.type || 'chat'
   return providerFormModels.value.some((item) => item.id === model.id && item.type === modelType)
-}
-
-function providerEnabledLabel(provider) {
-  return provider?.is_enabled ? '已启用' : '已停用'
 }
 
 function providerToggleLabel(provider) {
@@ -251,6 +308,8 @@ function fillProviderForm(provider) {
     is_enabled: provider.is_enabled,
   })
   lastTestResult.value = null
+  credentialTestResult.value = null
+  credentialTestSignature.value = ''
 }
 
 function resetProviderForm() {
@@ -275,6 +334,8 @@ function resetProviderForm() {
   })
   Object.assign(modelForm, { id: '', type: 'chat', dimension: '' })
   lastTestResult.value = null
+  credentialTestResult.value = null
+  credentialTestSignature.value = ''
   remoteModels.value = []
 }
 
@@ -362,6 +423,8 @@ function normalizedModelFromForm() {
   }
   if (model.type === 'embedding' && modelForm.dimension) {
     model.dimension = Number(modelForm.dimension)
+  } else if (model.type === 'chat' && modelForm.dimension) {
+    model.context_length = Number(modelForm.dimension)
   }
   return model
 }
@@ -417,14 +480,71 @@ async function testModel(model) {
   testingSpec.value = spec
   errorMessage.value = ''
   try {
-    const result = await getModelStatus(spec)
+    const result = await testProviderModel(activeProvider.value.provider_id, {
+      model_id: model.id,
+      model_type: model.type || 'chat',
+    })
     lastTestResult.value = result
-    statusMessage.value = `${spec}: ${result.message || result.status}`
+    modelTestResults[spec] = result
+    if (result.status === 'available') {
+      statusMessage.value = `${model.display_name || model.id} 模型调用成功`
+    } else {
+      errorMessage.value = `${model.display_name || model.id}：${result.message || '模型不可用'}`
+    }
   } catch (error) {
+    modelTestResults[spec] = { status: 'error', message: error.message }
     errorMessage.value = error.message
   } finally {
     testingSpec.value = ''
   }
+}
+
+async function testCredentials() {
+  credentialTesting.value = true
+  statusMessage.value = ''
+  errorMessage.value = ''
+  const testedSignature = currentCredentialSignature.value
+  try {
+    const payload = {
+      provider_id: activeProviderId.value || providerForm.provider_id || null,
+      base_url: providerForm.base_url.trim(),
+      models_endpoint: providerForm.models_endpoint.trim(),
+      api_key_env: providerForm.api_key_env.trim() || null,
+      headers_json: parseJson(providerForm.headersText, 'Headers JSON'),
+    }
+    if (providerForm.api_key) payload.api_key = providerForm.api_key
+    const result = await testModelProviderCredentials(payload)
+    credentialTestResult.value = result
+    credentialTestSignature.value = testedSignature
+    statusMessage.value = result.message
+  } catch (error) {
+    credentialTestResult.value = { status: 'error', message: error.message }
+    credentialTestSignature.value = testedSignature
+    errorMessage.value = error.message
+  } finally {
+    credentialTesting.value = false
+  }
+}
+
+function credentialSourceLabel(source) {
+  return {
+    current_input: '当前输入',
+    saved: '已保存凭证',
+    environment: '环境变量',
+    custom_header: 'Authorization Header',
+  }[source] || '未知来源'
+}
+
+function modelTestResult(model) {
+  return modelTestResults[`${activeProvider.value?.provider_id}:${model.id}`]
+}
+
+function modelTestTitle(model) {
+  const result = modelTestResult(model)
+  if (!result) return `测试 ${model.display_name || model.id}`
+  return result.status === 'available'
+    ? `${model.display_name || model.id} 最近测试成功`
+    : `${model.display_name || model.id}：${result.message || '最近测试失败'}`
 }
 
 async function loadRemoteModels() {
@@ -481,15 +601,57 @@ function copyText(text) {
   if (text) navigator.clipboard?.writeText(text)
 }
 
-onMounted(loadAll)
+function closeProviderMenu(event) {
+  event.currentTarget.closest('details')?.removeAttribute('open')
+}
+
+function closeProviderMenusOnOutsideClick(event) {
+  // 原生 details 不会自动处理外部点击，这里只收起点击目标之外的菜单。
+  modelPageRef.value?.querySelectorAll('.provider-more-menu[open]').forEach((menu) => {
+    if (!menu.contains(event.target)) menu.removeAttribute('open')
+  })
+}
+
+async function loadProviderRemoteModels(provider, event) {
+  closeProviderMenu(event)
+  fillProviderForm(provider)
+  await loadRemoteModels()
+}
+
+async function deleteProvider(provider, event) {
+  closeProviderMenu(event)
+  // 删除属于不可逆操作，保留浏览器原生确认以避免误触。
+  if (!window.confirm(`确定删除 Provider「${provider.display_name}」吗？`)) return
+
+  errorMessage.value = ''
+  try {
+    await deleteModelProvider(provider.provider_id)
+    await refreshModelCache()
+    await loadAll({ force: true })
+    statusMessage.value = `${provider.display_name} 已删除`
+  } catch (error) {
+    errorMessage.value = error.message
+  }
+}
+
+onMounted(() => {
+  loadAll()
+  document.addEventListener('pointerdown', closeProviderMenusOnOutsideClick)
+})
+onBeforeUnmount(() => document.removeEventListener('pointerdown', closeProviderMenusOnOutsideClick))
+onBeforeUnmount(() => {
+  window.clearTimeout(statusMessageTimer)
+  window.clearTimeout(errorMessageTimer)
+  toastTimers.forEach((timer) => window.clearTimeout(timer))
+  toastTimers.clear()
+})
 </script>
 
 <template>
-  <section class="model-page">
+  <section ref="modelPageRef" class="model-page">
     <template v-if="screenMode === 'list'">
       <header class="model-page-heading">
         <div>
-          <span>MODELS</span>
           <h1>模型配置</h1>
           <p>统一管理模型供应商、运行用途和启用模型。</p>
         </div>
@@ -504,21 +666,6 @@ onMounted(loadAll)
           </button>
         </div>
       </header>
-
-      <div class="model-use-banner">
-        <h2>运行用途</h2>
-        <label v-for="modelUse in RUNTIME_USES" :key="modelUse.key">
-          <span class="use-icon"><component :is="modelUse.icon" :size="17" /></span>
-          <span class="use-name">{{ modelUse.key }}</span>
-          <i>已启用</i>
-          <AppSelect
-            :model-value="modelUseSpec(modelUse.key)"
-            :aria-label="`${modelUse.key} 模型`"
-            :options="runtimeModelOptions"
-            @update:model-value="saveModelUse(modelUse.key, $event)"
-          />
-        </label>
-      </div>
 
       <div class="model-list-layout">
         <main class="model-list-main">
@@ -539,76 +686,64 @@ onMounted(loadAll)
               <button :class="{ active: typeFilter === 'embedding' }" type="button" @click="typeFilter = 'embedding'">embedding</button>
               <button :class="{ active: typeFilter === 'rerank' }" type="button" @click="typeFilter = 'rerank'">rerank</button>
             </div>
+            <label v-for="modelUse in RUNTIME_USES" :key="modelUse.key" class="model-runtime-select">
+              <span>{{ modelUse.key }}</span>
+              <AppSelect
+                :model-value="modelUseSpec(modelUse.key)"
+                :aria-label="`${modelUse.key} 模型`"
+                :options="runtimeModelOptions"
+                @update:model-value="saveModelUse(modelUse.key, $event)"
+              />
+            </label>
           </div>
 
           <div v-if="loading" class="extension-empty">正在加载模型配置...</div>
           <div v-else class="model-card-grid">
             <article v-for="provider in filteredProviders" :key="provider.provider_id" class="provider-overview-card">
               <header>
-                <span class="provider-logo"><Box :size="28" /></span>
-                <div>
+                <span class="provider-logo"><ProviderIcon :provider-id="provider.provider_id" :size="26" /></span>
+                <div class="provider-identity">
                   <h2>{{ provider.display_name }}</h2>
+                  <small>{{ provider.default_protocol || `${provider.provider_type} compatible` }}</small>
                 </div>
-                <div class="provider-badges">
-                  <span :class="{ muted: !provider.is_enabled }">{{ providerEnabledLabel(provider) }}</span>
-                </div>
+                <button
+                  class="provider-toggle"
+                  :class="{ active: provider.is_enabled }"
+                  type="button"
+                  role="switch"
+                  :aria-checked="provider.is_enabled"
+                  :aria-label="`${provider.display_name}：${providerToggleLabel(provider)}`"
+                  :title="providerToggleLabel(provider)"
+                  @click="toggleProvider(provider)"
+                ><span /></button>
               </header>
 
               <div class="provider-model-counts">
-                <span>chat<strong>{{ providerModelCount(provider, 'chat') }}</strong></span>
-                <span>embedding<strong>{{ providerModelCount(provider, 'embedding') }}</strong></span>
-                <span>rerank<strong>{{ providerModelCount(provider, 'rerank') }}</strong></span>
+                <span>chat<strong :class="{ zero: providerModelCount(provider, 'chat') === 0 }">{{ providerModelCount(provider, 'chat') }}</strong></span>
+                <span>embedding<strong :class="{ zero: providerModelCount(provider, 'embedding') === 0 }">{{ providerModelCount(provider, 'embedding') }}</strong></span>
+                <span>rerank<strong :class="{ zero: providerModelCount(provider, 'rerank') === 0 }">{{ providerModelCount(provider, 'rerank') }}</strong></span>
               </div>
 
               <div class="provider-meta">
                 <span>Base URL</span>
-                <p>{{ provider.base_url }}</p>
-                <button type="button" title="复制 Base URL" @click="copyText(provider.base_url)">
-                  <Copy :size="14" />
-                </button>
+                <p :title="provider.base_url">{{ provider.base_url }}</p>
               </div>
 
               <footer>
-                <button type="button" @click="testProvider(provider)">
-                  测试
-                </button>
-                <button
-                  type="button"
-                  :class="provider.is_enabled ? 'danger-outline' : 'success-outline'"
-                  @click="toggleProvider(provider)"
-                >
-                  {{ providerToggleLabel(provider) }}
-                </button>
-                <button type="button" class="detail-outline" @click="openProviderDetail(provider)">
-                  详情
-                </button>
+                <button type="button" class="detail-outline" @click="openProviderDetail(provider)">配置</button>
+                <button type="button" @click="testProvider(provider)">测试</button>
+                <details class="provider-more-menu">
+                  <summary title="更多操作" aria-label="更多操作"><MoreHorizontal :size="18" /></summary>
+                  <div>
+                    <button type="button" @click="loadProviderRemoteModels(provider, $event)">获取远端模型</button>
+                    <button type="button" @click="copyText(provider.base_url); closeProviderMenu($event)">复制 Base URL</button>
+                    <button type="button" class="danger" @click="deleteProvider(provider, $event)">删除 Provider</button>
+                  </div>
+                </details>
               </footer>
             </article>
           </div>
         </main>
-
-        <aside class="model-summary-sidebar">
-          <section class="summary-card">
-            <h2>模型总览</h2>
-            <div class="summary-metrics">
-              <span><strong>{{ summary.providerTotal }}</strong>Provider 总数</span>
-              <span><strong>{{ summary.enabledProviderTotal }}</strong>已启用 Provider</span>
-              <span><strong>{{ summary.enabledModelTotal }}</strong>启用模型总数</span>
-              <span><strong>{{ summary.modelUseTotal }}</strong>用途模型</span>
-            </div>
-          </section>
-
-          <section class="summary-card">
-            <h2>最近操作</h2>
-            <div class="recent-list">
-              <span v-for="item in recentActions" :key="item.title">
-                <i :class="item.level" />
-                <b>{{ item.title }}</b>
-                <small>{{ item.detail }}</small>
-              </span>
-            </div>
-          </section>
-        </aside>
       </div>
     </template>
 
@@ -621,7 +756,7 @@ onMounted(loadAll)
           <strong>{{ providerForm.display_name || 'Provider' }}</strong>
         </nav>
         <div class="detail-title-row">
-          <span class="detail-provider-logo"><Box :size="30" /></span>
+          <span class="detail-provider-logo"><ProviderIcon :provider-id="providerForm.provider_id" :size="36" /></span>
           <h1>{{ providerForm.display_name || 'Provider' }}</h1>
           <em>provider_id: {{ providerForm.provider_id }}</em>
           <i :class="{ muted: !providerForm.is_enabled }">{{ providerForm.is_enabled ? '已启用' : '已停用' }}</i>
@@ -630,13 +765,6 @@ onMounted(loadAll)
             <button class="model-action-button" type="button" @click="backToList">
               <ArrowLeft :size="16" />
               返回列表
-            </button>
-            <button v-if="activeProvider" class="model-action-button" type="button" @click="toggleProvider(activeProvider)">
-              {{ providerToggleLabel(activeProvider) }}
-            </button>
-            <button class="model-action-button primary-action" type="button" :disabled="saving" @click="saveProvider">
-              <Save :size="16" />
-              保存
             </button>
           </div>
         </div>
@@ -663,7 +791,29 @@ onMounted(loadAll)
           </section>
 
           <section class="form-section">
-            <h2>认证</h2>
+            <header class="form-section-heading">
+              <h2>认证配置</h2>
+              <div class="form-section-actions">
+                <button
+                  class="model-action-button compact-action"
+                  type="button"
+                  :disabled="credentialTesting || !providerForm.base_url.trim() || !providerForm.models_endpoint.trim()"
+                  @click="testCredentials"
+                >
+                  <KeyRound :size="15" />
+                  {{ credentialTesting ? '验证中...' : '验证凭证' }}
+                </button>
+                <button
+                  class="model-action-button primary-action compact-action"
+                  type="button"
+                  :disabled="saving"
+                  @click="saveProvider"
+                >
+                  <Save :size="15" />
+                  保存
+                </button>
+              </div>
+            </header>
             <div class="model-form-grid">
               <label><span>API Key 环境变量</span><input v-model="providerForm.api_key_env" /></label>
               <label class="api-key-field">
@@ -674,6 +824,22 @@ onMounted(loadAll)
                   <Eye v-else :size="16" />
                 </button>
               </label>
+            </div>
+            <div
+              class="credential-test-feedback"
+              :class="credentialTestState"
+              :role="credentialTestState === 'error' ? 'alert' : 'status'"
+              aria-live="polite"
+            >
+              <KeyRound :size="15" />
+              <span v-if="credentialTestState === 'idle'">使用当前表单值验证，不会保存或缓存 API Key。</span>
+              <span v-else-if="credentialTestState === 'testing'">正在访问 Models Endpoint...</span>
+              <span v-else-if="credentialTestState === 'stale'">认证配置已更改，请重新验证。</span>
+              <span v-else-if="credentialTestState === 'success'">
+                {{ credentialTestResult.message }} · {{ credentialSourceLabel(credentialTestResult.credential_source) }}
+                · {{ credentialTestResult.remote_model_count }} 个模型 · {{ credentialTestResult.latency_ms }} ms
+              </span>
+              <span v-else>{{ credentialTestResult?.message || '凭证验证失败' }}</span>
             </div>
           </section>
 
@@ -689,19 +855,22 @@ onMounted(loadAll)
             </div>
           </section>
 
-          <section class="form-section">
-            <h2>高级 JSON</h2>
+          <details class="form-section advanced-config-section">
+            <summary>
+              <span>高级配置</span>
+              <ChevronDown :size="17" />
+            </summary>
             <div class="model-form-grid">
               <label><span>Headers JSON</span><textarea v-model="providerForm.headersText" rows="4" /></label>
               <label><span>Extra JSON</span><textarea v-model="providerForm.extraText" rows="4" /></label>
             </div>
-          </section>
+          </details>
         </main>
 
         <aside class="provider-side-panel">
           <section class="side-card">
             <header>
-              <h2>已启用模型</h2>
+              <h2>模型列表</h2>
               <button class="model-action-button compact-action" type="button" :disabled="!activeProvider || remoteLoading" @click="loadRemoteModels">
                 <CloudDownload :size="15" />
                 {{ remoteLoading ? '获取中' : '远端获取' }}
@@ -722,17 +891,29 @@ onMounted(loadAll)
               <div class="detail-model-row head">
                 <span>模型</span>
                 <span>类型</span>
-                <span>维度</span>
+                <span>上下文长度</span>
                 <span>来源</span>
                 <span>操作</span>
               </div>
-              <div v-for="model in providerFormModels" :key="`${model.type}:${model.id}`" class="detail-model-row">
+              <div v-if="!providerFormModels.length" class="detail-model-empty">暂无模型</div>
+              <div v-for="model in paginatedProviderModels" :key="`${model.type}:${model.id}`" class="detail-model-row">
                 <span><strong>{{ model.display_name || model.id }}</strong><code>{{ model.id }}</code></span>
                 <span>{{ model.type }}</span>
-                <span>{{ model.dimension || '-' }}</span>
+                <span>{{ model.context_length || model.dimension || '-' }}</span>
                 <span>{{ model.source || 'manual' }}</span>
                 <span>
-                  <button class="icon-button" type="button" :disabled="testingSpec === `${activeProvider?.provider_id}:${model.id}`" @click="testModel(model)">
+                  <button
+                    class="icon-button model-test-button"
+                    :class="{
+                      success: modelTestResult(model)?.status === 'available',
+                      failed: modelTestResult(model) && modelTestResult(model).status !== 'available',
+                    }"
+                    type="button"
+                    :title="modelTestTitle(model)"
+                    :aria-label="modelTestTitle(model)"
+                    :disabled="testingSpec === `${activeProvider?.provider_id}:${model.id}`"
+                    @click="testModel(model)"
+                  >
                     <FlaskConical :size="15" />
                   </button>
                   <button class="icon-button danger" type="button" @click="removeModel(model)">
@@ -741,27 +922,45 @@ onMounted(loadAll)
                 </span>
               </div>
             </div>
+            <footer class="detail-model-pagination">
+              <span>共 {{ providerFormModels.length }} 条</span>
+              <AppSelect
+                v-model="modelPageSize"
+                class="detail-model-page-size"
+                aria-label="每页模型数量"
+                :options="modelPageSizeOptions"
+              />
+              <nav class="detail-model-page-buttons" aria-label="模型列表分页">
+                <button
+                  type="button"
+                  aria-label="上一页"
+                  :disabled="modelPage <= 1"
+                  @click="modelPage -= 1"
+                >
+                  <ChevronLeft :size="16" />
+                </button>
+                <button
+                  v-for="page in visibleModelPages"
+                  :key="page"
+                  type="button"
+                  :class="{ active: modelPage === page }"
+                  :aria-current="modelPage === page ? 'page' : undefined"
+                  @click="modelPage = page"
+                >
+                  {{ page }}
+                </button>
+                <button
+                  type="button"
+                  aria-label="下一页"
+                  :disabled="modelPage >= modelPageCount"
+                  @click="modelPage += 1"
+                >
+                  <ChevronRight :size="16" />
+                </button>
+              </nav>
+            </footer>
           </section>
 
-          <section class="side-card">
-            <h2>连接状态</h2>
-            <div class="connection-status-list">
-              <span><b>API Key 来源</b><em>{{ providerForm.api_key_env || (providerForm.api_key ? 'direct' : '未设置') }} <CheckCircle2 :size="15" /></em></span>
-              <span><b>缓存刷新</b><em>{{ statusMessage || '等待中' }} <CheckCircle2 :size="15" /></em></span>
-              <span>
-                <b>连通性测试</b>
-                <em :class="testStatusClass">
-                  {{ lastTestResult?.message || '未测试' }}
-                  <CheckCircle2 v-if="lastTestResult?.status === 'available'" :size="15" />
-                  <CircleAlert v-else :size="15" />
-                </em>
-              </span>
-            </div>
-            <button class="model-action-button primary-action wide-action" type="button" @click="testProvider(activeProvider)">
-              <KeyRound :size="16" />
-              测试连接
-            </button>
-          </section>
         </aside>
       </div>
     </template>
@@ -831,7 +1030,18 @@ onMounted(loadAll)
       </section>
     </div>
 
-    <p v-if="statusMessage" class="model-status-message">{{ statusMessage }}</p>
-    <p v-if="errorMessage" class="model-error-message">{{ errorMessage }}</p>
+    <TransitionGroup name="model-toast" tag="div" class="model-toast-stack">
+      <p
+        v-for="toast in modelToasts"
+        :key="toast.id"
+        :class="toast.type === 'success' ? 'model-status-message' : 'model-error-message'"
+      >
+        <span class="model-toast-icon" :class="toast.type">
+          <Check v-if="toast.type === 'success'" :size="12" />
+          <X v-else :size="12" />
+        </span>
+        <span>{{ toast.message }}</span>
+      </p>
+    </TransitionGroup>
   </section>
 </template>

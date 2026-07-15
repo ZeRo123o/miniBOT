@@ -1287,11 +1287,11 @@ function statusText(status) {
         <section v-else-if="activeDetailTab === 'evaluation'" class="knowledge-evaluation-layout">
           <div class="knowledge-evaluation-main">
             <header class="knowledge-section-header">
-              <div>
+              <div class="knowledge-section-copy">
                 <strong>RAG评估</strong>
-                <span>使用当前知识库检索配置执行 Yuxi 风格 Recall/F1 和答案正确性评估。</span>
+                <span>基于当前知识库的检索配置，衡量检索召回率、F1 分数与答案正确性。</span>
               </div>
-              <button type="button" class="knowledge-primary-button" :disabled="evaluationLoading || !evaluationForm.dataset_id" @click="startEvaluation">
+              <button type="button" class="knowledge-create-button" :disabled="evaluationLoading || !evaluationForm.dataset_id" @click="startEvaluation">
                 <Loader2 v-if="evaluationLoading" class="spin" :size="16" />
                 <BarChart3 v-else :size="16" />
                 <span>{{ evaluationLoading ? '评估中' : '开始评估' }}</span>
@@ -1378,20 +1378,21 @@ function statusText(status) {
         <section v-else class="knowledge-evaluation-layout">
           <div class="knowledge-evaluation-main">
             <header class="knowledge-section-header">
-              <div>
+              <div class="knowledge-section-copy">
                 <strong>评估基准</strong>
                 <span>上传 JSONL，每行包含 query，可选 gold_chunk_ids 和 gold_answer。</span>
               </div>
-              <button type="button" class="knowledge-secondary-button" :disabled="benchmarkGenerating" @click="openBenchmarkGenerateDialog">
-                <ClipboardList :size="18" />
-                <span>自动生成</span>
-                <span>{{ benchmarkGenerating ? '生成中' : '自动生成' }}</span>
-              </button>
-              <button type="button" class="knowledge-primary-button" @click="openDatasetUploadDialog">
-                <UploadCloud :size="18" />
-                <span>上传基准</span>
-                <span>上传基准</span>
-              </button>
+              <div class="knowledge-section-actions">
+                <button type="button" class="knowledge-secondary-button knowledge-section-action-button" :disabled="benchmarkGenerating" @click="openBenchmarkGenerateDialog">
+                  <Loader2 v-if="benchmarkGenerating" class="spin" :size="16" />
+                  <ClipboardList v-else :size="16" />
+                  <span>{{ benchmarkGenerating ? '生成中' : '自动生成' }}</span>
+                </button>
+                <button type="button" class="knowledge-create-button" @click="openDatasetUploadDialog">
+                  <UploadCloud :size="16" />
+                  <span>上传基准</span>
+                </button>
+              </div>
             </header>
 
             <p v-if="evaluationErrorMessage" class="knowledge-inline-error">{{ evaluationErrorMessage }}</p>

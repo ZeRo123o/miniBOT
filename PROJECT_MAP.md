@@ -118,6 +118,7 @@ backend/app
 |-- repositories/
 |   `-- skill_repository.py  鐙珛 skills 琛ㄧ殑鏁版嵁璁块棶
 |-- services/
+|   |-- chat_run_service.py      后台聊天 Run、Redis Stream 事件与断线恢复
 |   |-- conversation_service.py  浼氳瘽鍜屾秷鎭笟鍔℃湇鍔?
 |   |-- knowledge_service.py     鐭ヨ瘑搴撱€佹枃妗ｄ笂浼犲拰瑙ｆ瀽缂栨帓鏈嶅姟
 |   |-- selection_service.py     鐢ㄦ埛鐭ヨ瘑搴撻€夋嫨鏈嶅姟
@@ -201,6 +202,8 @@ frontend
     |   |-- ConversationSidebar.vue
     |   |-- ExtensionManagementView.vue
     |   |-- MarkdownMessage.vue
+    |   |-- ModelProviderView.vue
+    |   |-- ProviderIcon.vue
     |   `-- WorkspaceSidebar.vue
     `-- views/
         `-- HomeView.vue
@@ -337,12 +340,18 @@ DELETE /api/conversations/{conversation_id}?user_id=default
 GET    /api/conversations/{conversation_id}/messages?user_id=default
 POST   /api/chat
 POST   /api/chat/stream
+POST   /api/chat/runs
+GET    /api/chat/runs/{run_id}?user_id=default
+GET    /api/chat/runs/{run_id}/events?user_id=default
+GET    /api/chat/conversations/{conversation_id}/active-run?user_id=default
 GET    /api/model-providers
 POST   /api/model-providers
 GET    /api/model-providers/{provider_id}
 PUT    /api/model-providers/{provider_id}
 DELETE /api/model-providers/{provider_id}
 GET    /api/model-providers/{provider_id}/remote-models
+POST   /api/model-providers/test-credentials
+POST   /api/model-providers/{provider_id}/models/test
 POST   /api/model-providers/models/cache/refresh
 GET    /api/model-providers/models/v2?model_type=chat|embedding|rerank
 GET    /api/model-providers/models/status?spec=provider_id:model_id
@@ -534,6 +543,20 @@ PUT /api/knowledge-bases/{knowledge_base_id}/query-params
 POST /api/knowledge-bases/{knowledge_base_id}/query-test
 ```
 - `backend/app/db/repositories.py`
+
+## 异步聊天 Run 数据流
+
+```text
+ChatBox / conversationStore
+  -> POST /api/chat/runs（保存 user 消息与 pending agent_run）
+  -> ChatRunManager 在浏览器请求之外执行 AgentRuntime.run_prepared_stream
+  -> Redis Stream 保存 token/tool/subagent/done/end 事件
+  -> GET /api/chat/runs/{run_id}/events + Last-Event-ID 续传
+  -> assistant 消息落 PostgreSQL 后将 agent_run 标记为终态
+  -> 页面刷新后查询 conversation active-run 并恢复订阅
+```
+
+`/api/chat/stream` 继续保留为兼容入口；当前 Web UI 默认使用异步 Run。
 
 ## 8. 楠岃瘉鍛戒护
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import time
 from typing import Any
 
 import httpx
@@ -160,6 +161,13 @@ def resolve_api_key(provider: ModelProvider) -> str | None:
 
 async def ensure_builtin_model_providers_in_db(db: AsyncSession) -> None:
     existing = {item.provider_id: item for item in await list_model_providers(db)}
+    builtin_provider_ids = {item["provider_id"] for item in BUILTIN_PROVIDERS}
+
+    # 内置目录是系统的权威清单；仅清理已经退出目录的内置项，用户自建 Provider 不受影响。
+    for provider_id, current in existing.items():
+        if current.is_builtin and provider_id not in builtin_provider_ids:
+            await delete_model_provider(db, current)
+
     for provider_def in BUILTIN_PROVIDERS:
         provider_id = provider_def["provider_id"]
         current = existing.get(provider_id)
@@ -236,6 +244,64 @@ def _models_url(base_url: str, endpoint: str | None) -> str:
     if endpoint.startswith(("http://", "https://")):
         return endpoint
     return f"{base_url.rstrip('/')}/{endpoint.lstrip('/')}"
+
+
+def resolve_test_credential(
+    *,
+    api_key: str | None,
+    api_key_env: str | None,
+    saved_provider: ModelProvider | None,
+    headers: dict[str, Any],
+) -> tuple[str | None, str]:
+    """Resolve a transient credential without mutating the saved Provider configuration."""
+    if api_key and api_key.strip():
+        return api_key.strip(), "current_input"
+    if saved_provider and saved_provider.api_key:
+        return saved_provider.api_key, "saved"
+    effective_env = api_key_env or (saved_provider.api_key_env if saved_provider else None)
+    if effective_env and os.getenv(effective_env):
+        return os.getenv(effective_env), "environment"
+    if any(str(name).lower() == "authorization" for name in headers):
+        return None, "custom_header"
+    return None, "missing"
+
+
+async def test_provider_credentials(
+    *,
+    base_url: str,
+    models_endpoint: str,
+    api_key: str | None,
+    headers: dict[str, Any],
+    credential_source: str,
+) -> dict[str, Any]:
+    """Verify transient credentials against the configured model-list endpoint."""
+    url = _models_url(base_url, models_endpoint)
+    request_headers = {str(name): str(value) for name, value in headers.items()}
+    if api_key:
+        # The value entered in the API Key field must win over a stale custom Authorization header.
+        request_headers["Authorization"] = f"Bearer {api_key}"
+
+    started_at = time.perf_counter()
+    async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+        response = await client.get(url, headers=request_headers)
+        response.raise_for_status()
+    latency_ms = max(1, round((time.perf_counter() - started_at) * 1000))
+
+    try:
+        payload = response.json()
+    except ValueError as error:
+        raise ValueError("Models Endpoint 返回的不是有效 JSON") from error
+    models = _remote_payload_models(payload)
+    if not isinstance(models, list):
+        raise ValueError("Models Endpoint 响应必须是数组或包含 data 数组的对象")
+
+    return {
+        "status": "available",
+        "message": "凭证有效，模型列表接口可访问",
+        "credential_source": credential_source,
+        "remote_model_count": len(models),
+        "latency_ms": latency_ms,
+    }
 
 
 def _url_with_endpoint(base_url: str, endpoint: str) -> str:

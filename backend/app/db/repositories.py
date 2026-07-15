@@ -510,6 +510,50 @@ class AgentRunRepository:
         result = await self.db.execute(select(AgentRun).where(AgentRun.request_id == request_id))
         return result.scalar_one_or_none()
 
+    async def get(self, run_id: str, *, user_id: str | None = None) -> AgentRun | None:
+        """Load one run, optionally restricting it to its owner."""
+        statement = select(AgentRun).where(AgentRun.id == run_id)
+        if user_id is not None:
+            statement = statement.where(AgentRun.user_id == user_id)
+        result = await self.db.execute(statement)
+        return result.scalar_one_or_none()
+
+    async def get_active_chat_run(self, *, conversation_id: int, user_id: str) -> AgentRun | None:
+        """Return the latest unfinished parent chat run for one conversation."""
+        result = await self.db.execute(
+            select(AgentRun)
+            .where(
+                AgentRun.conversation_id == conversation_id,
+                AgentRun.user_id == user_id,
+                AgentRun.run_type == "chat",
+                AgentRun.parent_agent_run_id.is_(None),
+                AgentRun.status.in_(["pending", "running"]),
+            )
+            .order_by(AgentRun.created_at.desc())
+        )
+        return result.scalars().first()
+
+    async def list_chat_runs_by_status(self, statuses: list[str]) -> list[AgentRun]:
+        """List parent chat runs used by startup recovery."""
+        result = await self.db.execute(
+            select(AgentRun).where(
+                AgentRun.run_type == "chat",
+                AgentRun.parent_agent_run_id.is_(None),
+                AgentRun.status.in_(statuses),
+            )
+        )
+        return list(result.scalars().all())
+
+    async def set_status(self, run_id: str, status: str) -> AgentRun:
+        """Update a non-terminal run status without setting finished_at."""
+        item = await self.get(run_id)
+        if item is None:
+            raise ValueError("Agent run not found.")
+        item.status = status
+        await self.db.commit()
+        await self.db.refresh(item)
+        return item
+
     async def get_latest_subagent_for_thread(
         self,
         *,

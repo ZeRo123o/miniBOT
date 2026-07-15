@@ -41,9 +41,17 @@ class ConversationService:
         content: str,
         *,
         uploads: list[dict] | None = None,
+        request_id: str | None = None,
+        run_id: str | None = None,
     ) -> None:
         """保存用户消息。"""
-        metadata = {"uploads": uploads or []} if uploads else None
+        metadata: dict = {}
+        if uploads:
+            metadata["uploads"] = uploads
+        if request_id:
+            metadata["request_id"] = request_id
+        if run_id:
+            metadata["run_id"] = run_id
         await self.message_repo.create(conversation_id, role="user", content=content, metadata=metadata)
 
     async def save_assistant_message(

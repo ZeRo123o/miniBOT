@@ -1,18 +1,12 @@
 <script setup>
 import { Paperclip, Plus, SendHorizontal, X } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
-import { sendChatStream } from '../apis/resources'
 import { loadModelProviderWorkspace, modelProviderStore } from '../stores/modelProviderStore'
 import {
+  activeConversationIsRunning,
   activeMessages,
-  addPendingChatMessage,
-  appendPendingAssistantContent,
-  appendPendingSubagentToken,
-  appendPendingToolEvent,
-  applyChatResponse,
-  applyStreamConversation,
-  conversationStore,
-  removePendingAssistantMessage,
+  activeRun,
+  startConversationRun,
 } from '../stores/conversationStore'
 import { selectionStore } from '../stores/selectionStore'
 import AppSelect from './AppSelect.vue'
@@ -23,7 +17,9 @@ const input = ref('')
 const inputEl = ref(null)
 const fileInputEl = ref(null)
 const messagesEl = ref(null)
-const sending = ref(false)
+const submitting = ref(false)
+const sending = computed(() => submitting.value || activeConversationIsRunning.value)
+const activeRunError = computed(() => activeRun.value?.error || '')
 const errorMessage = ref('')
 const selectedFiles = ref([])
 const selectedModelSpec = ref('')
@@ -65,6 +61,8 @@ watch(
   { immediate: true },
 )
 
+watch(activeMessages, () => scrollToBottom(), { deep: true })
+
 async function resizeInput() {
   await nextTick()
   if (!inputEl.value) return
@@ -87,63 +85,32 @@ async function submit() {
   }
 
   input.value = ''
-  sending.value = true
+  submitting.value = true
   // 长文本发送后立即恢复单行高度，不等待流式请求结束。
   await resizeInput()
   const filesToSend = [...selectedFiles.value]
   selectedFiles.value = []
   plusMenuOpen.value = false
   errorMessage.value = ''
-  const conversationId = conversationStore.activeId
   const optimisticUploads = filesToSend.map((file) => ({
     file_name: file.name,
     size: file.size,
     content_type: file.type || '',
   }))
-  const optimisticConversationId = addPendingChatMessage(text, optimisticUploads)
-  let streamConversationId = optimisticConversationId
-  scrollToBottom()
-
   try {
-    await sendChatStream(
-      text,
-      selectionStore.userId,
-      conversationId,
-      {
-        conversation(event) {
-          applyStreamConversation(event, optimisticConversationId)
-          streamConversationId = event.conversation_id
-          scrollToBottom()
-        },
-        token(event) {
-          appendPendingAssistantContent(streamConversationId, event.content || '')
-          scrollToBottom()
-        },
-        subagent_token(event) {
-          appendPendingSubagentToken(streamConversationId, event)
-          scrollToBottom()
-        },
-        subagent_status(event) {
-          appendPendingToolEvent(streamConversationId, event)
-          scrollToBottom()
-        },
-        tool_event(event) {
-          appendPendingToolEvent(streamConversationId, event)
-          scrollToBottom()
-        },
-        done(event) {
-          applyChatResponse(event, optimisticConversationId)
-          scrollToBottom()
-        },
-      },
-      filesToSend,
-      selectedModelSpec.value,
-    )
+    const runPromise = startConversationRun({
+      content: text,
+      userId: selectionStore.userId,
+      files: filesToSend,
+      modelSpec: selectedModelSpec.value,
+      optimisticUploads,
+    })
+    scrollToBottom()
+    await runPromise
   } catch (error) {
-    removePendingAssistantMessage(streamConversationId)
     errorMessage.value = error.message
   } finally {
-    sending.value = false
+    submitting.value = false
     resizeInput()
   }
 }
@@ -208,7 +175,7 @@ function chartUrls(message) {
           </span>
         </div>
       </article>
-      <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
+      <p v-if="errorMessage || activeRunError" class="error">{{ errorMessage || activeRunError }}</p>
     </div>
 
     <div v-if="selectedFiles.length" class="selected-attachments">

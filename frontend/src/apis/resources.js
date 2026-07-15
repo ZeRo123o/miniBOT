@@ -245,6 +245,67 @@ export async function sendChatStream(message, userId, conversationId = null, han
   }
 }
 
+export async function createChatRun(
+  message,
+  userId,
+  conversationId = null,
+  files = [],
+  modelSpec = null,
+  requestId = null,
+) {
+  const formData = buildChatFormData(message, userId, conversationId, files, modelSpec)
+  if (requestId) formData.append('request_id', requestId)
+  const response = await fetch(`${API_BASE}/chat/runs`, { method: 'POST', body: formData })
+  if (!response.ok) throw new Error(await getResponseError(response))
+  return response.json()
+}
+
+export function getChatRun(runId, userId) {
+  return request(`/chat/runs/${encodeURIComponent(runId)}?user_id=${encodeURIComponent(userId)}`)
+}
+
+export function getConversationActiveRun(conversationId, userId) {
+  return request(
+    `/chat/conversations/${encodeURIComponent(conversationId)}/active-run?user_id=${encodeURIComponent(userId)}`,
+  )
+}
+
+export async function streamChatRunEvents(runId, userId, afterId = '0-0', onEvent = () => {}) {
+  const headers = {}
+  if (afterId && afterId !== '0-0') headers['Last-Event-ID'] = afterId
+  const response = await fetch(
+    `${API_BASE}/chat/runs/${encodeURIComponent(runId)}/events?user_id=${encodeURIComponent(userId)}`,
+    { headers },
+  )
+  if (!response.ok || !response.body) throw new Error(await getResponseError(response))
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let lastEventId = afterId || '0-0'
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const blocks = buffer.split('\n\n')
+    buffer = blocks.pop() || ''
+    for (const block of blocks) {
+      const parsed = parseRunStreamEvent(block)
+      if (!parsed) continue
+      if (parsed.eventId) lastEventId = parsed.eventId
+      onEvent(parsed.event, lastEventId)
+    }
+  }
+  if (buffer.trim()) {
+    const parsed = parseRunStreamEvent(buffer)
+    if (parsed) {
+      if (parsed.eventId) lastEventId = parsed.eventId
+      onEvent(parsed.event, lastEventId)
+    }
+  }
+  return lastEventId
+}
+
 function buildChatFormData(message, userId, conversationId, files, modelSpec = null) {
   const formData = new FormData()
   formData.append('message', message)
@@ -270,4 +331,18 @@ function parseStreamEvent(rawEvent) {
 
   if (!data) return null
   return JSON.parse(data)
+}
+
+function parseRunStreamEvent(rawEvent) {
+  const lines = rawEvent.split('\n')
+  const data = lines
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).trimStart())
+    .join('\n')
+  if (!data) return null
+  const idLine = lines.find((line) => line.startsWith('id:'))
+  return {
+    eventId: idLine ? idLine.slice(3).trim() : '',
+    event: JSON.parse(data),
+  }
 }

@@ -11,7 +11,7 @@ import {
   PanelLeftOpen,
   SquarePen,
 } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import {
   conversationStore,
   newConversation,
@@ -54,6 +54,12 @@ function toggleMenu(conversationId) {
   openMenuId.value = openMenuId.value === conversationId ? null : conversationId
 }
 
+function closeConversationMenuOnOutsideClick(event) {
+  if (!openMenuId.value) return
+  if (event.target.closest('.conversation-more, .conversation-menu')) return
+  openMenuId.value = null
+}
+
 async function handleRename(conversation) {
   openMenuId.value = null
   const title = window.prompt('重命名对话', conversation.title)
@@ -82,6 +88,9 @@ async function openConversation(conversationId) {
   emit('navigate', 'chat')
   await selectConversation(conversationId, selectionStore.userId)
 }
+
+onMounted(() => document.addEventListener('pointerdown', closeConversationMenuOnOutsideClick))
+onBeforeUnmount(() => document.removeEventListener('pointerdown', closeConversationMenuOnOutsideClick))
 </script>
 
 <template>

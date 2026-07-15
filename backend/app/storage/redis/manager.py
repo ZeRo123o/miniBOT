@@ -31,6 +31,23 @@ def create_sync_redis_client(*, ping: bool = False) -> Any:
     return client
 
 
+async def create_async_redis_client(*, ping: bool = False, socket_timeout: float | None = None) -> Any:
+    """Create an asyncio Redis client for long-lived streams and background runs."""
+    try:
+        import redis.asyncio as redis_async
+    except ImportError as exc:
+        raise RuntimeError("redis dependency is required for Redis storage") from exc
+
+    settings = get_settings()
+    kwargs = _redis_kwargs()
+    if socket_timeout is not None:
+        kwargs["socket_timeout"] = socket_timeout
+    client = redis_async.from_url(settings.redis_url, **kwargs)
+    if ping:
+        await client.ping()
+    return client
+
+
 @contextmanager
 def sync_redis_client(*, ping: bool = False) -> Iterator[Any]:
     client = create_sync_redis_client(ping=ping)

@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     redis_socket_timeout_seconds: float = 2.0
     model_cache_redis_key: str = "minibot:model_cache"
     model_cache_local_ttl_seconds: float = 5.0
+    chat_run_event_ttl_seconds: int = 3600
+    chat_run_event_max_entries: int = 20000
+    chat_run_sse_block_ms: int = 10000
+    chat_run_max_concurrency: int = 4
     langgraph_checkpoint_pool_min_size: int = 1
     langgraph_checkpoint_pool_max_size: int = 10
     storage_provider: str = "minio"

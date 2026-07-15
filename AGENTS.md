@@ -76,6 +76,11 @@ MINIBOT_MINIO_SECURE=false
 DASHSCOPE_API_KEY=your_api_key
 SILICONFLOW_API_KEY=
 OPENAI_API_KEY=
+DEEPSEEK_API_KEY=
+XIAOMI_MIMO_API_KEY=
+XIAOMI_MIMO_TOKEN_PLAN_API_KEY=
+MINIMAX_API_KEY=
+MODELSCOPE_ACCESS_TOKEN=
 MINIBOT_OPENAI_TEMPERATURE=0.2
 MINIBOT_OPENAI_TIMEOUT_SECONDS=180
 MINIBOT_RERANK_ENABLED=false
@@ -145,6 +150,8 @@ http://localhost:5173
 - Windows 环境下 PostgreSQL checkpoint 使用 psycopg async pool，应用启动前必须切换为 `WindowsSelectorEventLoopPolicy`，否则 Proactor loop 无法建立异步连接。
 - `/api/chat/stream` 的工具过程采用 Yuxi 风格 `tool_calls` 模型：每个 `tool_event` 必须带稳定 `id`、`tool_name`、状态与受限的 `args` 展示字段；前端按 id 合并为消息内的工具调用组。子 Agent 的模型文本只能通过独立的 `subagent_token` 事件推送，必须附带 `subagent_type`、`child_thread_id`、`run_id` 和父 `tool_call_id`，前端不得将其混入主回答 token。仅允许展示经裁剪的查询、任务说明、虚拟路径等用户可见输入；禁止推送文件内容、API key 或其他敏感参数。
 - `/api/chat/stream` 主回答必须直接消费父 LangGraph `astream(stream_mode=["messages", "values"])` 的 `AIMessageChunk` 并立即推送 `token`；最终答案从 checkpoint state 读取后持久化。禁止在 `ainvoke()` 完成后对完整 answer 人为切片伪造流式输出。
+- 主聊天前端默认使用异步 Run：`POST /api/chat/runs` 先持久化用户消息和父 `agent_runs`，后台 Run 管理器独立执行 Agent；运行事件写入 Redis Stream，前端通过 `GET /api/chat/runs/{run_id}/events` 携带 `Last-Event-ID` 断线续传。SSE 订阅断开不得取消后台 Run；完成后仍以 PostgreSQL 消息历史为最终权威数据源。
+- 同一会话只允许一个 `pending/running` 父聊天 Run。前端必须生成幂等 `request_id`，页面刷新或切换会话后通过 `GET /api/chat/conversations/{conversation_id}/active-run` 恢复订阅，不得将 `localStorage` 作为 Run 或消息的权威存储。
 - 智能助手运行时上下文放在 `backend/app/agents/buildin/chatbot/context.py`，不要把资源、用户、模型用途散落到 state dict 中。
 - `backend/app/agents/buildin/chatbot/graph.py` 使用 LangChain `create_agent` 构建 agent，不手写 node/edge 编排。
 - Agent 业务中间件放在 `backend/app/agents/middlewares`，新增上下文裁剪、记忆、工具权限等能力时优先新增独立 middleware 文件。
@@ -201,6 +208,12 @@ http://localhost:5173
 - `DELETE /api/conversations/{conversation_id}?user_id=default`
 - `GET /api/conversations/{conversation_id}/messages?user_id=default`
 - `POST /api/chat`
+- `POST /api/chat/runs`
+- `GET /api/chat/runs/{run_id}?user_id=default`
+- `GET /api/chat/runs/{run_id}/events?user_id=default`
+- `GET /api/chat/conversations/{conversation_id}/active-run?user_id=default`
+- `POST /api/model-providers/test-credentials`
+- `POST /api/model-providers/{provider_id}/models/test`
 - `GET /api/knowledge-bases?user_id=default`
 - `POST /api/knowledge-bases`
 - `DELETE /api/knowledge-bases/{knowledge_base_id}?user_id=default`

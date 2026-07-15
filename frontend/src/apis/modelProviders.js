@@ -40,6 +40,20 @@ export function getModelStatus(spec) {
   return request(`/model-providers/models/status?spec=${encodeURIComponent(spec)}`)
 }
 
+export function testModelProviderCredentials(payload) {
+  return request('/model-providers/test-credentials', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function testProviderModel(providerId, payload) {
+  return request(`/model-providers/${encodeURIComponent(providerId)}/models/test`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 export function listModelUses() {
   return request('/model-providers/model-uses')
 }

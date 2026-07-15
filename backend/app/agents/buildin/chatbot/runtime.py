@@ -93,14 +93,15 @@ class AgentRuntime(BaseChatRuntime):
                 "artifacts": result.get("artifacts") or [],
                 "activated_skills": activated_skills,
             }
-            await finish_run(
-                str(parent_run["id"]),
-                status="completed",
-                result_payload={
-                    "content": answer,
-                    "subagent_runs": assistant_metadata["subagent_runs"],
-                },
-            )
+            if run_id is None:
+                await finish_run(
+                    str(parent_run["id"]),
+                    status="completed",
+                    result_payload={
+                        "content": answer,
+                        "subagent_runs": assistant_metadata["subagent_runs"],
+                    },
+                )
         except ModelRequestTimeoutError:
             logger.warning(
                 "Agent model request timed out: user_id=%s conversation_id=%s",
@@ -114,9 +115,11 @@ class AgentRuntime(BaseChatRuntime):
                 "workflow": "agent",
                 "error": "model_timeout",
             }
-            await finish_run(str(parent_run["id"]), status="failed")
+            if run_id is None:
+                await finish_run(str(parent_run["id"]), status="failed")
         except Exception as error:
-            await finish_run(str(parent_run["id"]), status="failed", error=error)
+            if run_id is None:
+                await finish_run(str(parent_run["id"]), status="failed", error=error)
             raise
         return RuntimeResult(
             answer=answer,
@@ -224,6 +227,7 @@ class AgentRuntime(BaseChatRuntime):
         resources: dict[str, list[dict]],
         uploads: list[dict],
         model_spec: str | None = None,
+        run_id: str | None = None,
     ) -> AsyncIterator[dict | RuntimeResult]:
         """Forward true model chunks and runtime events while the parent graph is running."""
         event_queue: asyncio.Queue[dict] = asyncio.Queue()
@@ -236,6 +240,7 @@ class AgentRuntime(BaseChatRuntime):
                 resources=resources,
                 uploads=uploads,
                 model_spec=model_spec,
+                run_id=run_id,
                 event_sink=event_queue.put_nowait,
             )
         )
@@ -258,6 +263,7 @@ class AgentRuntime(BaseChatRuntime):
         resources: dict[str, list[dict]],
         uploads: list[dict],
         model_spec: str | None,
+        run_id: str | None,
         event_sink: Callable[[dict], None],
     ) -> RuntimeResult:
         """Run `astream` and persist the final checkpoint state after true token streaming."""
@@ -268,7 +274,8 @@ class AgentRuntime(BaseChatRuntime):
             state_uploads = list(uploads)
             state_files = build_attachment_state_files(state_uploads)
         thread_id = make_parent_thread_id(conversation_id)
-        parent_run = await create_parent_run(
+        # Async chat runs create the parent record before execution so the browser can reconnect.
+        parent_run = {"id": run_id} if run_id else await create_parent_run(
             user_id=user_id,
             conversation_id=conversation_id,
             thread_id=thread_id,
