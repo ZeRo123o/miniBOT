@@ -1,7 +1,11 @@
 <script setup>
-import { PanelRightClose, PanelRightOpen } from 'lucide-vue-next'
+import { Check, PanelRightClose, PanelRightOpen } from 'lucide-vue-next'
 import { computed } from 'vue'
-import { persistSelection, selectionStore } from '../stores/selectionStore'
+import {
+  persistSelection,
+  refreshSelectionDirtyState,
+  selectionStore,
+} from '../stores/selectionStore'
 
 defineProps({
   collapsed: {
@@ -21,12 +25,16 @@ function resourceTitle(item) {
   return item.display_name || item.name
 }
 
+function resourceInitial(item) {
+  return String(resourceTitle(item) || 'K').trim().charAt(0).toUpperCase()
+}
+
 function toggleKnowledgeBase(knowledgeBaseId) {
   const selected = new Set(selectionStore.selection.knowledge_base_ids)
   if (selected.has(knowledgeBaseId)) selected.delete(knowledgeBaseId)
   else selected.add(knowledgeBaseId)
   selectionStore.selection.knowledge_base_ids = Array.from(selected)
-  selectionStore.hasUnsavedChanges = true
+  refreshSelectionDirtyState()
 }
 
 </script>
@@ -57,16 +65,26 @@ function toggleKnowledgeBase(knowledgeBaseId) {
         </header>
 
         <div class="resource-list">
-          <label v-for="item in knowledgeBases" :key="`knowledgeBase:${item.id}`" class="resource-row">
+          <label
+            v-for="item in knowledgeBases"
+            :key="`knowledgeBase:${item.id}`"
+            class="resource-row"
+            :class="{ selected: selectedKnowledgeBaseIds.includes(item.id) }"
+          >
             <input
+              class="resource-checkbox"
               type="checkbox"
               :checked="selectedKnowledgeBaseIds.includes(item.id)"
+              :aria-label="`选择知识库 ${resourceTitle(item)}`"
               @change="toggleKnowledgeBase(item.id)"
             />
-            <span>
+            <span class="resource-avatar" aria-hidden="true">{{ resourceInitial(item) }}</span>
+            <span class="resource-copy">
               <strong>{{ resourceTitle(item) }}</strong>
               <small>KB #{{ item.id }}</small>
-              <em>{{ item.description }}</em>
+            </span>
+            <span class="resource-check" aria-hidden="true">
+              <Check v-if="selectedKnowledgeBaseIds.includes(item.id)" :size="14" />
             </span>
           </label>
           <p v-if="!knowledgeBases.length" class="empty">暂无可选知识库。</p>

@@ -11,7 +11,6 @@ import {
   getEvaluationDataset,
   getEvaluationRun,
   listKnowledgeChunkPresets,
-  listKnowledgeBases,
   listKnowledgeDocuments,
   listEvaluationDatasets,
   listEvaluationRuns,
@@ -27,7 +26,12 @@ import {
   loadModelProviderWorkspace,
   modelProviderStore,
 } from '../stores/modelProviderStore'
-import { selectionStore } from '../stores/selectionStore'
+import {
+  refreshKnowledgeBaseResources,
+  removeKnowledgeBaseResource,
+  selectionStore,
+  upsertKnowledgeBaseResource,
+} from '../stores/selectionStore'
 import AppSelect from './AppSelect.vue'
 
 const knowledgeTypeFilterOptions = [
@@ -63,7 +67,7 @@ const props = defineProps({
 
 const searchText = ref('')
 const knowledgeTypeFilter = ref('all')
-const knowledgeBases = ref([])
+const knowledgeBases = computed(() => selectionStore.resources.knowledgeBase || [])
 const chunkPresets = ref([])
 const documentsByBaseId = ref({})
 const selectedBaseId = ref(null)
@@ -416,7 +420,7 @@ async function loadKnowledgeBases() {
   loading.value = true
   errorMessage.value = ''
   try {
-    knowledgeBases.value = await listKnowledgeBases(selectionStore.userId)
+    await refreshKnowledgeBaseResources()
     if (!selectedBaseId.value && knowledgeBases.value.length) {
       selectedBaseId.value = knowledgeBases.value[0].id
       await loadDocuments(selectedBaseId.value)
@@ -846,16 +850,10 @@ async function confirmDelete() {
     if (kind === 'knowledgeBase') {
       const deletedIndex = knowledgeBases.value.findIndex((knowledgeBase) => knowledgeBase.id === item.id)
       await deleteKnowledgeBase(item.id, selectionStore.userId)
-      knowledgeBases.value = knowledgeBases.value.filter((knowledgeBase) => knowledgeBase.id !== item.id)
+      removeKnowledgeBaseResource(item.id)
       const nextDocuments = { ...documentsByBaseId.value }
       delete nextDocuments[item.id]
       documentsByBaseId.value = nextDocuments
-      selectionStore.resources.knowledgeBase = selectionStore.resources.knowledgeBase.filter(
-        (knowledgeBase) => knowledgeBase.id !== item.id,
-      )
-      selectionStore.selection.knowledge_base_ids = selectionStore.selection.knowledge_base_ids.filter(
-        (knowledgeBaseId) => knowledgeBaseId !== item.id,
-      )
 
       const nextKnowledgeBase = knowledgeBases.value[deletedIndex] || knowledgeBases.value[deletedIndex - 1]
       selectedBaseId.value = nextKnowledgeBase?.id || null
@@ -942,8 +940,7 @@ async function submitKnowledgeBase() {
       ...documentsByBaseId.value,
       [knowledgeBase.id]: [],
     }
-    selectedBaseId.value = knowledgeBase.id
-    await loadKnowledgeBases()
+    upsertKnowledgeBaseResource(knowledgeBase)
     selectedBaseId.value = knowledgeBase.id
     createDialogOpen.value = false
   } catch (error) {
