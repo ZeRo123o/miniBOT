@@ -188,8 +188,15 @@ class SkillsMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         )
         dependency_patcher.start()
         prompt_patcher.start()
+        self.filesystem_backend = SimpleNamespace(aprepare_skills=AsyncMock())
+        filesystem_patcher = patch(
+            "app.agents.middlewares.Skills_middleware.create_agent_filesystem_backend",
+            return_value=self.filesystem_backend,
+        )
+        filesystem_patcher.start()
         self.addCleanup(dependency_patcher.stop)
         self.addCleanup(prompt_patcher.stop)
+        self.addCleanup(filesystem_patcher.stop)
         self.middleware = SkillsMiddleware()
 
     async def test_before_agent_prepares_skill_prompt(self):
@@ -205,6 +212,9 @@ class SkillsMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn(
             "/mnt/skills/reporter/SKILL.md",
             self.context.system_prompt,
+        )
+        self.filesystem_backend.aprepare_skills.assert_awaited_once_with(
+            ["reporter"]
         )
 
     async def test_before_agent_does_not_inject_prompt_twice(self):
@@ -247,6 +257,9 @@ class SkillsMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             self.context._visible_skills,
             ["reporter", "writer"],
+        )
+        self.filesystem_backend.aprepare_skills.assert_awaited_once_with(
+            ["reporter", "writer"]
         )
 
     async def test_successful_skill_entry_read_activates_skill(self):
@@ -293,7 +306,7 @@ class SkillsMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             result = await self.middleware.awrap_tool_call(request, handler)
             self.assertIsInstance(result, ToolMessage)
 
-    async def test_entry_tool_message_activates_even_when_content_reports_error(self):
+    async def test_failed_skill_entry_read_does_not_activate(self):
         request = ToolCallRequest(
             tool_call={
                 "name": "sandbox_read_file",
@@ -310,12 +323,35 @@ class SkillsMiddlewareTests(unittest.IsolatedAsyncioTestCase):
             return ToolMessage(
                 content="Error: unavailable",
                 tool_call_id="call-error",
+                status="error",
             )
 
         result = await self.middleware.awrap_tool_call(request, handler)
 
-        self.assertIsInstance(result, Command)
-        self.assertEqual(result.update["activated_skills"], ["reporter"])
+        self.assertIsInstance(result, ToolMessage)
+
+    async def test_legacy_error_text_does_not_activate(self):
+        request = ToolCallRequest(
+            tool_call={
+                "name": "sandbox_read_file",
+                "args": {"path": "/mnt/skills/reporter/SKILL.md"},
+                "id": "call-legacy-error",
+                "type": "tool_call",
+            },
+            tool=None,
+            state={},
+            runtime=SimpleNamespace(context=self.context),
+        )
+
+        async def handler(_request):
+            return ToolMessage(
+                content="Error: unavailable",
+                tool_call_id="call-legacy-error",
+            )
+
+        result = await self.middleware.awrap_tool_call(request, handler)
+
+        self.assertIsInstance(result, ToolMessage)
 
     def test_sync_tool_wrapper_activates_skill(self):
         request = ToolCallRequest(

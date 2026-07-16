@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 from app.agents.backends.filesystem import create_agent_filesystem_backend
 from app.agents.backends.sandbox.paths import (
+    VIRTUAL_SKILLS_ROOT,
     VIRTUAL_UPLOADS_ROOT,
     VIRTUAL_USER_DATA_ROOT,
     VIRTUAL_WORKSPACE_ROOT,
@@ -83,6 +84,29 @@ class AgentFilesystemBackendTests(unittest.TestCase):
                 traversal_result = backend.read(f"{VIRTUAL_WORKSPACE_ROOT}/../secret.txt")
                 self.assertIsNotNone(traversal_result.error)
                 self.assertIn("path traversal", traversal_result.error)
+
+    def test_prepare_skills_makes_entry_file_readable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "installed-skills" / "reporter"
+            source.mkdir(parents=True)
+            (source / "SKILL.md").write_text("# Reporter", encoding="utf-8")
+            backend = self._backend(root)
+
+            with patch(
+                "app.agents.backends.sandbox.paths.runtime_root",
+                return_value=root,
+            ), patch(
+                "app.agents.backends.sandbox.paths.resolve_skill_dir",
+                return_value=source,
+            ):
+                backend.prepare_skills(["reporter"])
+                read_result = backend.read(
+                    f"{VIRTUAL_SKILLS_ROOT}/reporter/SKILL.md"
+                )
+
+            self.assertIsNone(read_result.error)
+            self.assertEqual(read_result.content, "# Reporter")
 
 
 if __name__ == "__main__":

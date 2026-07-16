@@ -14,6 +14,7 @@ from langgraph.prebuilt.tool_node import ToolCallRequest
 from langgraph.types import Command
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.backends.filesystem import create_agent_filesystem_backend
 from app.agents.buildin.chatbot.context import AgentContext
 from app.agents.skills.service import is_valid_skill_slug, normalize_string_list
 from app.agents.toolkits.dependencies import resolve_skill_dependency_tools
@@ -172,6 +173,12 @@ class SkillsMiddleware(AgentMiddleware):
         if not visible_skills:
             return None
 
+        # /mnt/skills is backed by the conversation directory. Prepare the
+        # readable dependency closure before the model can request SKILL.md.
+        filesystem_backend = create_agent_filesystem_backend(runtime)
+        if filesystem_backend is not None:
+            await filesystem_backend.aprepare_skills(visible_skills)
+
         # 收集提示词元数据并构建提示段
         skills_meta = await self._collect_prompt_metadata(visible_skills)
         skills_section = self._build_skills_section(skills_meta)
@@ -271,6 +278,12 @@ class SkillsMiddleware(AgentMiddleware):
         if not self._is_visible_skill_slug(request, slug):
             logger.warning(
                 "SkillsMiddleware: deny Skill activation for invisible slug: %s",
+                slug,
+            )
+            return result
+        if not self._is_successful_skill_read(result):
+            logger.warning(
+                "SkillsMiddleware: skip Skill activation after failed read: %s",
                 slug,
             )
             return result
@@ -407,6 +420,34 @@ class SkillsMiddleware(AgentMiddleware):
                 getattr(runtime_context, self.skills_context_name, None) or []
             )
         return slug in visible_skills
+
+    @staticmethod
+    def _is_successful_skill_read(result: Any) -> bool:
+        """Activate a Skill only when its entry file was read successfully."""
+        if isinstance(result, ToolMessage):
+            messages = [result]
+        elif isinstance(result, Command):
+            update = result.update if isinstance(result.update, dict) else {}
+            messages = [
+                message
+                for message in update.get("messages", [])
+                if isinstance(message, ToolMessage)
+            ]
+        else:
+            return False
+
+        if not messages:
+            return False
+        for message in messages:
+            if getattr(message, "status", "success") == "error":
+                return False
+            # Compatibility fallback until every tool emits status="error".
+            if (
+                isinstance(message.content, str)
+                and message.content.lstrip().lower().startswith("error:")
+            ):
+                return False
+        return True
 
     @staticmethod
     def _merge_tools(current: list, additions: list) -> list:

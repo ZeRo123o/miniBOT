@@ -24,6 +24,7 @@ from app.agents.backends.sandbox.paths import (
     is_same_or_child,
     normalize_virtual_path,
     resolve_host_path,
+    sync_readable_skills,
     user_workspace_dir,
 )
 
@@ -87,6 +88,15 @@ class AgentFilesystemBackend:
         user_id, conversation_id = self._scope
         ensure_scope_dirs(user_id, conversation_id)
         return user_id, conversation_id
+
+    def prepare_skills(self, slugs: list[str]) -> None:
+        """Synchronize readable Skills into the conversation filesystem."""
+        user_id, conversation_id = self._ensure_scope()
+        sync_readable_skills(user_id, conversation_id, slugs)
+
+    async def aprepare_skills(self, slugs: list[str]) -> None:
+        """Copy Skill files without blocking the agent event loop."""
+        await asyncio.to_thread(self.prepare_skills, slugs)
 
     def _root_mappings(self) -> tuple[tuple[str, Path], ...]:
         user_id, conversation_id = self._ensure_scope()
