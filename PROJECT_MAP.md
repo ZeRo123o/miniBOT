@@ -59,6 +59,10 @@ backend/app
 |-- agents/
 |   |-- checkpoints.py       PostgreSQL LangGraph checkpointer lifecycle
 |   |-- state.py             parent/subagent shared BaseAgentState
+|   |-- capabilities/
+|   |   |-- models.py        Tool exposure 与运行时能力集合数据结构
+|   |   |-- policy.py        普通 Tool 的执行域与模型暴露纯策略
+|   |   `-- resolver.py      统一计算可执行工具、模型可见工具、MCP 与 Skill 范围
 |   |-- backends/
 |   |   |-- filesystem.py    Agent 铏氭嫙鏂囦欢绯荤粺 backend锛岀粺涓€澶勭悊 `/mnt/...` 鍐欏叆
 |   |   `-- sandbox/
@@ -78,6 +82,7 @@ backend/app
 |   |       |-- state.py     SubAgentState without parent subagent run records
 |   |       `-- tools.py     middleware-owned task tool with parallel-safe state updates
 |   |-- middlewares/
+|   |   |-- capability_middleware.py 每次模型调用前应用统一 Tool 暴露策略
 |   |   |-- subagent_middleware.py task delegation policy, profiles, runs and thread lifecycle
 |   |   |-- knowledge_base.py  鐭ヨ瘑搴撳伐鍏锋敞鍏ヤ腑闂翠欢
 |   |   |-- runtime_config.py  杩愯鏃跺伐鍏锋敞鍐屼笌妯″瀷鍙鎬х瓫閫?
@@ -94,7 +99,6 @@ backend/app
 |   `-- toolkits/
 |       |-- registry.py      YUXI 椋庢牸 @tool 娉ㄥ唽涓庡厓鏁版嵁
 |       |-- resolver.py      宸叉巿鏉冭祫婧愬埌 Tool 鐨勮В鏋?
-|       |-- dependencies.py  Skill Tool/MCP 渚濊禆 provider 娉ㄥ唽涓庤В鏋?
 |       |-- governance.py    宸ュ叿璋冪敤浜嬩欢涓庣粨鏋滆褰?
 |       |-- buildin/         绯荤粺鍐呯疆宸ュ叿
 |       |-- sandbox/         鍙楁帶娌欑洅鏂囦欢宸ュ叿
@@ -274,6 +278,7 @@ kbs/tools.py              list_kbs / query_kb
 
 ```text
 ToolCallLimitMiddleware    缁熶竴闄愬埗鍗曟 Agent 杩愯鐨勫伐鍏疯皟鐢ㄦ€绘暟
+CapabilityMiddleware      统一计算可执行与模型可见工具，并在 ToolCall 执行前校验权限
 KnowledgeBaseMiddleware    娉ㄥ唽 list_kbs / query_kb 鐭ヨ瘑搴撳伐鍏?
 SkillsMiddleware          鐢熷懡鍛ㄦ湡鍐呯洿鎺ユ煡璇?Skill Repository锛屾敞鍏?prompt銆佸睍寮€渚濊禆骞跺鐞嗗姩鎬佹縺娲?
 RuntimeConfigMiddleware   姣忔妯″瀷璋冪敤璇诲彇 context.system_prompt锛屽苟瑕嗙洊鏈妯″瀷璇锋眰
@@ -282,9 +287,12 @@ SummaryMiddleware          controls long conversation history only; it generates
 RuntimePromptMiddleware    姣忔妯″瀷璋冪敤鍓嶅閲忚拷鍔犺祫婧愬拰宸ュ叿绛栫暐
 ```
 
-Tool/MCP 瑁呴厤閲囩敤涓ゅ眰锛氬綋鍓嶇敤鎴峰凡鍚敤鐨勬櫘閫?Tool/MCP 鍦?graph 鍒涘缓鏃剁洿鎺ユ敞鍏ワ紱
-middleware 鑷甫 Tool 鐢?LangChain 鑷姩鏀堕泦锛汼kill 浠呭湪璇诲彇 `/mnt/skills/<slug>/SKILL.md`
-骞舵縺娲诲悗锛屾墠鐢?`SkillsMiddleware` 鍦ㄥ悗缁ā鍨嬭皟鐢ㄤ腑鍔ㄦ€佽拷鍔犲叾渚濊禆 Tool/MCP銆?
+普通 Tool 在 graph 创建时先按 `direct` / `skill_only` / `subagent_only` / `internal`
+执行域过滤；MCP 和 Middleware 自带 Tool 继续沿用各自现有注册方式。
+`CapabilityMiddleware` 在每次模型调用前只暴露本轮获准的 Tool Schema，并在执行前拒绝
+不属于 `executable_tool_names` 的 ToolCall。`internal` 不进入模型 Agent ToolNode；
+`subagent_only` 仅允许进入 Subagent，且仍受 Subagent Profile 的工具白名单约束。
+`SkillsMiddleware` 负责 Skill 提示、文件同步、依赖闭包与读取激活，不再重复承担最终工具暴露决策。
 `llm/` 璐熻矗妯″瀷绠＄悊锛?
 
 ```text

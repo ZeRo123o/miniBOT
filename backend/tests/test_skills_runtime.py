@@ -377,49 +377,6 @@ class SkillsMiddlewareTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(result, Command)
         self.assertEqual(result.update["activated_skills"], ["reporter"])
 
-    async def test_dependency_tool_is_hidden_until_activation(self):
-        visible_tool_names: list[list[str]] = []
-
-        async def handler(request):
-            visible_tool_names.append([tool.name for tool in request.tools])
-            return "ok"
-
-        await self.middleware.awrap_model_call(
-            FakeModelRequest(self.context, tools=[]),
-            handler,
-        )
-        await self.middleware.awrap_model_call(
-            FakeModelRequest(
-                self.context,
-                state={"activated_skills": ["reporter"]},
-                tools=[],
-            ),
-            handler,
-        )
-
-        self.assertNotIn("tavily_search", visible_tool_names[0])
-        self.assertIn("tavily_search", visible_tool_names[1])
-
-    async def test_skill_dependency_uses_authorized_resource_even_if_not_directly_configured(self):
-        middleware = SkillsMiddleware()
-        captured: list[str] = []
-
-        async def handler(request):
-            captured.extend(tool.name for tool in request.tools)
-            return "ok"
-
-        await middleware.awrap_model_call(
-            FakeModelRequest(
-                self.context,
-                state={"activated_skills": ["reporter"]},
-                tools=[],
-            ),
-            handler,
-        )
-
-        self.assertIn("tavily_search", captured)
-
-
 class RuntimeConfigMiddlewareTests(unittest.IsolatedAsyncioTestCase):
     async def test_reads_latest_system_prompt_from_runtime_context(self):
         context = AgentContext(

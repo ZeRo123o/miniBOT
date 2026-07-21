@@ -27,10 +27,24 @@ def _resource_names(items: list[dict]) -> list[str]:
     return [item.get("display_name") or item.get("name", "") for item in items if item.get("name")]
 
 
+def _model_visible_tool_resources(context: Any) -> list[dict]:
+    """只返回 CapabilityMiddleware 判定为本轮模型可见的普通 Tool。"""
+    tools = _get_value(context, "tools", [])
+    capabilities = _get_value(context, "_resolved_capabilities", None)
+    visible_names = getattr(capabilities, "model_visible_tool_names", None)
+    if not isinstance(visible_names, frozenset):
+        return tools
+    return [
+        item
+        for item in tools
+        if str(item.get("name") or "") in visible_names
+    ]
+
+
 def build_resource_context(context: Any) -> str:
     """生成由通用运行时中间件负责注入的资源摘要。"""
     mcps = _resource_names(_get_value(context, "mcps", []))
-    tools = _resource_names(_get_value(context, "tools", []))
+    tools = _resource_names(_model_visible_tool_resources(context))
     return (
         "当前启用资源:\n"
         f"- MCP: {mcps or '无'}\n"
@@ -47,7 +61,8 @@ def build_system_prompt(context: Any, base_prompt: str | None = None) -> str:
 def build_runtime_prompt(context: Any) -> str:
     """生成每次模型调用前追加的资源与工具策略。"""
     parts = [build_resource_context(context)]
-    if _get_value(context, "tools", []):
+    visible_tool_resources = _model_visible_tool_resources(context)
+    if visible_tool_resources:
         parts.append(
             "工具调用策略:\n"
             "- 不要假装已经访问网页或外部系统。\n"
@@ -57,7 +72,7 @@ def build_runtime_prompt(context: Any) -> str:
         )
     tool_names = {
         str(item.get("name") or "")
-        for item in _get_value(context, "tools", [])
+        for item in visible_tool_resources
     }
     if any(name.startswith("sandbox_") for name in tool_names):
         parts.append(

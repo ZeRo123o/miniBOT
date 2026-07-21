@@ -5,6 +5,11 @@ from typing import Any
 from langchain_core.tools import BaseTool
 
 from app.agents.buildin.chatbot.context import AgentContext
+from app.agents.capabilities import (
+    is_tool_executable,
+    parse_tool_exposure,
+    validate_agent_type,
+)
 from app.agents.mcp import discover_mcp_tools
 from app.agents.toolkits.registry import get_extra_metadata, get_tool_instance
 from app.core.config import get_settings
@@ -29,31 +34,34 @@ def merge_runtime_tools(*groups: Iterable[BaseTool]) -> list[BaseTool]:
 def resolve_runtime_tools(
     context: AgentContext,
     *,
-    include_direct: bool = True,
-    extra_tool_names: Iterable[str] = (),
+    agent_type: str = "chatbot",
+    denied_tool_names: Iterable[str] = (),
 ) -> list[BaseTool]:
-    """Resolve configured direct tools or explicitly activated Skill dependencies."""
+    """解析允许注册到当前 Agent ToolNode 的普通 Tool。"""
+    validate_agent_type(agent_type)
     resolved: list[BaseTool] = []
     seen: set[str] = set()
+    denied = {
+        str(name or "").strip()
+        for name in denied_tool_names
+        if str(name or "").strip()
+    }
     resources_by_name = {
         str(resource.get("name") or "").strip(): resource
         for resource in context.tools
-        if resource.get("name")
+        if resource.get("name") and bool(resource.get("enabled", True))
     }
-    direct_names = tuple(resources_by_name) if include_direct else ()
-    dependency_names = tuple(
-        dict.fromkeys(
-            str(name or "").strip()
-            for name in extra_tool_names
-            if str(name or "").strip()
-        )
-    )
-    for name in (*direct_names, *dependency_names):
-        if not name or name in seen:
+    for name, resource in resources_by_name.items():
+        if not name or name in seen or name in denied:
             continue
-        resource = resources_by_name.get(name)
-        if resource is None:
-            logger.warning("Skill dependency tool is unavailable or unauthorized: %s", name)
+        exposure = parse_tool_exposure(resource.get("config") or {})
+        if exposure is None:
+            logger.warning(
+                "Invalid tool exposure skipped during graph registration: tool=%s",
+                name,
+            )
+            continue
+        if not is_tool_executable(exposure, agent_type=agent_type):
             continue
         if name.startswith("sandbox_") and not get_settings().sandbox_enabled:
             continue

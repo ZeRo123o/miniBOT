@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.capabilities import parse_tool_exposure
 from app.agents.mcp import (
     clear_mcp_tools_cache,
     discover_mcp_tools,
@@ -39,6 +40,15 @@ async def upsert_resource(payload: PluginResourceIn, db: AsyncSession = Depends(
         data["config"] = dict(existing.config or {})
     else:
         data["config"].pop("origin", None)
+    if data["kind"] == "tool":
+        exposure = parse_tool_exposure(data["config"])
+        if exposure is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Tool exposure must be direct, skill_only, subagent_only, or internal.",
+            )
+        # 写入规范化字符串，避免数据库中混入大小写或空白变体。
+        data["config"]["exposure"] = exposure.value
     if data["kind"] == "mcp":
         try:
             data["config"] = validate_mcp_config(data["config"])

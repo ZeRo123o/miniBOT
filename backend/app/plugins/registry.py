@@ -4,6 +4,8 @@ from app.agents.mcp import BUILTIN_MCP_SERVERS
 from app.agents.skills.buildin import sync_builtin_skills
 from app.db.repositories import PluginResourceRepository
 
+TOOL_DEFAULTS_VERSION = 2
+
 
 async def list_enabled_resources(
     db: AsyncSession,
@@ -57,6 +59,7 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
 
     tool_configs = {
         "tavily_search": {
+            "exposure": "skill_only",
             "max_results": 5,
             "search_depth": "basic",
         },
@@ -76,9 +79,10 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
             "tags": metadata.tags,
             "icon": metadata.icon,
             "config_guide": metadata.config_guide,
-            "_tool_defaults_version": 1,
+            "_tool_defaults_version": TOOL_DEFAULTS_VERSION,
         }
         default_config = {
+            "exposure": "direct",
             **tool_configs.get(tool_instance.name, {}),
             **metadata_config,
         }
@@ -97,12 +101,23 @@ async def seed_builtin_resources(db: AsyncSession) -> None:
             continue
 
         existing_config = existing.config or {}
-        # Retire switches from the previous per-model-call filtering design.
+        # 清理旧版按模型调用动态注入工具时使用的开关。
         existing_config.pop("allow_skill_dependency", None)
         existing_config.pop("expose_directly", None)
         existing_config["origin"] = "builtin" if is_builtin else "plugin"
+        previous_defaults_version = int(
+            existing_config.get("_tool_defaults_version") or 0
+        )
+        # 缺失值始终补齐，已有显式 exposure 始终保留管理员选择。
+        existing_config.setdefault(
+            "exposure",
+            tool_configs.get(tool_instance.name, {}).get(
+                "exposure",
+                "direct",
+            ),
+        )
         # 每个默认策略版本只迁移一次，之后保留管理员手动设置的开关状态。
-        if is_builtin and int(existing_config.get("_tool_defaults_version") or 0) < 1:
+        if is_builtin and previous_defaults_version < 1:
             existing.enabled = True
 
         # 同步代码定义的展示元数据，但保留工具业务配置。

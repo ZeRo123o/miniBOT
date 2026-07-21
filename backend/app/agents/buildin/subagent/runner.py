@@ -98,6 +98,7 @@ class SubAgentRunner:
             timezone=parent_context.timezone,
             skills=self._authorized_skills(parent_context, profile),
             tools=self._authorized_tools(parent_context, profile),
+            allowed_tool_names=profile.tool_names,
             knowledge_base_ids=list(parent_context.knowledge_base_ids),
             max_tool_calls=profile.max_tool_calls,
             sandbox_id=parent_context.sandbox_id,
@@ -120,11 +121,10 @@ class SubAgentRunner:
         parent_context: AgentContext,
         profile: SubAgentProfile,
     ) -> list[dict]:
-        requested = {name for name in profile.tool_names if name != "task"}
         return [
             resource
             for resource in parent_context.tools
-            if str(resource.get("name") or "") in requested
+            if str(resource.get("name") or "") in profile.tool_names
         ]
 
     def _authorized_skills(

@@ -10,6 +10,7 @@ from app.agents.checkpoints import checkpoint_manager
 from app.agents.toolkits import merge_runtime_tools, resolve_runtime_mcps, resolve_runtime_tools
 from app.agents.middlewares import (
     AttachmentMiddleware,
+    CapabilityMiddleware,
     KnowledgeBaseMiddleware,
     RuntimeConfigMiddleware,
     RuntimePromptMiddleware,
@@ -28,7 +29,7 @@ async def build_chat_agent(context: AgentContext | None = None) -> Any:
     # two-layer tool assembly: configured resources are injected
     # at graph creation, while middleware contributes its own dynamic tools.
     runtime_tools = merge_runtime_tools(
-        resolve_runtime_tools(agent_context),
+        resolve_runtime_tools(agent_context, agent_type="chatbot"),
         await resolve_runtime_mcps(agent_context),
     )
     middleware = [
@@ -47,6 +48,7 @@ async def build_chat_agent(context: AgentContext | None = None) -> Any:
                 exit_behavior="continue",
             ),
             SkillsMiddleware(skills_context_name="skills"),
+            CapabilityMiddleware(agent_type="chatbot"),
             SummaryMiddleware(),
             RuntimePromptMiddleware(),
             TodoListMiddleware(system_prompt=TODO_LIST_SYSTEM_PROMPT),

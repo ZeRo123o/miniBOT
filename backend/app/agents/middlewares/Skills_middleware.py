@@ -15,9 +15,11 @@ from langgraph.types import Command
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.backends.filesystem import create_agent_filesystem_backend
-from app.agents.buildin.chatbot.context import AgentContext
+from app.agents.capabilities import (
+    expand_skill_closure,
+    load_skill_dependency_map,
+)
 from app.agents.skills.service import is_valid_skill_slug, normalize_string_list
-from app.agents.toolkits.dependencies import resolve_skill_dependency_tools
 from app.db.session import AsyncSessionLocal
 from app.repositories.skill_repository import SkillRepository
 
@@ -28,12 +30,6 @@ class SkillPromptMetadata(TypedDict):
     name: str
     description: str
     path: str
-
-
-class SkillDependencyNode(TypedDict):
-    tools: list[str]
-    mcps: list[str]
-    skills: list[str]
 
 
 def _activated_skills_reducer(
@@ -86,48 +82,8 @@ async def get_prompt_metadata(
     }
 
 
-async def get_dependency_map(
-    db: AsyncSession | None = None,
-) -> dict[str, SkillDependencyNode]:
-    """构建 Skill 与 Tool、MCP、其他 Skill 的依赖关系映射（直接从数据库中加载）。"""
-    skills = await _list_skills_from_db(db)
-    return {
-        item.slug: {
-            "tools": normalize_string_list(item.tool_dependencies),
-            "mcps": normalize_string_list(item.mcp_dependencies),
-            "skills": normalize_string_list(item.skill_dependencies),
-        }
-        for item in skills
-    }
-
-
-def expand_skill_closure(
-    slugs: list[str] | None,
-    dependency_map: dict[str, SkillDependencyNode],
-) -> list[str]:
-    """按稳定的深度优先顺序展开 Skill 依赖闭包。"""
-    result: list[str] = []
-    seen: set[str] = set()
-
-    def dfs(slug: str, stack: tuple[str, ...]) -> None:
-        """递归访问 Skill，并通过调用栈检测循环依赖。"""
-        if slug in stack:
-            logger.warning("Skill dependency cycle skipped: %s", " -> ".join((*stack, slug)))
-            return
-        if slug in seen:
-            return
-        node = dependency_map.get(slug)
-        if node is None:
-            logger.warning("Skill dependency target not found: %s", slug)
-            return
-        seen.add(slug)
-        result.append(slug)
-        for dependency in node["skills"]:
-            dfs(dependency, (*stack, slug))
-
-    for root in normalize_string_list(slugs):
-        dfs(root, ())
-    return result
+# 保留模块内名称，避免调用方关心依赖图的存储位置。
+get_dependency_map = load_skill_dependency_map
 
 
 class SkillsMiddleware(AgentMiddleware):
@@ -157,9 +113,6 @@ class SkillsMiddleware(AgentMiddleware):
             return None
         if getattr(runtime_context, "_skills_prompt_injected", False):
             return None
-        # if not isinstance(runtime_context, AgentContext):
-        #     return None
-
         dependency_map = await get_dependency_map()
         configured_skills = (
             getattr(runtime_context, self.skills_context_name, None) or []
@@ -208,55 +161,17 @@ class SkillsMiddleware(AgentMiddleware):
         request: ModelRequest,
         handler: Callable[[ModelRequest], Awaitable[ModelResponse]],
     ) -> ModelResponse:
-        """包装模型调用，处理动态激活和依赖展开。"""
+        """刷新可见 Skill 闭包；工具暴露统一交给 CapabilityMiddleware。"""
         runtime_context = request.runtime.context
 
-        # 从数据库加载 Skill 依赖图。
         dependency_map = await get_dependency_map()
-
-        # 1. 获取配置的 Skills。
         configured_skills = (
             getattr(runtime_context, self.skills_context_name, None) or []
         )
         configured = normalize_string_list(configured_skills)
-
-        # 2. 获取运行时动态激活的 Skills。
-        state = request.state if isinstance(request.state, dict) else {}
-        activated = state.get("activated_skills", []) or []
-        if not isinstance(activated, list):
-            activated = []
-
-        # 3. 合并并展开 Skill 依赖闭包。
-        all_skills = normalize_string_list(configured + activated)
-        visible_skills = expand_skill_closure(all_skills, dependency_map)
-
-        # 4. 更新 runtime context 中的可见 Skills。
+        # checkpoint 中的激活状态不能扩大当前 context 已授权的 Skill 范围。
+        visible_skills = expand_skill_closure(configured, dependency_map)
         setattr(runtime_context, "_visible_skills", visible_skills)
-
-        # 5. 只根据直接激活的 Skill 构建 Tool/MCP 依赖包。
-        deps_bundle = await self._build_dependency_bundle(activated)
-
-        # 6. 通过 miniBOT 的统一 provider 加载依赖工具。
-        enabled_tools = await resolve_skill_dependency_tools(
-            runtime_context,
-            tool_names=deps_bundle["tools"],
-            mcp_names=deps_bundle["mcps"],
-        )
-
-        # 合并工具：保留原有工具并追加依赖工具。
-        if enabled_tools:
-            request = request.override(
-                tools=self._merge_tools(list(request.tools or []), enabled_tools)
-            )
-            logger.info(
-                "Agent Skill dependencies exposed: user_id=%s conversation_id=%s "
-                "activated_skills=%s tools=%s mcps=%s",
-                runtime_context.user_id,
-                runtime_context.conversation_id,
-                activated,
-                [tool.name for tool in enabled_tools],
-                deps_bundle["mcps"],
-            )
         return await handler(request)
 
 
@@ -315,36 +230,6 @@ class SkillsMiddleware(AgentMiddleware):
         """同步包装工具调用，处理 Skill 动态激活。"""
         result = handler(request)
         return self._process_tool_call_result(result, request)
-
-    async def _build_dependency_bundle(
-        self,
-        activated_skills: list[str],
-    ) -> dict[str, list[str]]:
-        """根据直接激活的 Skills 构建依赖包。"""
-        dependency_map = await get_dependency_map()
-        tools: list[str] = []
-        mcps: list[str] = []
-        seen_tools: set[str] = set()
-        seen_mcps: set[str] = set()
-
-        for slug in activated_skills:
-            dependency = dependency_map.get(slug, {})
-            for tool_name in dependency.get("tools", []):
-                if tool_name in seen_tools:
-                    continue
-                seen_tools.add(tool_name)
-                tools.append(tool_name)
-            for mcp_name in dependency.get("mcps", []):
-                if mcp_name in seen_mcps:
-                    continue
-                seen_mcps.add(mcp_name)
-                mcps.append(mcp_name)
-
-        return {
-            "tools": tools,
-            "mcps": mcps,
-            "skills": activated_skills,
-        }
 
     async def _collect_prompt_metadata(
         self,
@@ -448,17 +333,6 @@ class SkillsMiddleware(AgentMiddleware):
             ):
                 return False
         return True
-
-    @staticmethod
-    def _merge_tools(current: list, additions: list) -> list:
-        """按工具名称去重合并当前工具和新增依赖工具。"""
-        merged = list(current)
-        seen = {tool.name for tool in current}
-        for tool in additions:
-            if tool.name not in seen:
-                merged.append(tool)
-                seen.add(tool.name)
-        return merged
 
     @staticmethod
     def _merge_activated_skill_update(result: Any, slug: str) -> Any:

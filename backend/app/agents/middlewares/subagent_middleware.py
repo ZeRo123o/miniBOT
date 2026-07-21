@@ -25,17 +25,44 @@ class SubAgentProfile:
     name: str
     description: str
     system_prompt: str
-    tool_names: list[str] = field(default_factory=list)
-    skill_slugs: list[str] = field(default_factory=list)
+    # 这里声明的是完整工具白名单，不是可由 Skill 或 Middleware 扩大的初始集合。
+    tool_names: frozenset[str] = field(default_factory=frozenset)
+    skill_slugs: frozenset[str] = field(default_factory=frozenset)
     model_use: str | None = None
     max_tool_calls: int = 6
 
 
 BUILTIN_SUBAGENTS: dict[str, SubAgentProfile] = {
-    "general": SubAgentProfile("general", "处理独立推理、归纳或多步骤分析任务。", "你是通用分析子智能体。只完成父智能体委派的具体任务，不与用户直接对话。"),
-    "planner": SubAgentProfile("planner", "将复杂目标拆解为可执行步骤、依赖与验收标准。", "你是任务规划子智能体。输出清晰、可执行、可验证的计划，不直接实施。"),
-    "researcher": SubAgentProfile("researcher", "检索公开资料或知识库，提炼可追溯的事实与证据。", "你是研究型子智能体。优先使用授权工具验证信息，区分事实与不确定项。", ["tavily_search", "query_kb"], ["web-research"]),
-    "coder": SubAgentProfile("coder", "只读分析代码、调用链与最小修改方案。", "你是代码分析子智能体。只读调查，不修改文件、不执行宿主机命令。", ["sandbox_read_file", "sandbox_grep", "sandbox_glob"]),
+    "general": SubAgentProfile(
+        name="general",
+        description="处理独立推理、归纳或多步骤分析任务。",
+        system_prompt="你是通用分析子智能体。只完成父智能体委派的具体任务，不与用户直接对话。",
+    ),
+    "planner": SubAgentProfile(
+        name="planner",
+        description="将复杂目标拆解为可执行步骤、依赖与验收标准。",
+        system_prompt="你是任务规划子智能体。输出清晰、可执行、可验证的计划，不直接实施。",
+    ),
+    "researcher": SubAgentProfile(
+        name="researcher",
+        description="检索公开资料或知识库，提炼可追溯的事实与证据。",
+        system_prompt="你是研究型子智能体。优先使用授权工具验证信息，区分事实与不确定项。",
+        tool_names=frozenset({"tavily_search", "list_kbs", "query_kb"}),
+        skill_slugs=frozenset({"web-research"}),
+    ),
+    "coder": SubAgentProfile(
+        name="coder",
+        description="只读分析代码、调用链与最小修改方案。",
+        system_prompt="你是代码分析子智能体。只读调查，不修改文件、不执行宿主机命令。",
+        tool_names=frozenset(
+            {
+                "sandbox_read_file",
+                "sandbox_ls",
+                "sandbox_grep",
+                "sandbox_glob",
+            }
+        ),
+    ),
 }
 
 
@@ -44,6 +71,8 @@ class SubAgentContext(AgentContext):
     """隔离子图运行所需的最小上下文。"""
 
     subagent_type: str = ""
+    # Runner 从受信任的静态 Profile 写入；Resolver 将其作为最终权限边界。
+    allowed_tool_names: frozenset[str] = field(default_factory=frozenset)
     parent_tool_call_id: str = ""
     allow_subagents: bool = False
 
