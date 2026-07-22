@@ -9,6 +9,8 @@ class Settings(BaseSettings):
     app_name: str = "miniBOT"
     api_prefix: str = "/api"
     cors_origins: list[str] = ["http://localhost:5173", "http://127.0.0.1:5173"]
+    auth_secret_key: str = "minibot-dev-secret-change-me"
+    auth_token_expire_minutes: int = 60 * 24 * 7
 
     database_url: str = "postgresql+asyncpg://minibot:minibot@localhost:5432/minibot"
     redis_url: str = "redis://localhost:6379/0"

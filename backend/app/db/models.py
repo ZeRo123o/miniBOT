@@ -1,5 +1,6 @@
 from datetime import datetime
 from typing import Any
+from urllib.parse import quote
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
@@ -18,6 +19,69 @@ class TimestampMixin:
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class Workspace(Base, TimestampMixin):
+    __tablename__ = "workspaces"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+    created_by: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    is_disabled: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+
+    users: Mapped[list["User"]] = relationship(back_populates="workspace")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "created_by": self.created_by,
+            "is_disabled": self.is_disabled,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class User(Base, TimestampMixin):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    uid: Mapped[str] = mapped_column(String(128), nullable=False, unique=True, index=True)
+    username: Mapped[str] = mapped_column(String(128), nullable=False)
+    phone: Mapped[str] = mapped_column(String(32), default="", nullable=False)
+    email: Mapped[str] = mapped_column(String(255), default="", nullable=False)
+    avatar_object_key: Mapped[str] = mapped_column(String(512), default="", nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(32), default="user", nullable=False, index=True)
+    workspace_id: Mapped[int | None] = mapped_column(ForeignKey("workspaces.id"), nullable=True, index=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
+
+    workspace: Mapped[Workspace | None] = relationship(back_populates="users")
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "uid": self.uid,
+            "username": self.username,
+            "phone": self.phone,
+            "email": self.email,
+            "avatar_object_key": self.avatar_object_key,
+            "avatar_url": self._avatar_url(),
+            "role": self.role,
+            "workspace_id": self.workspace_id,
+            "workspace_name": self.workspace.name if self.workspace else None,
+            "is_deleted": self.is_deleted,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def _avatar_url(self) -> str:
+        if not self.avatar_object_key:
+            return ""
+        version = int(self.updated_at.timestamp()) if self.updated_at else 0
+        return f"/api/auth/users/{quote(self.uid, safe='')}/avatar?v={version}"
 
 
 class PluginResource(Base, TimestampMixin):

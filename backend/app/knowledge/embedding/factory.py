@@ -15,6 +15,7 @@ def get_embedding_service(model_spec: str | None = None) -> EmbeddingService:
             base_url=info.base_url,
             dimension=info.dimension or get_settings().embedding_dimension,
             batch_size=info.batch_size,
+            provider_id=info.provider_id,
             request_headers=info.headers,
         )
 

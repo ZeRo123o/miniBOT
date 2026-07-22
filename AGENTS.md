@@ -196,6 +196,22 @@ http://localhost:5173
 
 当前主要接口：
 
+- `GET /api/auth/check-first-run`
+- `POST /api/auth/initialize`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `PATCH /api/auth/me/profile`
+- `PATCH /api/auth/me/password`
+- `POST /api/auth/me/avatar`
+- `GET /api/auth/users/{uid}/avatar`
+- `GET /api/auth/workspaces`
+- `POST /api/auth/workspaces`（创建部门时同步提交 `admin_uid`、`admin_password` 创建部门管理员）
+- `PATCH /api/auth/workspaces/{workspace_id}`
+- `DELETE /api/auth/workspaces/{workspace_id}`
+- `GET /api/auth/users`
+- `POST /api/auth/users`
+- `PATCH /api/auth/users/{user_id}`
+- `DELETE /api/auth/users/{user_id}`
 - `GET /api/resources?kind=mcp|tool`
 - `POST /api/resources`
 - `GET /api/skills`
@@ -240,6 +256,8 @@ http://localhost:5173
 
 当前核心表：
 
+- `workspaces`：工作区/部门元信息、停用状态，用于 admin/user 的数据隔离范围。
+- `users`：用户账号、手机号、邮箱、头像对象存储 key、密码哈希、角色和工作区归属；邮箱非空时唯一，并可用于登录。
 - `plugin_resources`：MCP、Tool 元数据。
 - `skills`：Skill 名称、描述、依赖、目录、版本、内置标记和内容哈希。
 - `plugin_resources(kind=tool)`：运行时工具元数据，例如 `tavily_search`。

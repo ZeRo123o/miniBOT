@@ -1,4 +1,4 @@
-import { API_BASE, getResponseError, request } from './base'
+import { API_BASE, authHeaders, getResponseError, request } from './base'
 
 export function listResources(kind) {
   const query = kind ? `?kind=${encodeURIComponent(kind)}` : ''
@@ -106,6 +106,7 @@ export async function uploadKnowledgeDocument(knowledgeBaseId, userId, file) {
     `${API_BASE}/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/documents?user_id=${encodeURIComponent(userId)}`,
     {
       method: 'POST',
+      headers: authHeaders(),
       body: formData,
     },
   )
@@ -135,6 +136,7 @@ export async function uploadEvaluationDataset(knowledgeBaseId, userId, file, nam
     `${API_BASE}/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/evaluation/datasets/upload`,
     {
       method: 'POST',
+      headers: authHeaders(),
       body: formData,
     },
   )
@@ -210,6 +212,7 @@ export async function sendChatStream(message, userId, conversationId = null, han
         body: JSON.stringify({ message, user_id: userId, conversation_id: conversationId, model_spec: modelSpec }),
       }
 
+  requestOptions.headers = authHeaders(requestOptions.headers || {})
   const response = await fetch(`${API_BASE}/chat/stream`, requestOptions)
 
   if (!response.ok || !response.body) {
@@ -255,7 +258,11 @@ export async function createChatRun(
 ) {
   const formData = buildChatFormData(message, userId, conversationId, files, modelSpec)
   if (requestId) formData.append('request_id', requestId)
-  const response = await fetch(`${API_BASE}/chat/runs`, { method: 'POST', body: formData })
+  const response = await fetch(`${API_BASE}/chat/runs`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: formData,
+  })
   if (!response.ok) throw new Error(await getResponseError(response))
   return response.json()
 }
@@ -271,7 +278,7 @@ export function getConversationActiveRun(conversationId, userId) {
 }
 
 export async function streamChatRunEvents(runId, userId, afterId = '0-0', onEvent = () => {}) {
-  const headers = {}
+  const headers = authHeaders()
   if (afterId && afterId !== '0-0') headers['Last-Event-ID'] = afterId
   const response = await fetch(
     `${API_BASE}/chat/runs/${encodeURIComponent(runId)}/events?user_id=${encodeURIComponent(userId)}`,

@@ -27,6 +27,17 @@ async def init_db() -> None:
                 "ADD COLUMN IF NOT EXISTS checkpoint_thread_id VARCHAR(128)"
             )
         )
+        await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS phone VARCHAR(32) NOT NULL DEFAULT ''"))
+        await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) NOT NULL DEFAULT ''"))
+        await conn.execute(
+            text("ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_object_key VARCHAR(512) NOT NULL DEFAULT ''")
+        )
+        await conn.execute(
+            text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email_not_empty ON users(LOWER(email)) WHERE email <> ''")
+        )
+        await conn.execute(
+            text("ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS is_disabled BOOLEAN NOT NULL DEFAULT FALSE")
+        )
         await conn.execute(
             text(
                 "CREATE INDEX IF NOT EXISTS idx_agent_runs_checkpoint_thread "

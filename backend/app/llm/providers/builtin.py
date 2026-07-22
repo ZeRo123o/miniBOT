@@ -21,6 +21,7 @@ BUILTIN_PROVIDERS: list[dict[str, Any]] = [
                 "source": "manual",
                 "display_name": "text-embedding-v4",
                 "dimension": 1024,
+                "batch_size": 10,
             },
             {
                 "id": "qwen3-rerank",

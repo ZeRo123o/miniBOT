@@ -12,6 +12,66 @@ class ChatUpload(BaseModel):
     size: int = 0
 
 
+class InitializeAdminRequest(BaseModel):
+    uid: str = Field(min_length=3, max_length=128)
+    username: str = Field(min_length=1, max_length=128)
+    phone: str = Field(default="", max_length=32)
+    email: str = Field(default="", max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+    workspace_name: str = Field(default="默认工作区", min_length=1, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    login_id: str = Field(min_length=1, max_length=128)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class UserCreate(BaseModel):
+    uid: str = Field(min_length=3, max_length=128)
+    username: str = Field(min_length=1, max_length=128)
+    email: str = Field(default="", max_length=255)
+    password: str = Field(min_length=8, max_length=128)
+    role: Literal["admin", "user"] = "user"
+    workspace_id: int | None = None
+
+
+class UserUpdate(BaseModel):
+    username: str = Field(min_length=1, max_length=128)
+    email: str = Field(default="", max_length=255)
+    role: Literal["superadmin", "admin", "user"]
+    workspace_id: int | None = None
+
+
+class AccountProfileUpdate(BaseModel):
+    username: str = Field(min_length=1, max_length=128)
+    phone: str = Field(default="", max_length=32)
+    email: str = Field(default="", max_length=255)
+
+
+class AccountPasswordUpdate(BaseModel):
+    old_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+    confirm_password: str = Field(min_length=8, max_length=128)
+
+
+class WorkspaceCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    description: str = Field(default="", max_length=1000)
+    admin_uid: str = Field(min_length=3, max_length=128)
+    admin_password: str = Field(min_length=8, max_length=128)
+
+
+class WorkspaceUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=128)
+    description: str = Field(default="", max_length=1000)
+
+
+class AuthToken(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: dict[str, Any]
+
+
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1)
     user_id: str = "default"

@@ -62,6 +62,7 @@ class ModelRuntimeCache:
 
     def rebuild(self, providers: list[Any], model_use_configs: list[Any] | None = None) -> None:
         from app.llm.providers.service import resolve_api_key
+        from app.knowledge.embedding.openai import resolve_embedding_batch_size
 
         models: dict[str, ModelInfo] = {}
         for provider in providers:
@@ -90,7 +91,16 @@ class ModelRuntimeCache:
                     headers=dict(provider.headers_json or {}),
                     extra=extra,
                     dimension=model.get("dimension"),
-                    batch_size=int(model.get("batch_size") or 40),
+                    batch_size=(
+                        resolve_embedding_batch_size(
+                            provider_id=provider.provider_id,
+                            model_name=model_id,
+                            base_url=base_url,
+                            configured_batch_size=int(model.get("batch_size") or 40),
+                        )
+                        if model_type == "embedding"
+                        else int(model.get("batch_size") or 40)
+                    ),
                 )
                 models[info.spec] = info
 

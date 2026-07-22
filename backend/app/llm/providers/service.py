@@ -440,9 +440,20 @@ async def test_model_status_by_spec(spec: str) -> dict[str, Any]:
 
 
 async def _test_embedding_model(info: Any) -> dict[str, Any]:
+    from app.knowledge.embedding.openai import resolve_embedding_batch_size
+
     if not info.api_key:
         raise ValueError("Embedding API key is required.")
-    payload = {"model": info.model_id, "input": ["miniBOT connectivity test"]}
+    batch_size = resolve_embedding_batch_size(
+        provider_id=info.provider_id,
+        model_name=info.model_id,
+        base_url=info.base_url,
+        configured_batch_size=info.batch_size,
+    )
+    payload = {
+        "model": info.model_id,
+        "input": [f"miniBOT embedding batch test {index}" for index in range(batch_size)],
+    }
     async with httpx.AsyncClient(timeout=30.0) as client:
         response = await client.post(
             _url_with_endpoint(info.base_url, "embeddings"),
@@ -457,13 +468,29 @@ async def _test_embedding_model(info: Any) -> dict[str, Any]:
         data = response.json()
     embeddings = data.get("data") if isinstance(data, dict) else None
     if isinstance(embeddings, list) and embeddings:
+        actual_dimension = len(embeddings[0].get("embedding", [])) if isinstance(embeddings[0], dict) else 0
+        if info.dimension and actual_dimension and actual_dimension != int(info.dimension):
+            return {
+                "spec": info.spec,
+                "status": "unavailable",
+                "message": f"embedding dimension mismatch: configured={info.dimension}, actual={actual_dimension}",
+                "model_type": "embedding",
+                "batch_size": batch_size,
+            }
         return {
             "spec": info.spec,
             "status": "available",
-            "message": "embedding connection ok",
+            "message": "embedding connection and batch test ok",
             "model_type": "embedding",
+            "batch_size": batch_size,
         }
-    return {"spec": info.spec, "status": "unavailable", "message": "empty embedding response", "model_type": "embedding"}
+    return {
+        "spec": info.spec,
+        "status": "unavailable",
+        "message": "empty embedding response",
+        "model_type": "embedding",
+        "batch_size": batch_size,
+    }
 
 
 async def _test_rerank_model(info: Any) -> dict[str, Any]:
