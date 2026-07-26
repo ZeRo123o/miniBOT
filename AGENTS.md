@@ -64,6 +64,10 @@ MINIBOT_MINIO_ENDPOINT=localhost:9000
 MINIBOT_MINIO_ACCESS_KEY=minibot
 MINIBOT_MINIO_SECRET_KEY=minibot123
 MINIBOT_MINIO_SECURE=false
+MINIBOT_MINERU_ENABLED=false
+MINIBOT_MINERU_AUTO_SELECT=false
+MINIBOT_MINERU_API_URL=http://localhost:30001
+MINIBOT_MINERU_TIMEOUT_SECONDS=1800
 ```
 
 模型配置支持分用途管理：
@@ -232,6 +236,8 @@ http://localhost:5173
 - `POST /api/model-providers/{provider_id}/models/test`
 - `GET /api/knowledge-bases?user_id=default`
 - `POST /api/knowledge-bases`
+- `GET /api/knowledge-parsers`
+- `GET /api/knowledge-parsers/{parser_id}/health`
 - `DELETE /api/knowledge-bases/{knowledge_base_id}?user_id=default`
 - `GET /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default`
 - `GET /api/knowledge-bases/{knowledge_base_id}/query-params?user_id=default`

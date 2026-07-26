@@ -142,7 +142,13 @@ backend/app
 |   |   |-- openai.py            OpenAI-compatible Embedding 实现
 |   |   `-- mock.py              本地开发 mock Embedding
 |   |-- parser/
-|   |   `-- factory.py           文档转 Markdown 解析入口
+|   |   |-- base.py              文档解析器统一接口与能力声明
+|   |   |-- schemas.py           ParsedDocument / ParsedAsset 结构化结果
+|   |   |-- registry.py          可信解析器注册表
+|   |   |-- facade.py            自动选择、超时与 fallback 编排
+|   |   |-- builtin.py           内置文本、PDF、Office、CSV 解析器
+|   |   |-- mineru.py            Yuxi-compatible MinerU HTTP/ZIP 解析适配器
+|   |   `-- factory.py           旧同步 Markdown 解析兼容入口
 |   |-- rerank/
 |   |   |-- factory.py           Rerank 服务工厂
 |   |   `-- http.py              OpenAI-compatible / DashScope Rerank 实现
@@ -395,6 +401,8 @@ PUT    /api/model-providers/model-uses/{model_use}
 GET    /api/knowledge-bases?user_id=default
 POST   /api/knowledge-bases
 GET    /api/knowledge-chunk-presets
+GET    /api/knowledge-parsers
+GET    /api/knowledge-parsers/{parser_id}/health
 GET    /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default
 GET    /api/knowledge-bases/{knowledge_base_id}/query-params?user_id=default
 PUT    /api/knowledge-bases/{knowledge_base_id}/query-params
@@ -469,7 +477,7 @@ DELETE /api/knowledge-documents/{document_id}?user_id=default
 - `backend/app/services/knowledge_service.py`
 - `backend/app/knowledge/chunking/ragflow_like/dispatcher.py`
 - `backend/app/knowledge/chunking/ragflow_like/parsers/`
-- `backend/app/knowledge/parser/factory.py`
+- `backend/app/knowledge/parser/`
 - `backend/app/storage/`
 - `backend/app/db/models.py`
 

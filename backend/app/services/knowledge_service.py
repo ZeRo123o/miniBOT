@@ -17,7 +17,7 @@ from app.db.repositories import KnowledgeBaseRepository, KnowledgeChunkRepositor
 from app.knowledge.backends import get_knowledge_backend, normalize_knowledge_backend_type
 from app.llm.providers.cache import model_cache
 from app.storage import get_storage
-from app.knowledge.parser import parse_document_to_markdown
+from app.knowledge.parser import normalize_parser_config, parse_document
 
 logger = logging.getLogger(__name__)
 PROCESSING_DOCUMENT_STATUSES = {"uploaded", "parsing", "chunking", "embedding", "indexing"}
@@ -56,11 +56,14 @@ class KnowledgeService:
         kb_type: str = "milvus",
         chunk_preset_id: str = "general",
         chunk_parser_config: dict | None = None,
+        parser_id: str = "auto",
+        parser_config: dict | None = None,
         embedding_model_spec: str | None = None,
         extraction_model_spec: str | None = None,
     ) -> dict:
         normalized_kb_type = normalize_knowledge_backend_type(kb_type)
         chunk_params = resolve_chunk_processing_params(chunk_preset_id, chunk_parser_config)
+        parser_params = normalize_parser_config(parser_id, parser_config)
         model_metadata = self._validate_knowledge_base_models(
             kb_type=normalized_kb_type,
             embedding_model_spec=embedding_model_spec,
@@ -72,6 +75,7 @@ class KnowledgeService:
             user_id=user_id,
             metadata={
                 **chunk_params,
+                **parser_params,
                 "kb_type": normalized_kb_type,
                 **model_metadata,
             },
@@ -134,8 +138,9 @@ class KnowledgeService:
             document_id=document.id,
             knowledge_base_metadata=knowledge_base.metadata_ or {},
         )
-        await self.storage.delete_object(document.original_object_key)
-        await self.storage.delete_object(document.markdown_object_key)
+        # The document prefix also contains parser-extracted assets. Deleting
+        # the complete, hash-scoped prefix avoids leaving orphaned images.
+        await self.storage.delete_prefix(self._document_object_prefix(knowledge_base.id, document.file_hash))
         await self.document_repo.delete(document)
         logger.info(
             "Knowledge document deleted: user_id=%s knowledge_base_id=%s document_id=%s backend=%s",
@@ -281,6 +286,10 @@ class KnowledgeService:
             (knowledge_base.metadata_ or {}).get("chunk_preset_id"),
             (knowledge_base.metadata_ or {}).get("chunk_parser_config"),
         )
+        parser_params = normalize_parser_config(
+            (knowledge_base.metadata_ or {}).get("parser_id"),
+            (knowledge_base.metadata_ or {}).get("parser_config"),
+        )
         kb_type = normalize_knowledge_backend_type((knowledge_base.metadata_ or {}).get("kb_type"))
         backend = get_knowledge_backend(kb_type)
         markdown_object_key = self._markdown_object_key(knowledge_base.id, document.file_hash)
@@ -289,9 +298,19 @@ class KnowledgeService:
 
         try:
             content = await self.storage.get_bytes(document.original_object_key)
-            markdown = parse_document_to_markdown(document.filename, content)
-            if not markdown.strip():
-                raise ValueError("Parsed markdown is empty.")
+            parsed_document = await parse_document(
+                document.filename,
+                content,
+                content_type=document.content_type,
+                parser_id=parser_params["parser_id"],
+                parser_config=parser_params["parser_config"],
+            )
+            markdown = parsed_document.markdown
+            asset_records = await self._persist_parsed_assets(
+                knowledge_base_id=knowledge_base.id,
+                file_hash=document.file_hash,
+                parsed_document=parsed_document,
+            )
             markdown_bytes = markdown.encode("utf-8")
             logger.info(
                 "Knowledge document parsed to markdown: document_id=%s markdown_size=%s",
@@ -315,6 +334,10 @@ class KnowledgeService:
                 metadata={
                     **(document.metadata_ or {}),
                     "markdown_size": len(markdown_bytes),
+                    "parse_result": {
+                        **parsed_document.summary(),
+                        "assets": asset_records,
+                    },
                     "chunk_engine": CHUNK_ENGINE_VERSION,
                     "chunk_preset_id": chunk_params["chunk_preset_id"],
                     "chunk_parser_config": chunk_params["chunk_parser_config"],
@@ -429,14 +452,21 @@ class KnowledgeService:
             metadata.get("chunk_preset_id"),
             metadata.get("chunk_parser_config"),
         )
+        parser_params = normalize_parser_config(
+            metadata.get("parser_id"),
+            metadata.get("parser_config"),
+        )
         item["metadata"] = {
             **metadata,
             **chunk_params,
+            **parser_params,
             "kb_type": normalize_knowledge_backend_type(metadata.get("kb_type")),
         }
         item["kb_type"] = item["metadata"]["kb_type"]
         item["chunk_preset_id"] = normalize_chunk_preset_id(chunk_params["chunk_preset_id"])
         item["chunk_parser_config"] = chunk_params["chunk_parser_config"]
+        item["parser_id"] = parser_params["parser_id"]
+        item["parser_config"] = parser_params["parser_config"]
         return item
 
     @staticmethod
@@ -466,10 +496,55 @@ class KnowledgeService:
 
     def _original_object_key(self, knowledge_base_id: int, file_hash: str, filename: str) -> str:
         safe_filename = self._safe_filename(filename)
-        return f"knowledge-bases/{knowledge_base_id}/documents/{file_hash}/original/{safe_filename}"
+        return f"{self._document_object_prefix(knowledge_base_id, file_hash)}original/{safe_filename}"
 
     def _markdown_object_key(self, knowledge_base_id: int, file_hash: str) -> str:
-        return f"knowledge-bases/{knowledge_base_id}/documents/{file_hash}/parsed/document.md"
+        return f"{self._document_object_prefix(knowledge_base_id, file_hash)}parsed/document.md"
+
+    def _document_object_prefix(self, knowledge_base_id: int, file_hash: str) -> str:
+        return f"knowledge-bases/{knowledge_base_id}/documents/{file_hash}/"
+
+    async def _persist_parsed_assets(
+        self,
+        *,
+        knowledge_base_id: int,
+        file_hash: str,
+        parsed_document,
+    ) -> list[dict]:
+        """Persist parser assets through the storage abstraction.
+
+        Only metadata is returned for PostgreSQL; binary payloads never enter
+        document metadata, logs, chunks, or API responses.
+        """
+
+        records: list[dict] = []
+        for asset in parsed_document.assets:
+            if not asset.content:
+                continue
+            suffix = Path(asset.filename).suffix.lower()
+            if not re.fullmatch(r"\.[a-z0-9]{1,10}", suffix):
+                suffix = ""
+            object_key = (
+                f"{self._document_object_prefix(knowledge_base_id, file_hash)}"
+                f"assets/{self._safe_filename(asset.asset_id)}{suffix}"
+            )
+            await self.storage.put_bytes(object_key, asset.content, asset.content_type)
+            records.append(
+                {
+                    "asset_id": asset.asset_id,
+                    "kind": asset.kind,
+                    "filename": asset.filename,
+                    "object_key": object_key,
+                    "content_type": asset.content_type,
+                    "page_number": asset.page_number,
+                    "bbox": asset.bbox,
+                    "caption": asset.caption,
+                    "metadata": asset.metadata,
+                }
+            )
+            # Release potentially large image payloads after durable storage.
+            asset.content = None
+        return records
 
     def _safe_filename(self, filename: str) -> str:
         return re.sub(r"[^A-Za-z0-9._\-\u4e00-\u9fff]", "_", filename).strip("._") or "document"

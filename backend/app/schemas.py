@@ -110,6 +110,8 @@ class KnowledgeBaseCreate(BaseModel):
     kb_type: Literal["milvus", "lightrag"] = "milvus"
     chunk_preset_id: str = Field(default="general", min_length=1, max_length=32)
     chunk_parser_config: dict[str, Any] = Field(default_factory=dict)
+    parser_id: str = Field(default="auto", min_length=1, max_length=64)
+    parser_config: dict[str, Any] = Field(default_factory=dict)
     embedding_model_spec: str | None = None
     extraction_model_spec: str | None = None
 

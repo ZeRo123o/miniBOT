@@ -58,6 +58,14 @@ export function listKnowledgeChunkPresets() {
   return request('/knowledge-chunk-presets')
 }
 
+export function listKnowledgeParsers() {
+  return request('/knowledge-parsers')
+}
+
+export function checkKnowledgeParserHealth(parserId) {
+  return request(`/knowledge-parsers/${encodeURIComponent(parserId)}/health`)
+}
+
 export function createKnowledgeBase(payload) {
   return request('/knowledge-bases', {
     method: 'POST',

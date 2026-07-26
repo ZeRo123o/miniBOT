@@ -4,6 +4,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Qu
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.knowledge.chunking import get_chunk_preset_options
+from app.knowledge.parser import get_parser_health, get_parser_options
 from app.db.session import AsyncSessionLocal, get_db
 from app.schemas import KnowledgeBaseCreate, KnowledgeQueryConfigRequest, KnowledgeQueryTestRequest
 from app.services.knowledge_retrieval_service import KnowledgeRetrievalService
@@ -49,6 +50,23 @@ async def list_knowledge_chunk_presets() -> list[dict]:
     return get_chunk_preset_options()
 
 
+@router.get("/knowledge-parsers")
+async def list_knowledge_parsers() -> list[dict]:
+    """Expose trusted parser metadata for knowledge-base configuration UIs."""
+
+    return get_parser_options()
+
+
+@router.get("/knowledge-parsers/{parser_id}/health")
+async def check_knowledge_parser_health(parser_id: str) -> dict:
+    """Check an external parser without parsing or storing a document."""
+
+    try:
+        return await get_parser_health(parser_id)
+    except ValueError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
 @router.get("/knowledge-bases")
 async def list_knowledge_bases(
     user_id: str = Query(default="default"),
@@ -78,6 +96,8 @@ async def create_knowledge_base(
             kb_type=payload.kb_type,
             chunk_preset_id=payload.chunk_preset_id,
             chunk_parser_config=payload.chunk_parser_config,
+            parser_id=payload.parser_id,
+            parser_config=payload.parser_config,
             embedding_model_spec=payload.embedding_model_spec,
             extraction_model_spec=payload.extraction_model_spec,
         )

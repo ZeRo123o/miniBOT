@@ -79,6 +79,14 @@ class Settings(BaseSettings):
     runtime_timezone: str = "Asia/Shanghai"
     chat_upload_max_bytes: int = 20 * 1024 * 1024
     chat_attachment_markdown_max_chars: int = 32000
+    mineru_enabled: bool = False
+    mineru_auto_select: bool = False
+    mineru_api_url: str = "http://localhost:30001"
+    mineru_timeout_seconds: int = 1800
+    mineru_health_timeout_seconds: float = 5.0
+    mineru_max_response_bytes: int = 100 * 1024 * 1024
+    mineru_max_archive_files: int = 1000
+    mineru_max_archive_uncompressed_bytes: int = 250 * 1024 * 1024
     sandbox_enabled: bool = True
     sandbox_provisioner_url: str = "http://localhost:8002"
     sandbox_internal_token: str = "minibot-sandbox-dev-token"
