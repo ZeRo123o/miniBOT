@@ -2916,10 +2916,14 @@ pre {
 
 .knowledge-toolbar {
   display: grid;
-  grid-template-columns: minmax(220px, 340px) 140px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(220px, 340px) minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
   padding: 18px 32px;
+}
+
+.knowledge-toolbar .knowledge-create-button {
+  justify-self: end;
 }
 
 .knowledge-search {
@@ -5374,6 +5378,12 @@ pre {
   gap: 16px;
 }
 
+.knowledge-evaluation-main progress {
+  width: 100%;
+  height: 10px;
+  accent-color: #1593b5;
+}
+
 .knowledge-section-header {
   display: flex;
   align-items: center;
@@ -5979,6 +5989,7 @@ pre {
 }
 
 .knowledge-upload-form input[type="text"],
+.knowledge-upload-form input[type="number"],
 .knowledge-upload-form textarea,
 .knowledge-upload-form select {
   width: 100%;
@@ -5995,6 +6006,7 @@ pre {
 }
 
 .knowledge-upload-form input[type="text"]:focus,
+.knowledge-upload-form input[type="number"]:focus,
 .knowledge-upload-form textarea:focus,
 .knowledge-upload-form select:focus {
   border-color: #1593b5;

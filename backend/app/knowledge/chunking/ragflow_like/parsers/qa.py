@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# Adapted from xerrors/Yuxi knowledge chunking under the MIT license.
+# 面向问答对的 Markdown 分块器。
 import csv
 import re
 from typing import Any

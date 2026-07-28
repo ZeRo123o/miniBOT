@@ -315,7 +315,7 @@ class AgentRuntime(BaseChatRuntime):
                 if mode == "messages":
                     self._forward_primary_token(context, payload)
 
-            # Like Yuxi, the checkpoint is authoritative for the completed response.
+            # 最终响应以 checkpoint 中的状态为准。
             final_state = await agent.aget_state(checkpoint_config)
             result = final_state.values if final_state and final_state.values else last_values
             answer = str(getattr(result.get("messages", [])[-1], "content", "")) if result.get("messages") else ""

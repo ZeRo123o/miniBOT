@@ -2,7 +2,7 @@
 
 本文档存放面向编码 agent 的开发规范。项目结构导航请看 [PROJECT_MAP.md](PROJECT_MAP.md)。
 
-miniBOT 是一个受 YUXI 资源编排思路启发的小型全栈脚手架：前端使用 Vue 3 + Vite，后端使用 FastAPI + SQLAlchemy async + PostgreSQL，并通过 `create_agent + context + middleware` 串联 MCP、Skill、Subagent 资源和大模型调用。
+miniBOT 是一个小型全栈智能助手脚手架：前端使用 Vue 3 + Vite，后端使用 FastAPI + SQLAlchemy async + PostgreSQL，并通过 `create_agent + context + middleware` 串联 MCP、Skill、Subagent 资源和大模型调用。
 
 ## 1. 工作原则
 
@@ -29,10 +29,10 @@ miniBOT 是一个受 YUXI 资源编排思路启发的小型全栈脚手架：前
 
 ## 2. 开发与调试流程
 
-启动 PostgreSQL、Redis、MinIO 和 Agent 沙盒 provisioner：
+启动 PostgreSQL、Redis、MinIO、Milvus、Neo4j 和 Agent 沙盒 provisioner：
 
 ```powershell
-docker compose up -d postgres redis minio sandbox-provisioner
+docker compose up -d postgres redis minio milvus-etcd milvus-minio milvus neo4j sandbox-provisioner
 ```
 
 启动后端：
@@ -87,7 +87,6 @@ MINIMAX_API_KEY=
 MODELSCOPE_ACCESS_TOKEN=
 MINIBOT_OPENAI_TEMPERATURE=0.2
 MINIBOT_OPENAI_TIMEOUT_SECONDS=180
-MINIBOT_RERANK_ENABLED=false
 MINIBOT_RERANK_PROVIDER=openai
 MINIBOT_RERANK_MODEL_NAME=your_rerank_model
 MINIBOT_RERANK_BASE_URL=your_rerank_endpoint
@@ -149,10 +148,11 @@ http://localhost:5173
 - 内置 agent 能力放在 `backend/app/agents/buildin`，其中 `chatbot` 对应智能助手。
 - 智能助手的一次 Agent 对话运行编排放在 `backend/app/agents/buildin/chatbot/runtime.py`，runtime 只负责串联 service、构建 context 和调用 agent。
 - Subagent 使用逻辑 `thread_id` 隔离子任务状态；同一轮多个独立 `task` 由 LangGraph 并发执行，`ChatBotState.subagent_runs` 必须通过 reducer 按 `child_thread_id` 合并，禁止用普通 list 覆盖并行结果。
+- 内置 Subagent Profile 使用 `general-purpose`、`web-search`、`research-explorer`、`fact-verifier`、`planner`、`coder`；实时公开信息交给 `web-search`，复杂调研或明确需要内部资料时使用 `research-explorer`，独立事实核查使用 `fact-verifier`。`web-search` 与 `fact-verifier` 禁止获得知识库工具，绑定网络调研 Skill 的 Profile 必须具备读取对应 `SKILL.md` 的最小权限。
 - 每次父 Agent 和子 Agent 执行都写入 `agent_runs`；子运行必须记录 `parent_agent_run_id`、`thread_id`、幂等 `request_id` 和终态。续跑只能传回此前 `task` 返回的 child thread ID，且不得并行续跑同一 child thread。
 - 主 Agent 与 Subagent 图都必须挂载 PostgreSQL `AsyncPostgresSaver`；调用图时在 `configurable.thread_id` 传入逻辑线程。应用启动由 `checkpoint_manager.initialize()` 创建或迁移 LangGraph checkpoint 表，禁止以“上一次最终回答注入 prompt”代替 checkpoint 续跑。
 - Windows 环境下 PostgreSQL checkpoint 使用 psycopg async pool，应用启动前必须切换为 `WindowsSelectorEventLoopPolicy`，否则 Proactor loop 无法建立异步连接。
-- `/api/chat/stream` 的工具过程采用 Yuxi 风格 `tool_calls` 模型：每个 `tool_event` 必须带稳定 `id`、`tool_name`、状态与受限的 `args` 展示字段；前端按 id 合并为消息内的工具调用组。子 Agent 的模型文本只能通过独立的 `subagent_token` 事件推送，必须附带 `subagent_type`、`child_thread_id`、`run_id` 和父 `tool_call_id`，前端不得将其混入主回答 token。仅允许展示经裁剪的查询、任务说明、虚拟路径等用户可见输入；禁止推送文件内容、API key 或其他敏感参数。
+- `/api/chat/stream` 的工具过程采用结构化 `tool_calls` 模型：每个 `tool_event` 必须带稳定 `id`、`tool_name`、状态与受限的 `args` 展示字段；前端按 id 合并为消息内的工具调用组。子 Agent 的模型文本只能通过独立的 `subagent_token` 事件推送，必须附带 `subagent_type`、`child_thread_id`、`run_id` 和父 `tool_call_id`，前端不得将其混入主回答 token。仅允许展示经裁剪的查询、任务说明、虚拟路径等用户可见输入；禁止推送文件内容、API key 或其他敏感参数。
 - `/api/chat/stream` 主回答必须直接消费父 LangGraph `astream(stream_mode=["messages", "values"])` 的 `AIMessageChunk` 并立即推送 `token`；最终答案从 checkpoint state 读取后持久化。禁止在 `ainvoke()` 完成后对完整 answer 人为切片伪造流式输出。
 - 主聊天前端默认使用异步 Run：`POST /api/chat/runs` 先持久化用户消息和父 `agent_runs`，后台 Run 管理器独立执行 Agent；运行事件写入 Redis Stream，前端通过 `GET /api/chat/runs/{run_id}/events` 携带 `Last-Event-ID` 断线续传。SSE 订阅断开不得取消后台 Run；完成后仍以 PostgreSQL 消息历史为最终权威数据源。
 - 同一会话只允许一个 `pending/running` 父聊天 Run。前端必须生成幂等 `request_id`，页面刷新或切换会话后通过 `GET /api/chat/conversations/{conversation_id}/active-run` 恢复订阅，不得将 `localStorage` 作为 Run 或消息的权威存储。
@@ -169,7 +169,7 @@ http://localhost:5173
 - 工具调用日志统一由 `backend/app/agents/toolkits/governance.py` 记录开始、完成和失败；Skill 可见范围、激活和依赖注入由 `SkillsMiddleware` 记录。日志不得输出文件内容、完整查询正文、API key 或其他敏感参数。
 - 大模型接入放在 `backend/app/llm`，不要把 provider、API key、HTTP 请求细节写进 agent graph。
 - 运行时工具统一放在 `backend/app/agents/toolkits`：`registry.py` 自动注册可信 Tool，`resolver.py` 将已授权资源解析为具体 LangChain Tool 与 MCP Tool，`governance.py` 负责事件记录；普通 Tool 的执行域和模型可见性统一复用 `backend/app/agents/capabilities/policy.py`，`CapabilityMiddleware` 负责每轮模型 Schema 过滤和执行前校验，middleware 自带 Tool 自动注入，工具调用上限由统一的 `ToolCallLimitMiddleware` 负责。
-- 系统内置工具放在 `backend/app/agents/toolkits/buildin`，使用 `registry.py` 提供的 YUXI 风格 `@tool(category=..., tags=..., display_name=...)` 注册，模块导入时自动收集具体 LangChain Tool。
+- 系统内置工具放在 `backend/app/agents/toolkits/buildin`，使用 `registry.py` 提供的 `@tool(category=..., tags=..., display_name=...)` 注册，模块导入时自动收集具体 LangChain Tool。
 - 可信外置 API 工具放在 `backend/app/agents/toolkits/external/<slug>`；使用 `category="external"` 注册，启动时同步为 `origin="plugin"` 且默认禁用，管理员启用后才允许用户在工作区选择。外部密钥只放环境变量，不写入资源配置、日志或流事件。
 - Agent 沙盒抽象、路径和生命周期放在 `backend/app/agents/backends/sandbox`；工具层不能直接调用 Docker SDK 或拼接宿主机路径。
 - Agent 中间件写入 `/mnt/...` 虚拟路径时优先通过 `backend/app/agents/backends` 的文件系统 backend，不在 middleware 中直接解析宿主机路径。
@@ -242,6 +242,10 @@ http://localhost:5173
 - `GET /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default`
 - `GET /api/knowledge-bases/{knowledge_base_id}/query-params?user_id=default`
 - `PUT /api/knowledge-bases/{knowledge_base_id}/query-params`
+- `GET /api/knowledge-bases/{knowledge_base_id}/graph-build/status?user_id=default`
+- `POST /api/knowledge-bases/{knowledge_base_id}/graph-build/config`
+- `POST /api/knowledge-bases/{knowledge_base_id}/graph-build/index`
+- `POST /api/knowledge-bases/{knowledge_base_id}/graph-build/reset`
 - `POST /api/knowledge-bases/{knowledge_base_id}/documents?user_id=default`
 - `POST /api/knowledge-bases/{knowledge_base_id}/evaluation/datasets/generate`
 - `DELETE /api/knowledge-documents/{document_id}?user_id=default`
@@ -309,15 +313,19 @@ http://localhost:5173
 
 ## 11. 知识库分块补充
 
-- 多策略 Markdown 分块实现放在 `backend/app/knowledge/chunking/ragflow_like`，由 `dispatcher.py` 统一调度；通用策略位于 `parsers/general.py`，按分隔符形成 section，再按 token 上限合并，超长 chunk 兜底硬切。
-- 文档上传解析成功后由 `backend/app/services/knowledge_service.py` 串联分块、embedding 和 Milvus 入库。
-- `knowledge_chunks` 只保存 chunk 元数据；chunk 正文和向量保存在 Milvus collection 中。
+- 多策略 Markdown 分块实现放在 `backend/app/knowledge/chunking/ragflow_like`，由 `dispatcher.py` 统一调度；解析器输出的每个文本块直接成为唯一的单层 Chunk，不再进行父子二次切分。
+- 文档上传解析成功后由 `backend/app/services/knowledge_service.py` 串联单层分块、embedding 和 backend 入库；Milvus 索引并返回同一个 Chunk 正文。
+- `knowledge_chunks` 保存单层 Chunk 正文、顺序、位置、图构建状态、关联实体和抽取结果。
 - chunk 查询接口为 `GET /api/knowledge-documents/{document_id}/chunks?user_id=default`。
-- 知识库通过 `knowledge_bases.metadata.kb_type` 区分 `milvus` 与 `lightrag`；旧数据默认按 `milvus` 处理。
-- 知识库检索测试页保存的查询参数放在 `knowledge_bases.metadata.query_params.options`，主聊天 `query_kb` 工具调用 `KnowledgeRetrievalService` 时默认读取该配置；单次查询显式传参优先级高于持久化配置。
-- LightRAG 作为与 Milvus 平级的知识库 backend，使用独立 Milvus database 保存内部向量集合，并使用 Neo4j 保存图谱；具体实现放在 `backend/app/knowledge/backends`。
-- 文档删除接口为 `DELETE /api/knowledge-documents/{document_id}?user_id=default`，必须先清理对应 backend 索引，再删除 PostgreSQL 元数据。
-- 知识库删除必须清理对应 backend、MinIO 前缀和 `user_selections.knowledge_base_ids` 引用，再删除 PostgreSQL 元数据；存在 `uploaded`、`parsing`、`chunking`、`embedding` 或 `indexing` 文档时返回 409。
+- 知识库固定使用 Milvus 主索引、Neo4j 图增强和 PostgreSQL 权威元数据，不再区分后端类型。
+- `knowledge_bases` 使用显式元数据列：`kb_id`、模型配置、`query_params`、`additional_params`、共享配置、思维导图和示例问题；不再使用通用 `metadata` JSONB 列。
+- 知识库检索测试页保存的查询参数放在 `knowledge_bases.query_params.options`，主聊天 `query_kb` 工具调用 `KnowledgeRetrievalService` 时默认读取该配置；单次查询显式传参优先级高于持久化配置。
+- 图谱抽取、Neo4j 拓扑和 Milvus 图向量实现放在 `backend/app/knowledge/graphs`，图构建失败不得影响已完成的 Milvus 主索引。
+- 文档上传只完成解析、单层分块和 Milvus 主索引，不自动构图。用户必须在前端确认并锁定抽取模型、并发数和可选 Schema，再提交独立图构建任务；任务状态保存在 `knowledge_bases.additional_params.graph_build_task`。
+- 图抽取配置锁定后不能切换抽取器类型，但仍可更新模型、Schema 和并发参数；同一知识库只允许一个运行中的图构建任务，运行期间禁止删除知识库或文档。
+- 图增强检索必须先完成 Milvus 主召回，再并行召回实体和三元组；种子权重同时包含图向量命中和主召回 chunk 关联实体，随后在 Neo4j 两跳子图上执行个性化 PageRank，并用 RRF 与主召回融合。
+- 文档删除接口为 `DELETE /api/knowledge-documents/{document_id}?user_id=default`，必须先清理 Milvus 主索引、图索引与 Neo4j 拓扑，再删除 PostgreSQL 元数据。
+- 知识库删除必须清理 Milvus 全部集合、Neo4j 拓扑、MinIO 前缀和 `user_selections.knowledge_base_ids` 引用，再删除 PostgreSQL 元数据；存在 `uploaded`、`parsing`、`chunking`、`embedding` 或 `indexing` 文档时返回 409。
 
 
 

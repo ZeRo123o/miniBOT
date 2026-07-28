@@ -106,6 +106,33 @@ export function updateKnowledgeQueryParams(knowledgeBaseId, payload) {
   })
 }
 
+export function getKnowledgeGraphBuildStatus(knowledgeBaseId, userId) {
+  return request(
+    `/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/graph-build/status?user_id=${encodeURIComponent(userId)}`,
+  )
+}
+
+export function configureKnowledgeGraphBuild(knowledgeBaseId, payload) {
+  return request(`/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/graph-build/config`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function submitKnowledgeGraphBuild(knowledgeBaseId, payload) {
+  return request(`/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/graph-build/index`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function resetKnowledgeGraphBuild(knowledgeBaseId, payload) {
+  return request(`/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/graph-build/reset`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function uploadKnowledgeDocument(knowledgeBaseId, userId, file) {
   const formData = new FormData()
   formData.append('file', file)

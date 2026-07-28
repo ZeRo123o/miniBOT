@@ -44,10 +44,16 @@ miniBOT
   -> knowledge/parser 转 Markdown
   -> MinIO 保存 Markdown 副本
   -> 根据知识库 metadata 中的 chunk_preset_id 选择分块策略
-  -> 按 knowledge_bases.metadata.kb_type 选择 Milvus 或 LightRAG backend
-  -> Milvus：embedding + Milvus 入库
-  -> LightRAG：独立 Milvus collections + Neo4j 图谱入库
+  -> PostgreSQL 保存单层 Chunk
+  -> Chunk embedding + Milvus 主索引
   -> PostgreSQL 更新 status=indexed 或 failed
+
+用户确认并锁定图抽取配置后：
+  -> 提交独立图构建任务
+  -> 并发抽取各 Chunk 的实体和关系
+  -> PostgreSQL 增量保存图元数据和 Chunk 证据
+  -> 同步 Neo4j 拓扑与 Milvus 实体/三元组向量索引
+  -> Chunk graph_indexed=true
 ```
 
 ## 2. 后端地图
@@ -93,13 +99,13 @@ backend/app
 |   |   |-- summary_middleware.py  long-context summarization
 |   |   |-- tool_output_budget.py  ToolMessage output budgeting and offload
 |   |   `-- system_message.py  system message 追加工具
-|   |-- mcp/                  Yuxi 风格 MCP service：内置声明、发现缓存与工具过滤
+|   |-- mcp/                  MCP service：内置声明、发现缓存与工具过滤
 |   |-- skills/
 |   |   |-- parser.py          SKILL.md frontmatter 与依赖解析
 |   |   |-- service.py         Skill 目录校验、哈希、安装和内置同步
 |   |   `-- buildin/           随应用发布并在启动时自动同步的内置 Skills
 |   `-- toolkits/
-|       |-- registry.py      YUXI 风格 @tool 注册与元数据
+|       |-- registry.py      @tool 注册与元数据
 |       |-- resolver.py      已授权资源到 Tool 的解析
 |       |-- governance.py    工具调用事件与结果记录
 |       |-- buildin/         系统内置工具
@@ -133,10 +139,14 @@ backend/app
 |   `-- resource_service.py      已启用资源解析服务
 |-- knowledge/
 |   |-- backends/
-|   |   |-- base.py              Milvus / LightRAG 统一知识库接口
-|   |   |-- factory.py           按 kb_type 选择 backend
-|   |   |-- milvus.py            原有向量知识库实现
-|   |   `-- lightrag.py          LightRAG + Neo4j 图知识库实现
+|   |   |-- base.py              主索引接口
+|   |   |-- factory.py           Milvus 主索引实例
+|   |   `-- milvus.py            集合生命周期、分块入库、混合检索、图增强和重排
+|   |-- graphs/
+|   |   |-- extractors/          图抽取器接口、工厂与 LLM 实现
+|   |   |-- graph_utils.py       图 ID、规范化和 Cypher 构造
+|   |   |-- milvus_graph_service.py       图构建、Neo4j 扩展和 PPR
+|   |   `-- milvus_graph_vector_store.py  Milvus 实体和关系向量索引
 |   |-- embedding/
 |   |   |-- factory.py           Embedding 服务工厂
 |   |   |-- openai.py            OpenAI-compatible Embedding 实现
@@ -147,7 +157,7 @@ backend/app
 |   |   |-- registry.py          可信解析器注册表
 |   |   |-- facade.py            自动选择、超时与 fallback 编排
 |   |   |-- builtin.py           内置文本、PDF、Office、CSV 解析器
-|   |   |-- mineru.py            Yuxi-compatible MinerU HTTP/ZIP 解析适配器
+|   |   |-- mineru.py            MinerU HTTP/ZIP 解析适配器
 |   |   `-- factory.py           旧同步 Markdown 解析兼容入口
 |   |-- rerank/
 |   |   |-- factory.py           Rerank 服务工厂
@@ -157,7 +167,8 @@ backend/app
 |-- storage/
 |   |-- base.py                  对象存储抽象
 |   |-- factory.py               存储服务工厂
-|   `-- minio.py                 MinIO 对象存储实现
+|   |-- minio.py                 MinIO 对象存储实现
+|   |-- neo4j/                   Neo4j 共享连接、事务助手与标签校验
 |   `-- redis/                   Redis runtime cache client helpers
 |-- graph/
 |   |-- builder.py           旧兼容入口，转发到 agents/buildin/chatbot/graph.py
@@ -167,7 +178,7 @@ backend/app
 |   |-- base.py              BaseChatModel 别名
 |   |-- chat_model.py        OpenAI-compatible / mock ChatModel
 |   |-- factory.py           chat_model / deep_research_model 工厂
-|   `-- providers/           Yuxi-style model_providers 配置、缓存和运行时解析
+|   `-- providers/           model_providers 配置、缓存和运行时解析
 `-- plugins/
     |-- types.py             资源类型和资源 schema
     `-- registry.py          内置资源种子数据与名称解析
@@ -236,7 +247,7 @@ frontend
   -> 把 ValueError 转成 HTTPException
 ```
 
-`agents/buildin/chatbot/runtime.py` 负责一次完整智能助手运行编排。主回答直接消费父 LangGraph `astream(messages, values)` 的 `AIMessageChunk` 推送 SSE，结束后从 checkpoint state 读取最终结果并保存。工具过程采用 Yuxi 风格的消息内 `tool_calls`：SSE 按稳定调用 ID 更新临时调用，最终以同一结构保存到 assistant metadata；子任务工具和文本按父 `task` 调用嵌套展示。
+`agents/buildin/chatbot/runtime.py` 负责一次完整智能助手运行编排。主回答直接消费父 LangGraph `astream(messages, values)` 的 `AIMessageChunk` 推送 SSE，结束后从 checkpoint state 读取最终结果并保存。工具过程采用结构化的消息内 `tool_calls`：SSE 按稳定调用 ID 更新临时调用，最终以同一结构保存到 assistant metadata；子任务工具和文本按父 `task` 调用嵌套展示。
 ```text
 调用 ConversationService 准备会话和消息
 调用 SelectionService 读取用户知识库选择
@@ -270,7 +281,7 @@ graph 创建时注入当前用户已启用的普通 Tool/MCP，middleware 自动
 `agents/toolkits/` 统一负责系统工具：
 
 ```text
-registry.py               YUXI 风格 @tool 装饰器、Tool 实例和展示元数据
+registry.py               @tool 装饰器、Tool 实例和展示元数据
 resolver.py               根据 AgentContext.tools 选择当前已授权 Tools
 governance.py             工具调用状态、结果和事件记录
 buildin/tools.py          ask_user_question / present_artifacts / tavily_search
@@ -305,6 +316,9 @@ RuntimePromptMiddleware    每次模型调用前增量追加资源和工具策�
 `CapabilityMiddleware` 在每次模型调用前只暴露本轮获准的 Tool Schema，并在执行前拒绝
 不属于 `executable_tool_names` 的 ToolCall。`internal` 不进入模型 Agent ToolNode；
 `subagent_only` 仅允许进入 Subagent，且仍受 Subagent Profile 的工具白名单约束。
+内置 Subagent Profile 包含 `general-purpose`、`web-search`、`research-explorer`、
+`fact-verifier`，并继续保留 `planner`、`coder`；其中 `web-search` 与
+`fact-verifier` 不具备知识库工具权限，`research-explorer` 仅在任务明确要求内部资料时查询知识库。
 `SkillsMiddleware` 负责 Skill 提示、文件同步、依赖闭包与读取激活，不再重复承担最终工具暴露决策。
 `llm/` 负责模型管理：
 
@@ -489,7 +503,7 @@ POST 上传
   -> PostgreSQL 创建 status=uploaded 的文档
   -> 接口立即返回
   -> FastAPI BackgroundTasks 使用独立 AsyncSession
-  -> 解析、分块、embedding / LightRAG 建图
+  -> 解析、分块、Milvus 主索引与图增强构建
   -> status=indexed 或 failed
   -> 前端每 3 秒轮询处理中状态
 ```
@@ -502,7 +516,7 @@ POST 上传
 ```text
 前端二次确认
   -> 检查文档是否处于处理中，处理中返回 409
-  -> backend 清理 Milvus collection 或 LightRAG 文档/图谱/向量数据
+  -> 清理 Milvus 主索引、图向量集合与 Neo4j 拓扑
   -> MinIO 删除文档对象或 knowledge-bases/{kb_id}/ 前缀
   -> 删除 user_selections 中的知识库引用
   -> PostgreSQL 级联删除 knowledge_bases / documents / chunks
@@ -513,7 +527,7 @@ POST 上传
 
 ## 8. 知识库分块补充
 
-当前知识库上传链路在 Markdown 解析后，会读取知识库 `metadata` 中保存的
+当前知识库上传链路在 Markdown 解析后，会读取知识库显式字段中保存的
 `chunk_preset_id` 和 `chunk_parser_config`，执行对应分块策略：
 
 ```text
@@ -521,27 +535,62 @@ Markdown
   -> backend/app/knowledge/chunking/ragflow_like/dispatcher.py
   -> general / separator / book / laws / qa
   -> knowledge_chunks
-  -> 按 kb_type 分派
-     -> milvus: embedding + Milvus dense/BM25
-     -> lightrag: LightRAG 独立 Milvus collections + Neo4j
+  -> Chunk embedding + Milvus dense/BM25
   -> knowledge_documents.status=indexed
 ```
 
-`kb_type` 当前支持 `milvus` 和 `lightrag`，保存在 `knowledge_bases.metadata` 中；
-旧知识库缺少该字段时按 `milvus` 处理。LightRAG backend 按知识库缓存实例，并对同一知识库的
-写入使用进程内串行锁。多进程部署时需要进一步替换为 PostgreSQL advisory lock 或 Redis 锁。
+主索引完成后，Chunk 保持 `graph_indexed=false`。图谱构建是独立的第二阶段：
 
-分块实现移植并裁剪自 Yuxi `ragflow_like`。当前未接入 Semantic 策略，因为其同步 embedding、
-NLTK 和 scikit-learn 依赖与 miniBOT 当前异步 embedding 链路不直接兼容。第三方许可保存在
-`backend/app/knowledge/chunking/ragflow_like/YUXI_LICENSE`。
+```text
+前端图谱构建页
+  -> 用户选择抽取模型、并发数和可选 Schema
+  -> POST graph-build/config 确认并锁定配置
+  -> POST graph-build/index 提交后台任务
+  -> 实体/关系抽取
+  -> PostgreSQL 图元数据 + Neo4j 拓扑 + Milvus 图向量
+  -> Chunk graph_indexed=true
+```
+
+任务状态持久化在 `knowledge_bases.additional_params.graph_build_task`，前端通过
+`GET graph-build/status` 轮询进度。同一知识库一次只允许一个进程内图构建任务；服务重启时
+遗留的活动任务会标记为失败，任务运行时禁止删除知识库或文档。配置锁定后不能切换抽取器类型，但可以更新模型、Schema 和并发参数；
+`POST graph-build/reset` 用于清理构建结果，并可按需同时清除配置。
+
+图增强实现集中在 `backend/app/knowledge/graphs`：
+
+- `knowledge_bases` 将业务 ID、模型、检索、扩展、共享、思维导图和示例问题配置保存为显式列，
+  不再把这些配置集中写入通用 JSON 元数据列；
+- Neo4j Driver 的共享连接和生命周期由 `backend/app/storage/neo4j` 管理；
+- 不设置额外的图存储中间层，图服务直接负责拓扑写入、删除、查询与 PPR 等领域逻辑；
+- `extractors/`：抽取器接口、工厂和大模型抽取实现。
+- `graph_utils.py`：实体规范化、稳定 ID 与文档图合并。
+- `milvus_graph_vector_store.py`：实体和三元组向量集合。
+- `milvus_graph_service.py`：抽取配置锁定、构建状态、pending chunk 增量构建、
+  重置、删除、图浏览、两跳子图、PPR 与检索编排。
+- `backend/app/services/graph_build_service.py`：图构建后台任务、互斥执行和持久化进度。
+
+知识库采用固定存储组合，不读取或保存后端类型字段。当前未接入 Semantic 策略，因为其同步
+embedding、NLTK 和 scikit-learn 依赖与 miniBOT 当前异步 embedding 链路不直接兼容。
 
 新增数据表：
 
 ```text
 knowledge_chunks
+knowledge_graph_entities
+knowledge_graph_entity_mentions
+knowledge_graph_triples
+knowledge_graph_triple_mentions
 ```
 
-`knowledge_chunks` 只保存 chunk 元数据、顺序和字符位置；chunk 正文和向量由 Milvus collection 保存。
+`knowledge_chunks` 保存单层 Chunk。当前前端选中的 `chunk_preset_id` 由 dispatcher
+路由到对应解析器，解析器输出的每个文本块直接成为可检索、可构图的唯一 Chunk。
+Chunk 还保存 `graph_indexed`、`ent_ids` 和 `extraction_result`，用于图构建状态统计、
+断点续建以及避免重复调用抽取模型；知识库的锁定抽取配置保存在
+`knowledge_bases.additional_params.graph_build_config`。
+
+Milvus 写入并检索同一份单层 Chunk；`MilvusKnowledgeBackend` 完成主召回、图增强融合和
+可选重排，`KnowledgeRetrievalService` 补充文档引用信息后直接返回给 LLM。
+默认 Milvus collection 前缀为 `kb_`，collection 使用 `single_chunk_v1` schema 标记。
 
 Milvus collection 的 `content` 字段启用 Chinese analyzer，并通过内置 BM25 Function 自动生成
 `content_sparse`。`embedding` 和 `content_sparse` 分别使用 COSINE vector 索引和 BM25 sparse 索引。
@@ -555,24 +604,33 @@ Milvus collection 的 `content` 字段启用 Chinese analyzer，并通过内置 
   -> Agent ToolRuntime 调用 query_kb
   -> backend/app/agents/toolkits/kbs/tools.py
   -> backend/app/services/knowledge_retrieval_service.py
-  -> query embedding
-  -> Milvus vector / keyword / hybrid search
+  -> backend/app/knowledge/backends/milvus.py
+  -> Milvus vector / keyword / hybrid 主召回
+  -> 并行执行 Milvus 实体/关系召回
+  -> 组合实体命中 1.0、三元组端点 0.8、主召回关联实体 0.3 并归一化
+  -> Neo4j 读取实体两跳子图
+  -> 个性化 PageRank 排序并从 PostgreSQL 回查 Chunk
+  -> 加权 RRF 融合主索引和图结果
+  -> 可选 Reranker
+  -> 截取 final_top_k
   -> 返回 chunk、文档名、score 和 citation_id
 ```
 
-`query_kb` 默认读取 `knowledge_bases.metadata.query_params.options` 中保存的知识库级检索配置；
-未保存配置时回退到 hybrid 等系统默认值。底层通过 `WeightedRanker` 融合 vector 和 BM25 结果。
-Milvus 查询层参考 Yuxi 实现，支持 `search_mode`、`final_top_k`、`recall_top_k`、
+`query_kb` 默认读取 `knowledge_bases.query_params.options` 中保存的知识库级检索配置；
+未保存配置时默认使用 vector 检索，图增强和重排默认关闭。混合检索通过 `WeightedRanker`
+融合 vector 和 BM25 结果。
+Milvus 查询层支持 `search_mode`、`final_top_k`、`recall_top_k`、
 `similarity_threshold`、`bm25_top_k`、`vector_weight`、`bm25_weight`、
 `bm25_drop_ratio_search`、`include_distances` 和文档过滤。
 
-当 `MINIBOT_RERANK_ENABLED=true` 时，检索服务会先按 `recall_top_k` 多召回候选，再调用
-`backend/app/knowledge/rerank` 中的 reranker 对 chunk 内容精排，结果写入 `rerank_score`。
-Rerank 调用失败时沿用 Yuxi 的降级思路，保留原始检索排序继续返回结果。
+当知识库查询配置启用 `use_reranker` 时，Milvus backend 会先按 `recall_top_k`
+多召回候选，再调用 `backend/app/knowledge/rerank` 中的 reranker 对 chunk 内容精排，
+结果写入 `rerank_score`。
+Rerank 调用失败时保留原始检索排序继续返回结果。
 
 统一检索结果采用 `content + metadata + score` 结构，`metadata` 中包含来源文档、chunk、知识库和
-`citation_id`。`KnowledgeRetrievalService` 根据知识库 `kb_type` 调用对应 backend，
-不把 LightRAG 逻辑写入 `MilvusVectorStore`。
+`citation_id`。`KnowledgeRetrievalService` 负责访问范围、跨知识库聚合和引用信息；
+`MilvusKnowledgeBackend` 负责单知识库的主召回、图增强、RRF 融合与重排。
 
 知识库工具只根据 `ToolRuntime.context` 中的 `user_id` 和 `knowledge_base_ids` 确定访问范围，
 不接受模型传入的用户身份或 collection 名称。

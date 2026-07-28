@@ -8,6 +8,7 @@ import {
   deleteKnowledgeBase,
   deleteKnowledgeDocument,
   generateEvaluationDataset,
+  getKnowledgeGraphBuildStatus,
   getEvaluationDataset,
   getEvaluationRun,
   listKnowledgeChunkPresets,
@@ -17,6 +18,9 @@ import {
   getKnowledgeQueryParams,
   queryKnowledgeBase,
   runKnowledgeEvaluation,
+  configureKnowledgeGraphBuild,
+  resetKnowledgeGraphBuild,
+  submitKnowledgeGraphBuild,
   updateKnowledgeQueryParams,
   uploadEvaluationDataset,
   uploadKnowledgeDocument,
@@ -34,15 +38,6 @@ import {
 } from '../stores/selectionStore'
 import AppSelect from './AppSelect.vue'
 
-const knowledgeTypeFilterOptions = [
-  { value: 'all', label: '全部类型' },
-  { value: 'milvus', label: '文档知识库' },
-  { value: 'lightrag', label: '知识图谱' },
-]
-const knowledgeBaseTypeOptions = [
-  { value: 'milvus', label: 'Milvus 文档知识库' },
-  { value: 'lightrag', label: 'LightRAG 图知识库' },
-]
 const searchModeOptions = [
   { value: 'hybrid', label: '混合检索' },
   { value: 'vector', label: '向量检索' },
@@ -50,6 +45,7 @@ const searchModeOptions = [
 ]
 const detailTabs = [
   { key: 'documents', label: '文档管理' },
+  { key: 'graph', label: '图谱构建' },
   { key: 'query', label: '检索测试' },
   { key: 'evaluation', label: 'RAG评估' },
   { key: 'benchmark', label: '评估基准' },
@@ -66,7 +62,6 @@ const props = defineProps({
 })
 
 const searchText = ref('')
-const knowledgeTypeFilter = ref('all')
 const knowledgeBases = computed(() => selectionStore.resources.knowledgeBase || [])
 const chunkPresets = ref([])
 const documentsByBaseId = ref({})
@@ -84,7 +79,7 @@ const queryConfigSnapshot = ref('')
 const rerankModelsByProvider = ref({})
 const rerankModelsLoading = ref(false)
 const queryConfig = ref({
-  search_mode: 'hybrid',
+  search_mode: 'vector',
   final_top_k: 10,
   recall_top_k: 50,
   similarity_threshold: 0,
@@ -94,6 +89,23 @@ const queryConfig = ref({
   bm25_drop_ratio_search: 0,
   use_reranker: false,
   reranker_model: '',
+  use_graph_retrieval: false,
+  graph_entity_top_k: 10,
+  graph_triple_top_k: 10,
+  graph_top_k: 20,
+  graph_max_nodes: 10000,
+  ppr_damping: 0.85,
+  graph_weight: 1,
+})
+const graphBuildStatus = ref(null)
+const graphBuildLoading = ref(false)
+const graphBuildError = ref('')
+const graphBuildForm = ref({
+  model_spec: '',
+  concurrency_count: 4,
+  schema_definition: '',
+  model_params_text: '',
+  batch_size: 20,
 })
 const evaluationDatasetsByBaseId = ref({})
 const evaluationRunsByBaseId = ref({})
@@ -131,10 +143,8 @@ const uploadDialogOpen = ref(false)
 const createForm = ref({
   name: '',
   description: '',
-  kb_type: 'milvus',
   chunk_preset_id: 'general',
   embedding_model_spec: '',
-  extraction_model_spec: '',
 })
 const uploadFile = ref(null)
 const uploadTargetBaseId = ref(null)
@@ -146,17 +156,17 @@ const deleteTarget = ref(null)
 const openDocumentMenuId = ref(null)
 let documentPollTimer = null
 let documentRefreshPending = false
+let graphBuildRefreshPending = false
 
 const filteredKnowledgeBases = computed(() => {
   const keyword = searchText.value.trim().toLowerCase()
   return knowledgeBases.value.filter((item) => {
-    const matchesType = knowledgeTypeFilter.value === 'all' || item.kb_type === knowledgeTypeFilter.value
     const matchesKeyword =
       !keyword ||
       [item.name, item.description].some((value) =>
         String(value || '').toLowerCase().includes(keyword),
       )
-    return matchesType && matchesKeyword
+    return matchesKeyword
   })
 })
 
@@ -276,9 +286,10 @@ const embeddingModelOptions = computed(() =>
 )
 
 const createFormReady = computed(() => {
-  if (!createForm.value.name.trim() || !createForm.value.embedding_model_spec) return false
-  if (createForm.value.kb_type === 'lightrag' && !createForm.value.extraction_model_spec) return false
-  return true
+  return Boolean(
+    createForm.value.name.trim() &&
+    createForm.value.embedding_model_spec
+  )
 })
 
 const selectedRerankerIsKnown = computed(() => {
@@ -325,6 +336,13 @@ function buildQueryConfigPayload(config) {
     bm25_drop_ratio_search: Number(config.bm25_drop_ratio_search),
     use_reranker: Boolean(config.use_reranker),
     reranker_model: config.use_reranker ? config.reranker_model.trim() || null : null,
+    use_graph_retrieval: Boolean(config.use_graph_retrieval),
+    graph_entity_top_k: Number(config.graph_entity_top_k),
+    graph_triple_top_k: Number(config.graph_triple_top_k),
+    graph_top_k: Number(config.graph_top_k),
+    graph_max_nodes: Number(config.graph_max_nodes),
+    ppr_damping: Number(config.ppr_damping),
+    graph_weight: Number(config.graph_weight),
   }
 }
 
@@ -362,18 +380,6 @@ watch(queryText, () => {
   queryErrorMessage.value = ''
 })
 
-watch(
-  () => createForm.value.kb_type,
-  (kbType) => {
-    if (!createForm.value.embedding_model_spec) {
-      createForm.value.embedding_model_spec = embeddingModelOptions.value[0]?.spec || ''
-    }
-    if (kbType === 'lightrag' && !createForm.value.extraction_model_spec) {
-      createForm.value.extraction_model_spec = chatModelOptions.value[0]?.spec || ''
-    }
-  },
-)
-
 watch(embeddingModelOptions, (options) => {
   if (!createForm.value.embedding_model_spec) {
     createForm.value.embedding_model_spec = options[0]?.spec || ''
@@ -381,8 +387,8 @@ watch(embeddingModelOptions, (options) => {
 })
 
 watch(chatModelOptions, (options) => {
-  if (createForm.value.kb_type === 'lightrag' && !createForm.value.extraction_model_spec) {
-    createForm.value.extraction_model_spec = options[0]?.spec || ''
+  if (!graphBuildForm.value.model_spec) {
+    graphBuildForm.value.model_spec = options[0]?.spec || ''
   }
   if (!benchmarkGenerateForm.value.llm_model_spec) {
     benchmarkGenerateForm.value.llm_model_spec = options[0]?.spec || ''
@@ -399,7 +405,15 @@ watch(chatModelOptions, (options) => {
 
 function startDocumentPolling() {
   if (documentPollTimer) return
-  documentPollTimer = window.setInterval(refreshProcessingDocuments, documentPollIntervalMs)
+  documentPollTimer = window.setInterval(refreshKnowledgeProcessing, documentPollIntervalMs)
+}
+
+async function refreshKnowledgeProcessing() {
+  await refreshProcessingDocuments()
+  if (graphBuildStatus.value?.build_task_status === 'pending' ||
+      graphBuildStatus.value?.build_task_status === 'running') {
+    await loadGraphBuildStatus(selectedBaseId.value)
+  }
 }
 
 function stopDocumentPolling() {
@@ -424,6 +438,7 @@ async function loadKnowledgeBases() {
     if (!selectedBaseId.value && knowledgeBases.value.length) {
       selectedBaseId.value = knowledgeBases.value[0].id
       await loadDocuments(selectedBaseId.value)
+      await loadGraphBuildStatus(selectedBaseId.value)
       await loadQueryConfig(selectedBaseId.value)
       await loadEvaluationDatasets(selectedBaseId.value)
       await loadEvaluationRuns(selectedBaseId.value)
@@ -440,6 +455,30 @@ async function loadDocuments(knowledgeBaseId) {
   documentsByBaseId.value = {
     ...documentsByBaseId.value,
     [knowledgeBaseId]: await listKnowledgeDocuments(knowledgeBaseId, selectionStore.userId),
+  }
+}
+
+async function loadGraphBuildStatus(knowledgeBaseId) {
+  if (!knowledgeBaseId || graphBuildRefreshPending) return
+  graphBuildRefreshPending = true
+  try {
+    graphBuildStatus.value = await getKnowledgeGraphBuildStatus(
+      knowledgeBaseId,
+      selectionStore.userId,
+    )
+    const options = graphBuildStatus.value?.config?.extractor_options || {}
+    if (options.model_spec) graphBuildForm.value.model_spec = options.model_spec
+    if (options.concurrency_count) {
+      graphBuildForm.value.concurrency_count = Number(options.concurrency_count)
+    }
+    if (options.schema) graphBuildForm.value.schema_definition = options.schema
+    graphBuildForm.value.model_params_text = options.model_params
+      ? JSON.stringify(options.model_params)
+      : ''
+  } catch (error) {
+    graphBuildError.value = error.message
+  } finally {
+    graphBuildRefreshPending = false
   }
 }
 
@@ -740,6 +779,7 @@ async function selectKnowledgeBase(knowledgeBaseId) {
   if (!documentsByBaseId.value[knowledgeBaseId]) {
     await loadDocuments(knowledgeBaseId)
   }
+  await loadGraphBuildStatus(knowledgeBaseId)
   await loadQueryConfig(knowledgeBaseId)
   if (!evaluationDatasetsByBaseId.value[knowledgeBaseId]) {
     await loadEvaluationDatasets(knowledgeBaseId)
@@ -755,12 +795,92 @@ function selectDetailTab(tabKey) {
   if (tabKey === 'evaluation' || tabKey === 'benchmark') {
     loadChatModels()
   }
+  if (tabKey === 'graph' && selectedBaseId.value) {
+    loadGraphBuildStatus(selectedBaseId.value)
+    loadChatModels()
+  }
   if (tabKey === 'evaluation' && selectedBaseId.value) {
     loadEvaluationRuns(selectedBaseId.value)
     loadEvaluationDatasets(selectedBaseId.value)
   }
   if (tabKey === 'benchmark' && selectedBaseId.value) {
     loadEvaluationDatasets(selectedBaseId.value)
+  }
+}
+
+async function saveGraphBuildConfig() {
+  const knowledgeBase = selectedKnowledgeBase.value
+  if (!knowledgeBase || graphBuildLoading.value) return
+  graphBuildLoading.value = true
+  graphBuildError.value = ''
+  try {
+    let modelParams = {}
+    const modelParamsText = graphBuildForm.value.model_params_text.trim()
+    if (modelParamsText) {
+      try {
+        modelParams = JSON.parse(modelParamsText)
+      } catch {
+        throw new Error('模型参数不是有效的 JSON。')
+      }
+      if (!modelParams || Array.isArray(modelParams) || typeof modelParams !== 'object') {
+        throw new Error('模型参数必须是 JSON 对象。')
+      }
+    }
+    await configureKnowledgeGraphBuild(knowledgeBase.id, {
+      user_id: selectionStore.userId,
+      extractor_type: 'llm',
+      model_spec: graphBuildForm.value.model_spec,
+      concurrency_count: Number(graphBuildForm.value.concurrency_count),
+      schema_definition: graphBuildForm.value.schema_definition.trim() || null,
+      model_params: modelParams,
+    })
+    await loadGraphBuildStatus(knowledgeBase.id)
+  } catch (error) {
+    graphBuildError.value = error.message
+  } finally {
+    graphBuildLoading.value = false
+  }
+}
+
+async function startGraphBuild() {
+  const knowledgeBase = selectedKnowledgeBase.value
+  if (!knowledgeBase || graphBuildLoading.value || !graphBuildStatus.value?.locked) return
+  graphBuildLoading.value = true
+  graphBuildError.value = ''
+  try {
+    await submitKnowledgeGraphBuild(knowledgeBase.id, {
+      user_id: selectionStore.userId,
+      batch_size: Number(graphBuildForm.value.batch_size),
+    })
+    await loadGraphBuildStatus(knowledgeBase.id)
+  } catch (error) {
+    graphBuildError.value = error.message
+  } finally {
+    graphBuildLoading.value = false
+  }
+}
+
+async function resetGraphBuild(clearConfig = false) {
+  const knowledgeBase = selectedKnowledgeBase.value
+  if (!knowledgeBase || graphBuildLoading.value) return
+  graphBuildLoading.value = true
+  graphBuildError.value = ''
+  try {
+    await resetKnowledgeGraphBuild(knowledgeBase.id, {
+      user_id: selectionStore.userId,
+      clear_extraction_result: true,
+      clear_config: clearConfig,
+    })
+    if (clearConfig) {
+      graphBuildForm.value.model_spec = chatModelOptions.value[0]?.spec || ''
+      graphBuildForm.value.schema_definition = ''
+      graphBuildForm.value.model_params_text = ''
+    }
+    await loadGraphBuildStatus(knowledgeBase.id)
+  } catch (error) {
+    graphBuildError.value = error.message
+  } finally {
+    graphBuildLoading.value = false
   }
 }
 
@@ -786,6 +906,13 @@ async function runQueryTest() {
       include_distances: true,
       use_reranker: queryConfig.value.use_reranker,
       reranker_model: queryConfig.value.use_reranker ? queryConfig.value.reranker_model.trim() || null : null,
+      use_graph_retrieval: queryConfig.value.use_graph_retrieval,
+      graph_entity_top_k: Number(queryConfig.value.graph_entity_top_k),
+      graph_triple_top_k: Number(queryConfig.value.graph_triple_top_k),
+      graph_top_k: Number(queryConfig.value.graph_top_k),
+      graph_max_nodes: Number(queryConfig.value.graph_max_nodes),
+      ppr_damping: Number(queryConfig.value.ppr_damping),
+      graph_weight: Number(queryConfig.value.graph_weight),
     })
   } catch (error) {
     queryErrorMessage.value = error.message
@@ -876,10 +1003,8 @@ function openCreateDialog() {
   createForm.value = {
     name: '',
     description: '',
-    kb_type: 'milvus',
     chunk_preset_id: 'general',
     embedding_model_spec: embeddingModelOptions.value[0]?.spec || '',
-    extraction_model_spec: chatModelOptions.value[0]?.spec || '',
   }
   submitMessage.value = ''
   errorMessage.value = ''
@@ -929,12 +1054,9 @@ async function submitKnowledgeBase() {
       name,
       description: createForm.value.description.trim(),
       user_id: selectionStore.userId,
-      kb_type: createForm.value.kb_type,
       chunk_preset_id: createForm.value.chunk_preset_id,
       chunk_parser_config: selectedCreatePreset.value?.default_config || {},
       embedding_model_spec: createForm.value.embedding_model_spec || null,
-      extraction_model_spec:
-        createForm.value.kb_type === 'lightrag' ? createForm.value.extraction_model_spec || null : null,
     })
     documentsByBaseId.value = {
       ...documentsByBaseId.value,
@@ -1013,11 +1135,22 @@ function statusText(status) {
     chunking: '分块中',
     chunked: '已分块',
     embedding: '向量化中',
-    indexing: '图谱构建中',
+    indexing: '主索引写入中',
     indexed: '已入库',
     failed: '解析失败',
   }
   return statusMap[status] || status || '未知'
+}
+
+function graphTaskStatusText(status) {
+  const statusMap = {
+    pending: '等待执行',
+    running: '构建中',
+    success: '已完成',
+    failed: '失败',
+    cancelled: '已取消',
+  }
+  return statusMap[status] || '未提交'
 }
 </script>
 
@@ -1026,9 +1159,8 @@ function statusText(status) {
     <header class="knowledge-header">
       <div class="knowledge-title-row">
         <h1>知识库</h1>
-        <div class="knowledge-tabs" aria-label="知识库类型">
-          <button type="button" class="active">文档知识库</button>
-          <button type="button">知识图谱</button>
+        <div class="knowledge-tabs">
+          <button type="button" class="active">文档与图谱</button>
         </div>
       </div>
     </header>
@@ -1038,11 +1170,6 @@ function statusText(status) {
         <Search :size="16" />
         <input v-model="searchText" type="search" placeholder="搜索知识库..." />
       </label>
-      <AppSelect
-        v-model="knowledgeTypeFilter"
-        aria-label="知识库类型筛选"
-        :options="knowledgeTypeFilterOptions"
-      />
       <span />
       <button type="button" class="knowledge-create-button" @click="openCreateDialog">
         <Plus :size="16" />
@@ -1079,7 +1206,7 @@ function statusText(status) {
           >
             <strong>{{ item.name }}</strong>
             <span>{{ item.description || '暂无描述' }}</span>
-            <span>{{ item.kb_type === 'lightrag' ? 'LightRAG 图知识库' : 'Milvus 文档知识库' }}</span>
+            <span>Milvus 主索引 · Neo4j 图增强</span>
           </button>
           <button
             type="button"
@@ -1098,8 +1225,7 @@ function statusText(status) {
           <div>
             <h2>{{ selectedKnowledgeBase?.name || '请选择知识库' }}</h2>
             <span v-if="selectedKnowledgeBase" class="chunk-preset-badge">
-              {{ selectedKnowledgeBase.kb_type === 'lightrag' ? 'LightRAG' : 'Milvus' }}
-              · 分块策略：{{ selectedKnowledgeBasePreset?.label || selectedKnowledgeBase.chunk_preset_id || 'General' }}
+              Milvus + Neo4j · 分块策略：{{ selectedKnowledgeBasePreset?.label || selectedKnowledgeBase.chunk_preset_id || 'General' }}
             </span>
           </div>
           <button
@@ -1136,6 +1262,7 @@ function statusText(status) {
               <div class="knowledge-document-info">
                 <strong>{{ document.filename }}</strong>
                 <span>{{ formatFileSize(document.file_size) }}</span>
+                <span v-if="document.status === 'indexed'">主索引已完成，等待图谱构建任务处理</span>
               </div>
               <em :class="['document-status', document.status]">{{ statusText(document.status) }}</em>
               <div class="document-actions">
@@ -1159,6 +1286,141 @@ function statusText(status) {
           <div v-else class="knowledge-document-empty">
             <FileText :size="34" />
             <p>当前知识库还没有文档</p>
+          </div>
+        </section>
+
+        <section v-else-if="activeDetailTab === 'graph'" class="knowledge-evaluation-layout">
+          <div class="knowledge-evaluation-main">
+            <header class="knowledge-section-header">
+              <div class="knowledge-section-copy">
+                <strong>图谱构建</strong>
+                <span>文档主索引完成后，由用户确认抽取配置并提交后台构建任务。</span>
+              </div>
+            </header>
+
+            <p v-if="graphBuildError" class="knowledge-inline-error">{{ graphBuildError }}</p>
+
+            <div class="knowledge-metric-grid">
+              <div class="knowledge-metric">
+                <span>待处理 Chunk</span>
+                <strong>{{ graphBuildStatus?.pending_chunks ?? 0 }}</strong>
+              </div>
+              <div class="knowledge-metric">
+                <span>已构建 Chunk</span>
+                <strong>{{ graphBuildStatus?.indexed_chunks ?? 0 }}</strong>
+              </div>
+              <div class="knowledge-metric">
+                <span>实体</span>
+                <strong>{{ graphBuildStatus?.entity_count ?? 0 }}</strong>
+              </div>
+              <div class="knowledge-metric">
+                <span>关系</span>
+                <strong>{{ graphBuildStatus?.relationship_count ?? 0 }}</strong>
+              </div>
+            </div>
+
+            <div v-if="graphBuildStatus?.build_task" class="knowledge-query-summary">
+              <span>任务：{{ graphTaskStatusText(graphBuildStatus.build_task.status) }}</span>
+              <span>进度：{{ graphBuildStatus.build_task_progress }}%</span>
+              <span>{{ graphBuildStatus.build_task.message }}</span>
+            </div>
+            <div v-else class="knowledge-query-summary">
+              <span>{{ graphBuildStatus?.locked ? '抽取器类型已锁定' : '抽取配置尚未确认' }}</span>
+              <span>先保存配置，再提交构建任务；上传流程不会自动构图。</span>
+            </div>
+            <progress
+              v-if="['pending', 'running'].includes(graphBuildStatus?.build_task_status)"
+              :value="graphBuildStatus?.build_task_progress || 0"
+              max="100"
+            />
+
+            <form class="knowledge-upload-form" @submit.prevent="saveGraphBuildConfig">
+              <div class="knowledge-form-grid">
+                <label>
+                  <span>知识抽取模型</span>
+                  <AppSelect
+                    v-model="graphBuildForm.model_spec"
+                    aria-label="图谱知识抽取模型"
+                    :disabled="chatModelsLoading || ['pending', 'running'].includes(graphBuildStatus?.build_task_status)"
+                    :options="extractionModelOptions"
+                  />
+                </label>
+                <label>
+                  <span>并发抽取数量</span>
+                  <input
+                    v-model.number="graphBuildForm.concurrency_count"
+                    type="number"
+                    min="1"
+                    max="1000"
+                    :disabled="['pending', 'running'].includes(graphBuildStatus?.build_task_status)"
+                  />
+                </label>
+                <label>
+                  <span>单批 Chunk 数量</span>
+                  <input
+                    v-model.number="graphBuildForm.batch_size"
+                    type="number"
+                    min="1"
+                    max="200"
+                    :disabled="['pending', 'running'].includes(graphBuildStatus?.build_task_status)"
+                  />
+                </label>
+              </div>
+              <label>
+                <span>实体和关系 Schema（可选）</span>
+                <textarea
+                  v-model="graphBuildForm.schema_definition"
+                  rows="5"
+                  :disabled="['pending', 'running'].includes(graphBuildStatus?.build_task_status)"
+                  placeholder="例如：实体类型包含人物、组织；关系类型包含任职、合作。"
+                />
+              </label>
+              <label>
+                <span>模型参数 JSON（可选）</span>
+                <input
+                  v-model="graphBuildForm.model_params_text"
+                  type="text"
+                  :disabled="['pending', 'running'].includes(graphBuildStatus?.build_task_status)"
+                  placeholder='例如：{"temperature": 0.1}'
+                />
+              </label>
+              <div class="dialog-actions">
+                <button
+                  v-if="graphBuildStatus?.locked"
+                  type="button"
+                  class="secondary-button"
+                  :disabled="graphBuildLoading || ['pending', 'running'].includes(graphBuildStatus?.build_task_status)"
+                  @click="resetGraphBuild(true)"
+                >
+                  清除配置并重置
+                </button>
+                <button
+                  type="submit"
+                  class="secondary-button"
+                  :disabled="
+                    graphBuildLoading ||
+                    !graphBuildForm.model_spec ||
+                    ['pending', 'running'].includes(graphBuildStatus?.build_task_status)
+                  "
+                >
+                  {{ graphBuildStatus?.locked ? '更新抽取配置' : '确认并锁定配置' }}
+                </button>
+                <button
+                  type="button"
+                  class="knowledge-primary-button"
+                  :disabled="
+                    graphBuildLoading ||
+                    !graphBuildStatus?.locked ||
+                    !graphBuildStatus?.pending_chunks ||
+                    ['pending', 'running'].includes(graphBuildStatus?.build_task_status)
+                  "
+                  @click="startGraphBuild"
+                >
+                  <Loader2 v-if="graphBuildLoading" class="spin" :size="16" />
+                  <span>提交图谱构建任务</span>
+                </button>
+              </div>
+            </form>
           </div>
         </section>
 
@@ -1190,6 +1452,7 @@ function statusText(status) {
                   <strong>#{{ index + 1 }}</strong>
                   <span>Score {{ formatScore(item.score) }}</span>
                   <span v-if="item.rerank_score !== undefined">Rerank {{ formatScore(item.rerank_score) }}</span>
+                  <span v-if="item.fusion_sources?.includes('graph')">图增强命中</span>
                 </header>
                 <p>{{ item.content }}</p>
                 <footer>
@@ -1262,6 +1525,41 @@ function statusText(status) {
             <label>
               <span>BM25 稀疏项丢弃比例</span>
               <input v-model.number="queryConfig.bm25_drop_ratio_search" type="number" min="0" max="1" step="0.05" />
+            </label>
+
+            <label class="knowledge-config-switch">
+              <input v-model="queryConfig.use_graph_retrieval" type="checkbox" />
+              <span>启用图增强检索</span>
+            </label>
+
+            <label>
+              <span>实体召回数量</span>
+              <input v-model.number="queryConfig.graph_entity_top_k" type="number" min="1" max="100" />
+            </label>
+
+            <label>
+              <span>关系召回数量</span>
+              <input v-model.number="queryConfig.graph_triple_top_k" type="number" min="1" max="100" />
+            </label>
+
+            <label>
+              <span>图扩展 Chunk 数</span>
+              <input v-model.number="queryConfig.graph_top_k" type="number" min="1" max="100" />
+            </label>
+
+            <label>
+              <span>PPR 最大子图节点数</span>
+              <input v-model.number="queryConfig.graph_max_nodes" type="number" min="1" max="50000" />
+            </label>
+
+            <label>
+              <span>PPR 阻尼系数</span>
+              <input v-model.number="queryConfig.ppr_damping" type="number" min="0.1" max="0.99" step="0.01" />
+            </label>
+
+            <label>
+              <span>图检索融合权重</span>
+              <input v-model.number="queryConfig.graph_weight" type="number" min="0" max="10" step="0.1" />
             </label>
 
             <label class="knowledge-config-switch">
@@ -1444,31 +1742,12 @@ function statusText(status) {
             </label>
 
             <label>
-              <span>知识库类型</span>
-              <AppSelect
-                v-model="createForm.kb_type"
-                aria-label="知识库类型"
-                :options="knowledgeBaseTypeOptions"
-              />
-            </label>
-
-            <label>
               <span>Embedding 模型</span>
               <AppSelect
                 v-model="createForm.embedding_model_spec"
                 aria-label="Embedding 模型"
                 :disabled="embeddingModelsLoading"
                 :options="embeddingSelectOptions"
-              />
-            </label>
-
-            <label v-if="createForm.kb_type === 'lightrag'">
-              <span>知识抽取模型</span>
-              <AppSelect
-                v-model="createForm.extraction_model_spec"
-                aria-label="知识抽取模型"
-                :disabled="chatModelsLoading"
-                :options="extractionModelOptions"
               />
             </label>
 
@@ -1584,9 +1863,9 @@ function statusText(status) {
                 <strong>向量构建</strong>
                 <small>基于向量相似度召回 chunks，稳定适用于所有知识库。</small>
               </article>
-              <article class="benchmark-mode-card disabled">
+              <article class="benchmark-mode-card">
                 <strong>图增强构建</strong>
-                <small>当前知识库尚未完成图谱构建，暂不能使用图增强构建。</small>
+                <small>先在图谱构建页确认抽取配置并完成构建，再参与检索融合。</small>
               </article>
             </div>
           </div>

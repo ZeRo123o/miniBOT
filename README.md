@@ -8,7 +8,7 @@ miniBOT 是一个可扩展的 AI Agent 全栈脚手架，致力于降低复杂�
 - **持久化智能对话**：会话、消息与 Agent Run 保存到 PostgreSQL；异步 Run 通过 Redis Stream 推送事件，支持 SSE 断线续传和页面刷新后恢复订阅。
 - **Agent 资源编排**：统一管理内置 Tool、外置 Tool、MCP 和 Skill；Skill 激活后可按依赖关系动态加载工具。
 - **Subagent 子任务**：父 Agent 可将独立任务并发委派给 Subagent，并通过逻辑线程和 LangGraph checkpoint 隔离、审计及续跑。
-- **双知识库后端**：支持基于 Milvus 的文档检索，以及由独立 Milvus database + Neo4j 组成的 LightRAG 图知识库。
+- **统一知识库架构**：Milvus 负责文档主索引和图向量召回，Neo4j 负责图拓扑扩展，PostgreSQL 保存权威元数据。
 - **文档解析与分块**：支持 Markdown、TXT、PDF、DOCX、XLSX、CSV，内置 General、QA、Book、Laws、Separator 等分块策略。
 - **检索配置与评估**：可配置 embedding、rerank 和查询参数，并支持评估数据集生成、上传与运行记录。
 - **模型配置中心**：模型 Provider、模型清单和用途配置保存到 PostgreSQL，并通过 Redis 缓存；支持多种 OpenAI-compatible Provider。
@@ -86,7 +86,7 @@ flowchart LR
 | Agent | LangChain、LangGraph、LangGraph PostgreSQL Checkpointer、MCP Adapters |
 | 数据 | PostgreSQL、SQLAlchemy Async、Redis |
 | 对象存储 | MinIO |
-| 知识库 | Milvus、LightRAG、Neo4j、OpenAI-compatible Embedding / Rerank |
+| 知识库 | Milvus、Neo4j、PostgreSQL、OpenAI-compatible Embedding / Rerank |
 | 沙盒 | Docker、独立 Sandbox Provisioner、agent-sandbox |
 
 ## 快速开始
@@ -158,7 +158,7 @@ npm run dev
 4. 测试模型调用，并将需要的模型绑定到 `chat_model` 用途。
 5. 返回智能对话页面开始聊天。
 
-LightRAG 还需要配置可用的抽取模型与 embedding 模型。Milvus 文档知识库至少需要可用的 embedding 模型；rerank 可按需启用。
+创建知识库时需要配置可用的知识抽取模型与 embedding 模型；rerank 可按需启用。
 
 ## 主要模块
 
@@ -192,13 +192,17 @@ miniBOT/
 
 | 数据 | 存储位置 |
 | --- | --- |
-| 会话、消息、模型配置、资源元数据、运行审计 | PostgreSQL |
+| 会话、消息、模型配置、资源元数据、运行审计、知识图谱权威记录 | PostgreSQL |
 | LangGraph 父/子线程状态 | PostgreSQL checkpoint tables |
 | 异步 Run 事件、模型配置缓存 | Redis |
 | 知识库原始文件与 Markdown 副本 | MinIO |
-| Milvus 知识库正文、稀疏/稠密向量 | Milvus |
-| LightRAG 图数据 | Neo4j |
+| Milvus Chunk 主索引、实体向量、关系向量 | Milvus |
+| 图拓扑数据 | Neo4j |
 | Agent 工作区、上传、输出和 Skill 挂载 | 会话隔离的 Docker 沙盒目录 |
+
+知识库上传只创建 Milvus 主索引。图谱由用户在知识库的“图谱构建”页确认并锁定抽取配置后，
+以独立后台任务构建；任务进度保存在 PostgreSQL，构建结果分别写入 PostgreSQL、Neo4j 和
+Milvus 图向量集合。
 
 Agent 只使用以下虚拟路径：
 
@@ -236,7 +240,6 @@ npm run build
 
 ## 致谢
 
-- [Yuxi](https://github.com/xerrors/Yuxi) - 参考项目的前端ui设计与知识库设计
 - [DeerFlow](https://github.com/bytedance/deer-flow) - 参考项目的沙盒设计
 
 

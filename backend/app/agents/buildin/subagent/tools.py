@@ -7,7 +7,10 @@ from langgraph.prebuilt.tool_node import ToolRuntime
 from langgraph.types import Command
 
 from app.agents.buildin.chatbot.context import AgentContext
-from app.agents.middlewares.subagent_middleware import SubAgentProfile
+from app.agents.middlewares.subagent_middleware import (
+    SubAgentProfile,
+    resolve_subagent_profile,
+)
 from app.agents.buildin.subagent.runner import SubAgentRunner
 from app.agents.middlewares.subagent_middleware import create_or_get_child_run, finish_run, make_child_thread_id
 from app.agents.toolkits.governance import (
@@ -34,13 +37,13 @@ THREAD_ID_ARG = "Optional child thread ID returned by an earlier task; omit for 
 
 
 def build_task_tool(profiles: dict[str, SubAgentProfile]) -> StructuredTool:
-    """Create the middleware-owned task tool with Yuxi-style child run tracking."""
+    """创建由中间件管理、支持子运行追踪的任务工具。"""
 
     def task(
         description: Annotated[str, TASK_DESCRIPTION_ARG],
         prompt: Annotated[str, TASK_PROMPT_ARG],
         runtime: ToolRuntime,
-        subagent_type: Annotated[str, SUBAGENT_TYPE_ARG] = "general",
+        subagent_type: Annotated[str, SUBAGENT_TYPE_ARG] = "general-purpose",
         expected_output: Annotated[str, EXPECTED_OUTPUT_ARG] = "",
         thread_id: Annotated[str | None, THREAD_ID_ARG] = None,
     ) -> str:
@@ -50,7 +53,7 @@ def build_task_tool(profiles: dict[str, SubAgentProfile]) -> StructuredTool:
         description: Annotated[str, TASK_DESCRIPTION_ARG],
         prompt: Annotated[str, TASK_PROMPT_ARG],
         runtime: ToolRuntime,
-        subagent_type: Annotated[str, SUBAGENT_TYPE_ARG] = "general",
+        subagent_type: Annotated[str, SUBAGENT_TYPE_ARG] = "general-purpose",
         expected_output: Annotated[str, EXPECTED_OUTPUT_ARG] = "",
         thread_id: Annotated[str | None, THREAD_ID_ARG] = None,
     ) -> Command | str:
@@ -70,7 +73,7 @@ def build_task_tool(profiles: dict[str, SubAgentProfile]) -> StructuredTool:
             if not isinstance(context, AgentContext):
                 raise ValueError("task requires AgentContext runtime")
             _validate_subagent_limits(context, prompt)
-            profile = profiles.get(subagent_type)
+            profile = resolve_subagent_profile(profiles, subagent_type)
             if profile is None:
                 allowed = ", ".join(sorted(profiles))
                 raise ValueError(f"unknown subagent_type: {subagent_type}; allowed: {allowed}")

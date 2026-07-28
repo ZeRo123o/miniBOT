@@ -161,10 +161,6 @@ class EvaluationService:
         description: str = "",
     ) -> dict[str, Any]:
         knowledge_base = await self._require_base(knowledge_base_id, user_id)
-        kb_type = (knowledge_base.metadata_ or {}).get("kb_type") or "milvus"
-        if kb_type != "milvus":
-            raise ValueError("Only Milvus knowledge bases support automatic benchmark generation")
-
         chunks = [
             {
                 "id": chunk.chunk_id,
@@ -272,8 +268,7 @@ class EvaluationService:
         await self.eval_repo.delete_dataset(dataset)
 
     def _saved_query_options(self, knowledge_base: Any) -> dict[str, Any]:
-        metadata = knowledge_base.metadata_ or {}
-        query_params = metadata.get("query_params") or {}
+        query_params = knowledge_base.query_params or {}
         if isinstance(query_params, dict) and isinstance(query_params.get("options"), dict):
             return dict(query_params["options"])
         return {}

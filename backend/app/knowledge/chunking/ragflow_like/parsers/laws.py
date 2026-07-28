@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# Adapted from xerrors/Yuxi knowledge chunking under the MIT license.
+# 面向法规结构的 Markdown 分块器。
 import re
 from typing import Any
 

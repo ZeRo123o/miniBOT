@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# Adapted from xerrors/Yuxi knowledge chunking under the MIT license.
+# 面向书籍结构的 Markdown 分块器。
 from typing import Any
 
 from app.knowledge.chunking.ragflow_like import nlp

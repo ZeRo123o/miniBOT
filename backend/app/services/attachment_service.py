@@ -65,7 +65,7 @@ def truncate_attachment_markdown(markdown: str, max_chars: int) -> tuple[str, bo
 
 
 def build_attachment_state_files(uploads: list[dict]) -> dict:
-    """Build a Yuxi-style state files mapping from parsed attachment Markdown."""
+    """根据附件 Markdown 构建状态文件映射。"""
     files: dict[str, dict] = {}
     for upload in uploads:
         if not isinstance(upload, dict) or upload.get("status") != "parsed":

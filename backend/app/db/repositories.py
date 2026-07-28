@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
@@ -16,6 +17,10 @@ from app.db.models import (
     EvaluationRunItem,
     KnowledgeBase,
     KnowledgeChunk,
+    KnowledgeGraphEntity,
+    KnowledgeGraphEntityMention,
+    KnowledgeGraphTriple,
+    KnowledgeGraphTripleMention,
     KnowledgeDocument,
     PluginResource,
     UserSelection,
@@ -128,11 +133,21 @@ class KnowledgeBaseRepository:
         user_id: str = "default",
         metadata: dict | None = None,
     ) -> KnowledgeBase:
+        runtime_metadata = dict(metadata or {})
         item = KnowledgeBase(
             name=name,
             description=description,
             user_id=user_id,
-            metadata_=metadata or {},
+            created_by=user_id,
+            embedding_model_spec=runtime_metadata.pop("embedding_model_spec", None),
+            llm_model_spec=runtime_metadata.pop("extraction_model_spec", None),
+            query_params=runtime_metadata.pop("query_params", {}) or {},
+            additional_params=runtime_metadata,
+            share_config={
+                "access_level": "private",
+                "department_ids": [],
+                "user_uids": [user_id],
+            },
         )
         self.db.add(item)
         await self.db.commit()
@@ -152,7 +167,7 @@ class KnowledgeBaseRepository:
         await self.db.commit()
 
     async def update_metadata(self, knowledge_base: KnowledgeBase, metadata: dict) -> KnowledgeBase:
-        knowledge_base.metadata_ = metadata
+        knowledge_base.apply_runtime_metadata(metadata)
         await self.db.commit()
         await self.db.refresh(knowledge_base)
         return knowledge_base
@@ -246,6 +261,129 @@ class KnowledgeChunkRepository:
         )
         return list(result.scalars().all())
 
+    async def count_by_knowledge_base(self, knowledge_base_id: int) -> int:
+        """统计知识库内参与检索和图构建的单层 Chunk。"""
+        result = await self.db.execute(
+            select(func.count(KnowledgeChunk.id)).where(
+                KnowledgeChunk.knowledge_base_id == knowledge_base_id,
+            )
+        )
+        return int(result.scalar_one() or 0)
+
+    async def count_graph_pending_by_knowledge_base(
+        self,
+        knowledge_base_id: int,
+    ) -> int:
+        result = await self.db.execute(
+            select(func.count(KnowledgeChunk.id)).where(
+                KnowledgeChunk.knowledge_base_id == knowledge_base_id,
+                KnowledgeChunk.graph_indexed.is_(False),
+            )
+        )
+        return int(result.scalar_one() or 0)
+
+    async def count_graph_indexed_by_knowledge_base(
+        self,
+        knowledge_base_id: int,
+    ) -> int:
+        result = await self.db.execute(
+            select(func.count(KnowledgeChunk.id)).where(
+                KnowledgeChunk.knowledge_base_id == knowledge_base_id,
+                KnowledgeChunk.graph_indexed.is_(True),
+            )
+        )
+        return int(result.scalar_one() or 0)
+
+    async def list_graph_pending_by_knowledge_base(
+        self,
+        knowledge_base_id: int,
+        limit: int,
+    ) -> list[dict[str, Any]]:
+        """返回纯数据快照，避免并发任务持有会过期的 ORM 实例。"""
+        result = await self.db.execute(
+            select(
+                KnowledgeChunk.chunk_id,
+                KnowledgeChunk.knowledge_base_id,
+                KnowledgeChunk.document_id,
+                KnowledgeChunk.chunk_index,
+                KnowledgeChunk.content,
+                KnowledgeChunk.token_count,
+                KnowledgeChunk.start_char_pos,
+                KnowledgeChunk.end_char_pos,
+                KnowledgeChunk.metadata_.label("metadata"),
+                KnowledgeChunk.graph_indexed,
+                KnowledgeChunk.ent_ids,
+                KnowledgeChunk.extraction_result,
+            )
+            .where(
+                KnowledgeChunk.knowledge_base_id == knowledge_base_id,
+                KnowledgeChunk.graph_indexed.is_(False),
+            )
+            .order_by(KnowledgeChunk.document_id, KnowledgeChunk.chunk_index)
+            .limit(max(int(limit), 1))
+        )
+        return [dict(row) for row in result.mappings().all()]
+
+    async def update_extraction_result(
+        self,
+        chunk_id: str,
+        extraction_result: dict,
+    ) -> None:
+        await self.db.execute(
+            update(KnowledgeChunk)
+            .where(KnowledgeChunk.chunk_id == chunk_id)
+            .values(extraction_result=extraction_result)
+            .execution_options(synchronize_session=False)
+        )
+        await self.db.commit()
+
+    async def mark_graph_indexed(
+        self,
+        chunk_id: str,
+        *,
+        ent_ids: list[str],
+    ) -> None:
+        await self.db.execute(
+            update(KnowledgeChunk)
+            .where(KnowledgeChunk.chunk_id == chunk_id)
+            .values(graph_indexed=True, ent_ids=ent_ids)
+            .execution_options(synchronize_session=False)
+        )
+        await self.db.commit()
+
+    async def reset_graph_state_by_knowledge_base(
+        self,
+        knowledge_base_id: int,
+        clear_extraction_result: bool,
+    ) -> int:
+        values: dict[str, Any] = {
+            "graph_indexed": False,
+            "ent_ids": None,
+        }
+        if clear_extraction_result:
+            values["extraction_result"] = None
+        result = await self.db.execute(
+            update(KnowledgeChunk)
+            .where(
+                KnowledgeChunk.knowledge_base_id == knowledge_base_id,
+            )
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        await self.db.commit()
+        return int(result.rowcount or 0)
+
+    async def list_by_chunk_ids(self, chunk_ids: list[str]) -> list[KnowledgeChunk]:
+        normalized_ids = [str(chunk_id) for chunk_id in chunk_ids if str(chunk_id).strip()]
+        if not normalized_ids:
+            return []
+        result = await self.db.execute(
+            select(KnowledgeChunk)
+            .where(KnowledgeChunk.chunk_id.in_(normalized_ids))
+            .order_by(KnowledgeChunk.document_id, KnowledgeChunk.chunk_index, KnowledgeChunk.id)
+        )
+        return list(result.scalars().all())
+
     async def delete_by_document(self, document_id: int) -> None:
         await self.db.execute(delete(KnowledgeChunk).where(KnowledgeChunk.document_id == document_id))
         await self.db.commit()
@@ -260,6 +398,234 @@ class KnowledgeChunkRepository:
         for item in items:
             await self.db.refresh(item)
         return items
+
+
+class KnowledgeGraphRepository:
+    """维护 PostgreSQL 中可重建的图实体、关系和证据映射。"""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def upsert_chunk_graph(
+        self,
+        *,
+        knowledge_base_id: int,
+        document_id: int,
+        chunk_id: str,
+        entities: list[dict],
+        triples: list[dict],
+    ) -> None:
+        """增量保存一个 Chunk 的实体、三元组及证据映射。"""
+        await self.db.execute(
+            delete(KnowledgeGraphTripleMention).where(
+                KnowledgeGraphTripleMention.chunk_id == chunk_id
+            )
+        )
+        await self.db.execute(
+            delete(KnowledgeGraphEntityMention).where(
+                KnowledgeGraphEntityMention.chunk_id == chunk_id
+            )
+        )
+        for data in entities:
+            result = await self.db.execute(
+                select(KnowledgeGraphEntity).where(
+                    KnowledgeGraphEntity.entity_id == data["entity_id"]
+                )
+            )
+            entity = result.scalar_one_or_none()
+            if entity is None:
+                entity = KnowledgeGraphEntity(
+                    knowledge_base_id=knowledge_base_id,
+                    entity_id=data["entity_id"],
+                    name=data["name"],
+                    normalized_name=data["normalized_name"],
+                    entity_type=data.get("label") or data.get("entity_type") or "Entity",
+                    description=data.get("description") or data.get("content") or "",
+                )
+                self.db.add(entity)
+            else:
+                description = data.get("description") or data.get("content") or ""
+                if len(description) > len(entity.description):
+                    entity.description = description
+        await self.db.flush()
+        for data in entities:
+            for evidence_chunk_id in data.get("chunk_ids") or [chunk_id]:
+                self.db.add(
+                    KnowledgeGraphEntityMention(
+                        knowledge_base_id=knowledge_base_id,
+                        document_id=document_id,
+                        chunk_id=evidence_chunk_id,
+                        entity_id=data["entity_id"],
+                    )
+                )
+
+        for data in triples:
+            result = await self.db.execute(
+                select(KnowledgeGraphTriple).where(
+                    KnowledgeGraphTriple.triple_id == data["triple_id"]
+                )
+            )
+            triple = result.scalar_one_or_none()
+            if triple is None:
+                triple = KnowledgeGraphTriple(
+                    knowledge_base_id=knowledge_base_id,
+                    triple_id=data["triple_id"],
+                    source_entity_id=data["source_entity_id"],
+                    target_entity_id=data["target_entity_id"],
+                    relation=data.get("relation_type") or data.get("relation") or "RELATED_TO",
+                    description=data.get("text") or data.get("description") or "",
+                )
+                self.db.add(triple)
+            else:
+                description = data.get("text") or data.get("description") or ""
+                if len(description) > len(triple.description):
+                    triple.description = description
+            for evidence_chunk_id in data.get("chunk_ids") or [chunk_id]:
+                self.db.add(
+                    KnowledgeGraphTripleMention(
+                        knowledge_base_id=knowledge_base_id,
+                        document_id=document_id,
+                        chunk_id=evidence_chunk_id,
+                        triple_id=data["triple_id"],
+                    )
+                )
+
+        await self.db.commit()
+
+    async def delete_document_graph(
+        self,
+        *,
+        knowledge_base_id: int,
+        document_id: int,
+    ) -> tuple[list[str], list[str]]:
+        await self._delete_document_mentions(document_id)
+        deleted_entities, deleted_triples = await self._delete_orphans(knowledge_base_id)
+        await self.db.commit()
+        return deleted_entities, deleted_triples
+
+    async def list_entities(self, knowledge_base_id: int) -> list[KnowledgeGraphEntity]:
+        result = await self.db.execute(
+            select(KnowledgeGraphEntity).where(
+                KnowledgeGraphEntity.knowledge_base_id == knowledge_base_id
+            )
+        )
+        return list(result.scalars().all())
+
+    async def list_triples(self, knowledge_base_id: int) -> list[KnowledgeGraphTriple]:
+        result = await self.db.execute(
+            select(KnowledgeGraphTriple).where(
+                KnowledgeGraphTriple.knowledge_base_id == knowledge_base_id
+            )
+        )
+        return list(result.scalars().all())
+
+    async def count_by_knowledge_base(
+        self,
+        knowledge_base_id: int,
+    ) -> tuple[int, int]:
+        entity_count = await self.db.scalar(
+            select(func.count(KnowledgeGraphEntity.id)).where(
+                KnowledgeGraphEntity.knowledge_base_id == knowledge_base_id
+            )
+        )
+        triple_count = await self.db.scalar(
+            select(func.count(KnowledgeGraphTriple.id)).where(
+                KnowledgeGraphTriple.knowledge_base_id == knowledge_base_id
+            )
+        )
+        return int(entity_count or 0), int(triple_count or 0)
+
+    async def delete_by_knowledge_base(self, knowledge_base_id: int) -> None:
+        await self.db.execute(
+            delete(KnowledgeGraphTriple).where(
+                KnowledgeGraphTriple.knowledge_base_id == knowledge_base_id
+            )
+        )
+        await self.db.execute(
+            delete(KnowledgeGraphEntity).where(
+                KnowledgeGraphEntity.knowledge_base_id == knowledge_base_id
+            )
+        )
+        await self.db.commit()
+
+    async def list_entity_ids_by_chunk_ids(
+        self,
+        chunk_ids: list[str],
+    ) -> dict[str, list[str]]:
+        """查询主召回 chunk 对应的实体，用于补充图检索种子。"""
+        if not chunk_ids:
+            return {}
+        result = await self.db.execute(
+            select(
+                KnowledgeGraphEntityMention.chunk_id,
+                KnowledgeGraphEntityMention.entity_id,
+            ).where(KnowledgeGraphEntityMention.chunk_id.in_(chunk_ids))
+        )
+        mapping: dict[str, list[str]] = {}
+        for chunk_id, entity_id in result.all():
+            mapping.setdefault(str(chunk_id), []).append(str(entity_id))
+        return mapping
+
+    async def _delete_document_mentions(self, document_id: int) -> None:
+        await self.db.execute(
+            delete(KnowledgeGraphTripleMention).where(
+                KnowledgeGraphTripleMention.document_id == document_id
+            )
+        )
+        await self.db.execute(
+            delete(KnowledgeGraphEntityMention).where(
+                KnowledgeGraphEntityMention.document_id == document_id
+            )
+        )
+        await self.db.flush()
+
+    async def _delete_orphans(self, knowledge_base_id: int) -> tuple[list[str], list[str]]:
+        triple_ids = list(
+            (
+                await self.db.execute(
+                    select(KnowledgeGraphTriple.triple_id).where(
+                        KnowledgeGraphTriple.knowledge_base_id == knowledge_base_id,
+                        ~KnowledgeGraphTriple.triple_id.in_(
+                            select(KnowledgeGraphTripleMention.triple_id)
+                        ),
+                    )
+                )
+            ).scalars()
+        )
+        if triple_ids:
+            await self.db.execute(
+                delete(KnowledgeGraphTriple).where(
+                    KnowledgeGraphTriple.triple_id.in_(triple_ids)
+                )
+            )
+            await self.db.flush()
+
+        entity_ids = list(
+            (
+                await self.db.execute(
+                    select(KnowledgeGraphEntity.entity_id).where(
+                        KnowledgeGraphEntity.knowledge_base_id == knowledge_base_id,
+                        ~KnowledgeGraphEntity.entity_id.in_(
+                            select(KnowledgeGraphEntityMention.entity_id)
+                        ),
+                        ~KnowledgeGraphEntity.entity_id.in_(
+                            select(KnowledgeGraphTriple.source_entity_id)
+                        ),
+                        ~KnowledgeGraphEntity.entity_id.in_(
+                            select(KnowledgeGraphTriple.target_entity_id)
+                        ),
+                    )
+                )
+            ).scalars()
+        )
+        if entity_ids:
+            await self.db.execute(
+                delete(KnowledgeGraphEntity).where(
+                    KnowledgeGraphEntity.entity_id.in_(entity_ids)
+                )
+            )
+            await self.db.flush()
+        return entity_ids, triple_ids
 
 
 class EvaluationRepository:

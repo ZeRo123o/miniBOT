@@ -49,7 +49,7 @@ async def select_neighbor_chunks_by_kb_query(
     if not anchor_content:
         return []
 
-    backend = get_knowledge_backend("milvus")
+    backend = get_knowledge_backend()
     candidates = await backend.query(
         knowledge_base_id=knowledge_base_id,
         query_text=anchor_content,

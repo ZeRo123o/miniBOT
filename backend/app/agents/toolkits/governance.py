@@ -110,7 +110,7 @@ def emit_runtime_event(context: Any, event: dict[str, Any]) -> None:
 
 
 def _streamable_tool_event(event: dict[str, Any]) -> dict[str, Any]:
-    """Return the Yuxi-style tool-call shape used by the live chat renderer."""
+    """返回实时聊天渲染器使用的工具调用结构。"""
     payload = {
         "id": str(event.get("id") or ""),
         "tool_name": str(event.get("tool_name") or ""),

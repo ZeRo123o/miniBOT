@@ -14,6 +14,9 @@ from app.agents.backends.sandbox import shutdown_sandbox_provider
 from app.agents.checkpoints import checkpoint_manager
 from app.llm.providers import ensure_builtin_model_providers_in_db, refresh_model_runtime_cache
 from app.services.chat_run_service import chat_run_manager
+from app.services.graph_build_service import graph_build_task_manager
+from app.knowledge.graphs import close_graph_resources
+from app.knowledge.backends import close_knowledge_backend
 
 
 # psycopg's async PostgreSQL pool is incompatible with Windows' Proactor loop.
@@ -42,13 +45,21 @@ async def lifespan(app: FastAPI):
         await seed_builtin_resources(session)
         await ensure_builtin_model_providers_in_db(session)
         await refresh_model_runtime_cache(session)
+    await graph_build_task_manager.start()
     await chat_run_manager.start()
     try:
         yield
     finally:
+        await graph_build_task_manager.stop()
         await chat_run_manager.stop()
-        await checkpoint_manager.close()
-        shutdown_sandbox_provider()
+        try:
+            await close_knowledge_backend()
+        finally:
+            try:
+                await close_graph_resources()
+            finally:
+                await checkpoint_manager.close()
+                shutdown_sandbox_provider()
 
 
 settings = get_settings()

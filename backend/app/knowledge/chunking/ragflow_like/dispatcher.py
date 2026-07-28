@@ -10,32 +10,29 @@ from app.knowledge.chunking.ragflow_like.presets import (
     resolve_chunk_processing_params,
 )
 
-
 def _build_chunk_records(
     text_chunks: list[str],
     *,
     file_id: str,
     filename: str,
-    source_text: str,
     preset_id: str,
+    source_text: str,
 ) -> list[dict[str, Any]]:
-    """将 parser 产生的纯文本块转换为统一的入库记录。"""
+    """将解析器输出直接转换为唯一的、可检索的单层 Chunk。"""
     records: list[dict[str, Any]] = []
-    search_from = 0
-
+    search_start = 0
     for index, chunk_content in enumerate(text_chunks):
         text = (chunk_content or "").strip()
         if not text:
             continue
 
-        start_char_pos = None
-        end_char_pos = None
-        # 从上一个块末尾继续定位，避免重复文本总是命中首次出现的位置。
-        found_at = source_text.find(text, search_from)
-        if found_at >= 0:
-            start_char_pos = found_at
-            end_char_pos = found_at + len(text)
-            search_from = end_char_pos
+        # 位置只用于文档内定位；找不到时保持为空，不影响索引与召回。
+        start_char_pos = source_text.find(text, search_start)
+        if start_char_pos < 0:
+            start_char_pos = source_text.find(text)
+        end_char_pos = start_char_pos + len(text) if start_char_pos >= 0 else None
+        if end_char_pos is not None:
+            search_start = end_char_pos
 
         records.append(
             {
@@ -44,7 +41,7 @@ def _build_chunk_records(
                 "filename": filename,
                 "chunk_index": index,
                 "token_count": nlp.count_tokens(text),
-                "start_char_pos": start_char_pos,
+                "start_char_pos": start_char_pos if start_char_pos >= 0 else None,
                 "end_char_pos": end_char_pos,
                 "metadata": {
                     "source": filename,
@@ -63,7 +60,7 @@ def _dispatch_parser(
     markdown_content: str,
     parser_config: dict[str, Any],
 ) -> list[str]:
-    """根据标准化后的策略 ID 调用对应分块器。"""
+    """Route normalized preset IDs to the existing first-level chunker."""
     parser_id = map_to_internal_parser_id(preset_id)
     if parser_id == "naive":
         return general.chunk_markdown(markdown_content, parser_config)
@@ -86,19 +83,20 @@ def chunk_markdown(
     preset_id: str | None = None,
     parser_config: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    """统一分块入口：补全配置、执行具体策略并生成标准 chunk 记录。"""
+    """按所选策略把 Markdown 切成单层 Chunk。"""
     params = resolve_chunk_processing_params(preset_id, parser_config)
     normalized_preset = params["chunk_preset_id"]
+    normalized_config = params["chunk_parser_config"]
     text_chunks = _dispatch_parser(
         normalized_preset,
         filename,
         markdown_content,
-        params["chunk_parser_config"],
+        normalized_config,
     )
     return _build_chunk_records(
         text_chunks,
         file_id=file_id,
         filename=filename,
-        source_text=markdown_content or "",
         preset_id=normalized_preset,
+        source_text=markdown_content,
     )

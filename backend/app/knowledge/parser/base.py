@@ -7,7 +7,7 @@ from app.knowledge.parser.schemas import ParsedDocument, ParserDocument
 
 
 class DocumentParser(ABC):
-    """Parser adapter contract modeled after Yuxi's processor registry."""
+    """文档解析器适配契约。"""
 
     parser_id = ""
     display_name = ""

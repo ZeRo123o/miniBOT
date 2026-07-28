@@ -4,26 +4,13 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import get_settings
 from app.db.repositories import KnowledgeBaseRepository, KnowledgeDocumentRepository
-from app.knowledge.backends import get_knowledge_backend, normalize_knowledge_backend_type
-from app.knowledge.rerank import get_rerank_service
+from app.knowledge.backends import get_knowledge_backend
+from app.knowledge.backends.milvus import get_default_query_params
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_QUERY_PARAMS = {
-    "search_mode": "hybrid",
-    "final_top_k": 10,
-    "similarity_threshold": 0.0,
-    "bm25_top_k": 50,
-    "vector_weight": 0.7,
-    "bm25_weight": 0.3,
-    "bm25_drop_ratio_search": 0.0,
-    "include_distances": True,
-    "recall_top_k": 50,
-    "use_reranker": None,
-    "reranker_model": None,
-}
+DEFAULT_QUERY_PARAMS = get_default_query_params()
 
 
 class KnowledgeRetrievalService:
@@ -49,6 +36,13 @@ class KnowledgeRetrievalService:
         file_name: str | None = None,
         use_reranker: bool | None = None,
         reranker_model: str | None = None,
+        use_graph_retrieval: bool | None = None,
+        graph_entity_top_k: int | None = None,
+        graph_triple_top_k: int | None = None,
+        graph_top_k: int | None = None,
+        graph_max_nodes: int | None = None,
+        ppr_damping: float | None = None,
+        graph_weight: float | None = None,
     ) -> dict[str, Any]:
         clean_query = query.strip()
         if not clean_query:
@@ -69,21 +63,23 @@ class KnowledgeRetrievalService:
                 "recall_top_k": recall_top_k,
                 "use_reranker": use_reranker,
                 "reranker_model": reranker_model,
+                "use_graph_retrieval": use_graph_retrieval,
+                "graph_entity_top_k": graph_entity_top_k,
+                "graph_triple_top_k": graph_triple_top_k,
+                "graph_top_k": graph_top_k,
+                "graph_max_nodes": graph_max_nodes,
+                "ppr_damping": ppr_damping,
+                "graph_weight": graph_weight,
             },
         )
-        settings = get_settings()
-        should_rerank = settings.rerank_enabled if query_params["use_reranker"] is None else bool(query_params["use_reranker"])
         normalized_mode = self._normalize_search_mode(query_params["search_mode"])
         final_top_k = min(max(int(query_params["final_top_k"]), 1), 100)
         recall_top_k = min(max(int(query_params["recall_top_k"]), final_top_k), 200)
-        if should_rerank:
-            recall_top_k = min(max(recall_top_k, final_top_k, 50), 200)
         bm25_top_k = min(max(int(query_params["bm25_top_k"]), 1), 200)
         vector_weight, bm25_weight = self._normalize_weights(query_params["vector_weight"], query_params["bm25_weight"])
         similarity_threshold = float(query_params["similarity_threshold"])
         bm25_drop_ratio_search = float(query_params["bm25_drop_ratio_search"])
         include_distances = bool(query_params["include_distances"])
-        reranker_model = query_params["reranker_model"]
         if not bases:
             return {
                 "query": clean_query,
@@ -97,6 +93,7 @@ class KnowledgeRetrievalService:
                 knowledge_base=base,
                 query=clean_query,
                 search_mode=normalized_mode,
+                final_top_k=final_top_k,
                 recall_top_k=recall_top_k,
                 similarity_threshold=similarity_threshold,
                 bm25_top_k=bm25_top_k,
@@ -105,18 +102,21 @@ class KnowledgeRetrievalService:
                 bm25_drop_ratio_search=bm25_drop_ratio_search,
                 include_distances=include_distances,
                 document_ids=await self._resolve_document_ids(base.id, file_name),
+                use_graph_retrieval=bool(query_params["use_graph_retrieval"]),
+                graph_entity_top_k=int(query_params["graph_entity_top_k"]),
+                graph_triple_top_k=int(query_params["graph_triple_top_k"]),
+                graph_top_k=int(query_params["graph_top_k"]),
+                graph_max_nodes=int(query_params["graph_max_nodes"]),
+                ppr_damping=float(query_params["ppr_damping"]),
+                graph_weight=float(query_params["graph_weight"]),
+                use_reranker=query_params["use_reranker"],
+                reranker_model=query_params["reranker_model"],
             )
             for base in bases
         ]
         grouped_results = await asyncio.gather(*searches)
         results = [item for group in grouped_results for item in group]
         results.sort(key=lambda item: item["score"], reverse=True)
-        if should_rerank:
-            results = await self._rerank_results(
-                query=clean_query,
-                results=results,
-                reranker_model=reranker_model,
-            )
         results = results[:final_top_k]
         await self._attach_document_metadata(results)
 
@@ -142,13 +142,11 @@ class KnowledgeRetrievalService:
         return params
 
     def _saved_query_options(self, knowledge_base: Any) -> dict[str, Any]:
-        metadata = knowledge_base.metadata_ or {}
-        query_params = metadata.get("query_params") or {}
+        query_params = knowledge_base.query_params or {}
         options = query_params.get("options") if isinstance(query_params, dict) else {}
         if isinstance(options, dict):
             return dict(options)
-        legacy_options = metadata.get("query_config")
-        return dict(legacy_options) if isinstance(legacy_options, dict) else {}
+        return {}
 
     async def _search_base(
         self,
@@ -156,6 +154,7 @@ class KnowledgeRetrievalService:
         knowledge_base: Any,
         query: str,
         search_mode: str,
+        final_top_k: int,
         recall_top_k: int,
         similarity_threshold: float,
         bm25_top_k: int,
@@ -164,16 +163,23 @@ class KnowledgeRetrievalService:
         bm25_drop_ratio_search: float,
         include_distances: bool,
         document_ids: list[int] | None,
+        use_graph_retrieval: bool,
+        graph_entity_top_k: int,
+        graph_triple_top_k: int,
+        graph_top_k: int,
+        graph_max_nodes: int,
+        ppr_damping: float,
+        graph_weight: float,
+        use_reranker: bool | None,
+        reranker_model: str | None,
     ) -> list[dict[str, Any]]:
         knowledge_base_id = int(knowledge_base.id)
-        metadata = knowledge_base.metadata_ or {}
-        kb_type = normalize_knowledge_backend_type(metadata.get("kb_type"))
-        backend = get_knowledge_backend(kb_type)
+        backend = get_knowledge_backend()
         try:
             return await backend.query(
                 knowledge_base_id=knowledge_base_id,
                 query_text=query,
-                final_top_k=recall_top_k,
+                final_top_k=final_top_k,
                 recall_top_k=recall_top_k,
                 search_mode=search_mode,
                 similarity_threshold=similarity_threshold,
@@ -183,52 +189,26 @@ class KnowledgeRetrievalService:
                 bm25_drop_ratio_search=bm25_drop_ratio_search,
                 include_distances=include_distances,
                 document_ids=document_ids,
-                embedding_model_spec=metadata.get("embedding_model_spec"),
-                lightrag_query_mode=metadata.get("lightrag_query_mode") or None,
+                embedding_model_spec=knowledge_base.embedding_model_spec,
+                db_session=self.base_repo.db,
+                use_graph_retrieval=use_graph_retrieval,
+                graph_entity_top_k=graph_entity_top_k,
+                graph_triple_top_k=graph_triple_top_k,
+                graph_top_k=graph_top_k,
+                graph_max_nodes=graph_max_nodes,
+                ppr_damping=ppr_damping,
+                graph_weight=graph_weight,
+                use_reranker=use_reranker,
+                reranker_model=reranker_model,
             )
         except ValueError as error:
-            if kb_type == "lightrag":
-                raise
             logger.warning(
-                "Knowledge backend skipped: knowledge_base_id=%s kb_type=%s mode=%s error=%s",
+                "Knowledge backend skipped: knowledge_base_id=%s mode=%s error=%s",
                 knowledge_base_id,
-                kb_type,
                 search_mode,
                 error,
             )
             return []
-
-    async def _rerank_results(
-        self,
-        *,
-        query: str,
-        results: list[dict[str, Any]],
-        reranker_model: str | None,
-    ) -> list[dict[str, Any]]:
-        if not results:
-            return results
-        documents = [str(item.get("content") or "") for item in results]
-        if not any(document.strip() for document in documents):
-            return results
-
-        try:
-            reranker = get_rerank_service(model_name=reranker_model)
-            scores = await reranker.rerank(query=query, documents=documents)
-            if len(scores) != len(results):
-                raise ValueError(f"Rerank returned {len(scores)} scores for {len(results)} results.")
-        except Exception as error:
-            logger.warning("Knowledge rerank failed; falling back to original retrieval order: %s", error)
-            return results
-
-        for item, score in zip(results, scores, strict=True):
-            item["rerank_score"] = float(score)
-        results.sort(key=lambda item: item.get("rerank_score", item.get("score", 0.0)), reverse=True)
-        logger.info(
-            "Knowledge rerank completed: model=%s candidates=%s",
-            reranker_model or "default",
-            len(results),
-        )
-        return results
 
     async def _attach_document_metadata(self, results: list[dict[str, Any]]) -> None:
         document_ids = sorted(
@@ -264,8 +244,7 @@ class KnowledgeRetrievalService:
         ]
 
     def _normalize_search_mode(self, search_mode: str) -> str:
-        aliases = {"dense": "vector", "bm25": "keyword"}
-        normalized = aliases.get(str(search_mode).lower(), str(search_mode).lower())
+        normalized = str(search_mode).lower()
         if normalized not in {"vector", "keyword", "hybrid"}:
             return "vector"
         return normalized

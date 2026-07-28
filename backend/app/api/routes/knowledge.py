@@ -4,9 +4,20 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Qu
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.knowledge.chunking import get_chunk_preset_options
+from app.knowledge.backends.milvus import get_default_query_params
 from app.knowledge.parser import get_parser_health, get_parser_options
 from app.db.session import AsyncSessionLocal, get_db
-from app.schemas import KnowledgeBaseCreate, KnowledgeQueryConfigRequest, KnowledgeQueryTestRequest
+from app.schemas import (
+    KnowledgeBaseCreate,
+    KnowledgeGraphBuildRequest,
+    KnowledgeGraphConfigRequest,
+    KnowledgeGraphResetRequest,
+    KnowledgeQueryConfigRequest,
+    KnowledgeQueryTestRequest,
+)
+from app.knowledge.graphs import MilvusGraphService
+from app.llm.providers.cache import model_cache
+from app.services.graph_build_service import graph_build_task_manager
 from app.services.knowledge_retrieval_service import KnowledgeRetrievalService
 from app.services.knowledge_service import (
     DuplicateKnowledgeDocumentError,
@@ -19,18 +30,7 @@ from app.storage.base import StorageUnavailableError
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-DEFAULT_QUERY_PARAMS = {
-    "search_mode": "hybrid",
-    "final_top_k": 10,
-    "recall_top_k": 50,
-    "similarity_threshold": 0.0,
-    "bm25_top_k": 50,
-    "vector_weight": 0.7,
-    "bm25_weight": 0.3,
-    "bm25_drop_ratio_search": 0.0,
-    "use_reranker": False,
-    "reranker_model": None,
-}
+DEFAULT_QUERY_PARAMS = get_default_query_params()
 
 
 def _extract_query_options(metadata: dict | None) -> dict:
@@ -93,13 +93,11 @@ async def create_knowledge_base(
             name=payload.name,
             description=payload.description,
             user_id=payload.user_id,
-            kb_type=payload.kb_type,
             chunk_preset_id=payload.chunk_preset_id,
             chunk_parser_config=payload.chunk_parser_config,
             parser_id=payload.parser_id,
             parser_config=payload.parser_config,
             embedding_model_spec=payload.embedding_model_spec,
-            extraction_model_spec=payload.extraction_model_spec,
         )
         logger.info(
             "Knowledge base created: user_id=%s knowledge_base_id=%s name=%s",
@@ -187,7 +185,7 @@ async def get_knowledge_base_query_params(
         raise HTTPException(status_code=404, detail="Knowledge base not found.")
     options = {
         **DEFAULT_QUERY_PARAMS,
-        **_extract_query_options(knowledge_base.metadata_),
+        **_extract_query_options({"query_params": knowledge_base.query_params}),
     }
     return {"message": "success", "data": options}
 
@@ -208,15 +206,111 @@ async def update_knowledge_base_query_params(
     elif options.get("reranker_model") is not None:
         options["reranker_model"] = str(options["reranker_model"]).strip() or None
 
-    metadata = dict(knowledge_base.metadata_ or {})
-    query_params = dict(metadata.get("query_params") or {})
+    query_params = dict(knowledge_base.query_params or {})
     query_params["options"] = {
         **(query_params.get("options") or {}),
         **options,
     }
-    metadata["query_params"] = query_params
-    await KnowledgeService(db).base_repo.update_metadata(knowledge_base, metadata)
+    knowledge_base.query_params = query_params
+    await db.commit()
+    await db.refresh(knowledge_base)
     return {"message": "success", "data": query_params["options"]}
+
+
+@router.get("/knowledge-bases/{knowledge_base_id}/graph-build/status")
+async def get_graph_build_status(
+    knowledge_base_id: int,
+    user_id: str = Query(default="default"),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    knowledge_base = await KnowledgeService(db).base_repo.get(
+        knowledge_base_id,
+        user_id=user_id,
+    )
+    if knowledge_base is None:
+        raise HTTPException(status_code=404, detail="Knowledge base not found.")
+    return await MilvusGraphService(db).get_status(str(knowledge_base_id))
+
+
+@router.post("/knowledge-bases/{knowledge_base_id}/graph-build/config")
+async def configure_graph_build(
+    knowledge_base_id: int,
+    payload: KnowledgeGraphConfigRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    knowledge_base = await KnowledgeService(db).base_repo.get(
+        knowledge_base_id,
+        user_id=payload.user_id,
+    )
+    if knowledge_base is None:
+        raise HTTPException(status_code=404, detail="Knowledge base not found.")
+    model_info = model_cache.get_model_info(payload.model_spec)
+    if model_info is None or model_info.model_type != "chat":
+        raise HTTPException(
+            status_code=422,
+            detail="知识抽取模型不可用，请先在模型配置页启用 Chat 模型并刷新缓存。",
+        )
+    try:
+        options: dict = {
+            "model_spec": payload.model_spec,
+            "concurrency_count": payload.concurrency_count,
+            "model_params": payload.model_params,
+        }
+        if payload.schema_definition:
+            options["schema"] = payload.schema_definition
+        config = await MilvusGraphService(db).configure(
+            str(knowledge_base_id),
+            payload.extractor_type,
+            options,
+            payload.user_id,
+        )
+        return {"message": "图谱抽取配置已锁定", "status": "success", "config": config}
+    except ValueError as error:
+        raise HTTPException(status_code=409 if "锁定" in str(error) else 422, detail=str(error)) from error
+
+
+@router.post("/knowledge-bases/{knowledge_base_id}/graph-build/index")
+async def submit_graph_build(
+    knowledge_base_id: int,
+    payload: KnowledgeGraphBuildRequest,
+) -> dict:
+    try:
+        task = await graph_build_task_manager.submit(
+            knowledge_base_id=knowledge_base_id,
+            user_id=payload.user_id,
+            batch_size=payload.batch_size,
+        )
+        return {
+            "message": "图谱构建任务已提交",
+            "status": "queued",
+            "task_id": task["task_id"],
+        }
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@router.post("/knowledge-bases/{knowledge_base_id}/graph-build/reset")
+async def reset_graph_build(
+    knowledge_base_id: int,
+    payload: KnowledgeGraphResetRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    knowledge_base = await KnowledgeService(db).base_repo.get(
+        knowledge_base_id,
+        user_id=payload.user_id,
+    )
+    if knowledge_base is None:
+        raise HTTPException(status_code=404, detail="Knowledge base not found.")
+    active = graph_build_task_manager.tasks.get(knowledge_base_id)
+    if active is not None and not active.done():
+        raise HTTPException(status_code=409, detail="图谱构建任务运行中，不能重置。")
+    return await MilvusGraphService(db).reset(
+        str(knowledge_base_id),
+        clear_extraction_result=payload.clear_extraction_result,
+        clear_config=payload.clear_config,
+    )
 
 
 @router.post("/knowledge-bases/{knowledge_base_id}/query-test")
@@ -250,6 +344,13 @@ async def query_knowledge_base(
             file_name=payload.file_name,
             use_reranker=payload.use_reranker,
             reranker_model=payload.reranker_model,
+            use_graph_retrieval=payload.use_graph_retrieval,
+            graph_entity_top_k=payload.graph_entity_top_k,
+            graph_triple_top_k=payload.graph_triple_top_k,
+            graph_top_k=payload.graph_top_k,
+            graph_max_nodes=payload.graph_max_nodes,
+            ppr_damping=payload.ppr_damping,
+            graph_weight=payload.graph_weight,
         )
     except ValueError as error:
         logger.warning(

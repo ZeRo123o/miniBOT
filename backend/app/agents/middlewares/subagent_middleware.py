@@ -7,7 +7,7 @@
 import hashlib
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from langchain.agents.middleware import AgentMiddleware, ModelRequest, ModelResponse
@@ -33,21 +33,60 @@ class SubAgentProfile:
 
 
 BUILTIN_SUBAGENTS: dict[str, SubAgentProfile] = {
-    "general": SubAgentProfile(
-        name="general",
-        description="处理独立推理、归纳或多步骤分析任务。",
-        system_prompt="你是通用分析子智能体。只完成父智能体委派的具体任务，不与用户直接对话。",
+    "general-purpose": SubAgentProfile(
+        name="general-purpose",
+        description="处理通用分析、归纳、写作或不依赖专用工具的多步骤任务。",
+        system_prompt=(
+            "你是通用任务子智能体。只完成父智能体委派的具体任务，不与用户直接对话。"
+            "聚焦分析、整理和写作；没有可靠依据时明确说明，不要假装访问过外部资料或内部知识库。"
+        ),
     ),
     "planner": SubAgentProfile(
         name="planner",
         description="将复杂目标拆解为可执行步骤、依赖与验收标准。",
         system_prompt="你是任务规划子智能体。输出清晰、可执行、可验证的计划，不直接实施。",
     ),
-    "researcher": SubAgentProfile(
-        name="researcher",
-        description="检索公开资料或知识库，提炼可追溯的事实与证据。",
-        system_prompt="你是研究型子智能体。优先使用授权工具验证信息，区分事实与不确定项。",
-        tool_names=frozenset({"tavily_search", "list_kbs", "query_kb"}),
+    "web-search": SubAgentProfile(
+        name="web-search",
+        description="检索实时或公开网页信息，返回带来源的精炼结果；不查询内部知识库。",
+        system_prompt=(
+            "你是网页检索子智能体，专门处理天气、新闻、价格、版本、公告和其他公开或实时信息。"
+            "开始检索前必须先使用 sandbox_read_file 读取 "
+            "`/mnt/skills/web-research/SKILL.md`，激活网络调研能力后再使用 tavily_search。"
+            "优先官方、政府、项目仓库和原始公告，核对发布时间并保留来源 URL。"
+            "你没有知识库查询权限，不得把内部知识库当作实时网页搜索的替代品。"
+        ),
+        tool_names=frozenset({"sandbox_read_file", "tavily_search"}),
+        skill_slugs=frozenset({"web-research"}),
+    ),
+    "research-explorer": SubAgentProfile(
+        name="research-explorer",
+        description="围绕复杂子问题检索公开网页，并在任务明确需要时结合内部知识库交叉验证。",
+        system_prompt=(
+            "你是调研探索子智能体，负责围绕一个复杂子问题收集可追溯证据。"
+            "涉及公开或实时信息时，先使用 sandbox_read_file 读取 "
+            "`/mnt/skills/web-research/SKILL.md`，再使用 tavily_search。"
+            "只有父任务明确要求查询内部资料、已启用知识库或上传文档时，才使用 list_kbs 和 query_kb；"
+            "不得仅因知识库工具可用就读取知识库。"
+            "区分公开来源、内部资料、合理推断和不确定项，并说明来源之间的冲突。"
+        ),
+        tool_names=frozenset(
+            {"sandbox_read_file", "tavily_search", "list_kbs", "query_kb"}
+        ),
+        skill_slugs=frozenset({"web-research"}),
+    ),
+    "fact-verifier": SubAgentProfile(
+        name="fact-verifier",
+        description="独立核验已有论断，主动寻找反证并给出支持、存疑或反驳结论。",
+        system_prompt=(
+            "你是事实核查子智能体。逐条拆分父智能体提交的论断，并保持对抗式核验立场。"
+            "开始核验前必须先使用 sandbox_read_file 读取 "
+            "`/mnt/skills/web-research/SKILL.md`，激活网络调研能力后再使用 tavily_search。"
+            "优先寻找权威且相互独立的来源，同时主动搜索可能的反证。"
+            "每条论断输出支持、存疑或反驳判定，附依据、来源和置信度；证据不足时不得默认相信。"
+            "你没有知识库查询权限，避免使用待核验结论的同源材料进行自证。"
+        ),
+        tool_names=frozenset({"sandbox_read_file", "tavily_search"}),
         skill_slugs=frozenset({"web-research"}),
     ),
     "coder": SubAgentProfile(
@@ -64,6 +103,24 @@ BUILTIN_SUBAGENTS: dict[str, SubAgentProfile] = {
         ),
     ),
 }
+
+# 旧名称不再注入模型提示，仅用于兼容已经持久化的子线程续跑。
+LEGACY_SUBAGENT_ALIASES = {
+    "general": "general-purpose",
+    "researcher": "research-explorer",
+}
+
+
+def resolve_subagent_profile(
+    profiles: dict[str, SubAgentProfile],
+    requested_type: str,
+) -> SubAgentProfile | None:
+    """解析当前或旧版角色名；旧角色保留原名称以通过历史子线程身份校验。"""
+    canonical_type = LEGACY_SUBAGENT_ALIASES.get(requested_type, requested_type)
+    profile = profiles.get(canonical_type)
+    if profile is None or canonical_type == requested_type:
+        return profile
+    return replace(profile, name=requested_type)
 
 
 @dataclass(kw_only=True)
@@ -163,6 +220,15 @@ class SubAgentMiddleware(AgentMiddleware):
 - 简单问答
 - 单次工具调用即可完成
 - 用户只要求简短解释
+
+子智能体路由规则：
+- 一般分析、整理或写作任务使用 general-purpose
+- 实时天气、新闻、价格、版本、公告或其他公开网页信息使用 web-search
+- 需要多来源深入调研，或明确需要结合内部知识库时使用 research-explorer
+- 需要独立检查已有结论、数字或来源可靠性时使用 fact-verifier
+- 只需要拆解计划时使用 planner；只读代码分析时使用 coder
+- 不要让 web-search 或 fact-verifier 查询知识库
+- 简单且单次工具调用即可完成的实时查询，应由你直接调用对应工具，不必创建子任务
 
 可用子智能体：
 {profiles}

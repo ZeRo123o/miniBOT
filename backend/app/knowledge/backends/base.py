@@ -3,9 +3,7 @@ from typing import Any
 
 
 class KnowledgeBackend(ABC):
-    """定义不同知识库类型共用的入库、删除和检索接口。"""
-
-    backend_type: str
+    """定义知识库主索引的入库、删除和检索接口。"""
 
     @abstractmethod
     async def index_document(
@@ -13,8 +11,6 @@ class KnowledgeBackend(ABC):
         *,
         knowledge_base_id: int,
         document_id: int,
-        filename: str,
-        markdown: str,
         chunks: list[dict[str, Any]],
         knowledge_base_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
@@ -26,7 +22,6 @@ class KnowledgeBackend(ABC):
         *,
         knowledge_base_id: int,
         document_id: int,
-        knowledge_base_metadata: dict[str, Any] | None = None,
     ) -> None:
         """删除文档在当前知识库后端中的索引。"""
 
@@ -35,10 +30,8 @@ class KnowledgeBackend(ABC):
         self,
         *,
         knowledge_base_id: int,
-        document_ids: list[int],
-        knowledge_base_metadata: dict[str, Any] | None = None,
     ) -> None:
-        """Delete all backend data owned by one knowledge base."""
+        """删除一个知识库拥有的全部主索引数据。"""
 
     @abstractmethod
     async def query(

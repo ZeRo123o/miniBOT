@@ -1,4 +1,4 @@
-"""MCP service package, aligned with Yuxi's ``agents/mcp`` layout."""
+"""MCP 服务包。"""
 
 from app.agents.mcp.service import (
     BUILTIN_MCP_SERVERS,

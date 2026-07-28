@@ -14,6 +14,7 @@ from app.agents.middlewares.capability_middleware import CapabilityMiddleware
 from app.agents.middlewares.subagent_middleware import (
     BUILTIN_SUBAGENTS,
     SubAgentContext,
+    resolve_subagent_profile,
 )
 from app.agents.toolkits.resolver import resolve_runtime_tools
 
@@ -46,6 +47,22 @@ def dependency_node(
         "mcps": mcps or [],
         "skills": skills or [],
     }
+
+
+class SubAgentProfileTests(unittest.TestCase):
+    def test_legacy_profile_names_resolve_without_being_model_visible(self):
+        self.assertNotIn("general", BUILTIN_SUBAGENTS)
+        self.assertNotIn("researcher", BUILTIN_SUBAGENTS)
+
+        general = resolve_subagent_profile(BUILTIN_SUBAGENTS, "general")
+        researcher = resolve_subagent_profile(BUILTIN_SUBAGENTS, "researcher")
+
+        self.assertEqual(general.name, "general")
+        self.assertEqual(researcher.name, "researcher")
+        self.assertEqual(
+            researcher.tool_names,
+            BUILTIN_SUBAGENTS["research-explorer"].tool_names,
+        )
 
 
 class FakeModelRequest:
@@ -393,9 +410,16 @@ class CapabilityResolverTests(unittest.IsolatedAsyncioTestCase):
             "sandbox_glob",
         ]
         expected = {
-            "general": set(),
+            "general-purpose": set(),
             "planner": set(),
-            "researcher": {"tavily_search", "list_kbs", "query_kb"},
+            "web-search": {"sandbox_read_file", "tavily_search"},
+            "research-explorer": {
+                "sandbox_read_file",
+                "tavily_search",
+                "list_kbs",
+                "query_kb",
+            },
+            "fact-verifier": {"sandbox_read_file", "tavily_search"},
             "coder": {
                 "sandbox_read_file",
                 "sandbox_ls",

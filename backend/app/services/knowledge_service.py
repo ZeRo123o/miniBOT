@@ -14,7 +14,8 @@ from app.knowledge.chunking import (
     resolve_chunk_processing_params,
 )
 from app.db.repositories import KnowledgeBaseRepository, KnowledgeChunkRepository, KnowledgeDocumentRepository
-from app.knowledge.backends import get_knowledge_backend, normalize_knowledge_backend_type
+from app.knowledge.backends import get_knowledge_backend
+from app.knowledge.graphs import MilvusGraphService
 from app.llm.providers.cache import model_cache
 from app.storage import get_storage
 from app.knowledge.parser import normalize_parser_config, parse_document
@@ -53,21 +54,16 @@ class KnowledgeService:
         name: str,
         description: str = "",
         user_id: str = "default",
-        kb_type: str = "milvus",
         chunk_preset_id: str = "general",
         chunk_parser_config: dict | None = None,
         parser_id: str = "auto",
         parser_config: dict | None = None,
         embedding_model_spec: str | None = None,
-        extraction_model_spec: str | None = None,
     ) -> dict:
-        normalized_kb_type = normalize_knowledge_backend_type(kb_type)
         chunk_params = resolve_chunk_processing_params(chunk_preset_id, chunk_parser_config)
         parser_params = normalize_parser_config(parser_id, parser_config)
         model_metadata = self._validate_knowledge_base_models(
-            kb_type=normalized_kb_type,
             embedding_model_spec=embedding_model_spec,
-            extraction_model_spec=extraction_model_spec,
         )
         item = await self.base_repo.create(
             name=name,
@@ -76,16 +72,14 @@ class KnowledgeService:
             metadata={
                 **chunk_params,
                 **parser_params,
-                "kb_type": normalized_kb_type,
                 **model_metadata,
             },
         )
         logger.info(
-            "Knowledge service created base: user_id=%s knowledge_base_id=%s name=%s kb_type=%s chunk_preset_id=%s",
+            "Knowledge service created base: user_id=%s knowledge_base_id=%s name=%s chunk_preset_id=%s",
             user_id,
             item.id,
             item.name,
-            normalized_kb_type,
             chunk_params["chunk_preset_id"],
         )
         return self._knowledge_base_to_dict(item)
@@ -121,33 +115,38 @@ class KnowledgeService:
         return [chunk.to_dict() for chunk in chunks]
 
     async def delete_document(self, *, document_id: int, user_id: str) -> None:
-        """按知识库类型删除后端索引，再删除 PostgreSQL 文档元数据。"""
+        """删除文档的主索引、图索引、对象和 PostgreSQL 元数据。"""
         document = await self.document_repo.get(document_id)
         if document is None:
             raise ValueError("Knowledge document not found.")
         knowledge_base = await self.base_repo.get(document.knowledge_base_id, user_id=user_id)
         if knowledge_base is None:
             raise ValueError("Knowledge document not found.")
+        graph_task = (knowledge_base.additional_params or {}).get("graph_build_task") or {}
+        if graph_task.get("status") in {"pending", "running"}:
+            raise KnowledgeResourceBusyError("图谱构建任务运行中，暂时无法删除文档。")
         if document.status in PROCESSING_DOCUMENT_STATUSES:
             raise KnowledgeResourceBusyError("文档正在处理中，暂时无法删除。")
 
-        kb_type = normalize_knowledge_backend_type((knowledge_base.metadata_ or {}).get("kb_type"))
-        backend = get_knowledge_backend(kb_type)
+        backend = get_knowledge_backend()
         await backend.delete_document(
             knowledge_base_id=knowledge_base.id,
             document_id=document.id,
-            knowledge_base_metadata=knowledge_base.metadata_ or {},
+        )
+        await MilvusGraphService(self.base_repo.db).delete_document(
+            knowledge_base_id=knowledge_base.id,
+            document_id=document.id,
+            metadata=knowledge_base.runtime_metadata(),
         )
         # The document prefix also contains parser-extracted assets. Deleting
         # the complete, hash-scoped prefix avoids leaving orphaned images.
         await self.storage.delete_prefix(self._document_object_prefix(knowledge_base.id, document.file_hash))
         await self.document_repo.delete(document)
         logger.info(
-            "Knowledge document deleted: user_id=%s knowledge_base_id=%s document_id=%s backend=%s",
+            "Knowledge document deleted: user_id=%s knowledge_base_id=%s document_id=%s",
             user_id,
             knowledge_base.id,
             document.id,
-            kb_type,
         )
 
     async def delete_knowledge_base(self, *, knowledge_base_id: int, user_id: str) -> None:
@@ -157,27 +156,27 @@ class KnowledgeService:
             raise KnowledgeBaseNotFoundError("Knowledge base not found.")
 
         documents = await self.document_repo.list(knowledge_base_id)
+        graph_task = (knowledge_base.additional_params or {}).get("graph_build_task") or {}
+        if graph_task.get("status") in {"pending", "running"}:
+            raise KnowledgeResourceBusyError("图谱构建任务运行中，暂时无法删除知识库。")
         processing_documents = [
             document for document in documents if document.status in PROCESSING_DOCUMENT_STATUSES
         ]
         if processing_documents:
             raise KnowledgeResourceBusyError("知识库中有文档正在处理，暂时无法删除。")
 
-        kb_type = normalize_knowledge_backend_type((knowledge_base.metadata_ or {}).get("kb_type"))
-        backend = get_knowledge_backend(kb_type)
+        backend = get_knowledge_backend()
         await backend.delete_knowledge_base(
             knowledge_base_id=knowledge_base.id,
-            document_ids=[document.id for document in documents],
-            knowledge_base_metadata=knowledge_base.metadata_ or {},
         )
+        await MilvusGraphService(self.base_repo.db).delete_knowledge_base(knowledge_base.id)
         await self.storage.delete_prefix(f"knowledge-bases/{knowledge_base.id}/")
         await self.base_repo.delete_with_selection_cleanup(knowledge_base)
         logger.info(
-            "Knowledge base deleted: user_id=%s knowledge_base_id=%s documents=%s backend=%s",
+            "Knowledge base deleted: user_id=%s knowledge_base_id=%s documents=%s",
             user_id,
             knowledge_base.id,
             len(documents),
-            kb_type,
         )
 
     async def upload_document(
@@ -283,15 +282,14 @@ class KnowledgeService:
             return
 
         chunk_params = resolve_chunk_processing_params(
-            (knowledge_base.metadata_ or {}).get("chunk_preset_id"),
-            (knowledge_base.metadata_ or {}).get("chunk_parser_config"),
+            knowledge_base.additional_params.get("chunk_preset_id"),
+            knowledge_base.additional_params.get("chunk_parser_config"),
         )
         parser_params = normalize_parser_config(
-            (knowledge_base.metadata_ or {}).get("parser_id"),
-            (knowledge_base.metadata_ or {}).get("parser_config"),
+            knowledge_base.additional_params.get("parser_id"),
+            knowledge_base.additional_params.get("parser_config"),
         )
-        kb_type = normalize_knowledge_backend_type((knowledge_base.metadata_ or {}).get("kb_type"))
-        backend = get_knowledge_backend(kb_type)
+        backend = get_knowledge_backend()
         markdown_object_key = self._markdown_object_key(knowledge_base.id, document.file_hash)
         document = await self.document_repo.update_status(document, status="parsing")
         logger.info("Knowledge document status updated: document_id=%s status=parsing", document.id)
@@ -373,7 +371,7 @@ class KnowledgeService:
                         "end_char_pos": chunk["end_char_pos"],
                         "metadata_": {
                             **chunk["metadata"],
-                            "content_store": kb_type,
+                            "content_store": "postgresql",
                         },
                     }
                     for chunk in chunks
@@ -386,15 +384,14 @@ class KnowledgeService:
             )
             document = await self.document_repo.update_status(
                 document,
-                status="embedding" if kb_type == "milvus" else "indexing",
+                status="embedding",
                 metadata={
                     **(document.metadata_ or {}),
                     "chunk_count": len(chunks),
                     "chunk_engine": CHUNK_ENGINE_VERSION,
                     "chunk_preset_id": chunk_params["chunk_preset_id"],
                     "chunk_parser_config": chunk_params["chunk_parser_config"],
-                    "content_store": kb_type,
-                    "kb_type": kb_type,
+                    "content_store": "postgresql",
                 },
             )
             logger.info(
@@ -405,16 +402,13 @@ class KnowledgeService:
             index_metadata = await backend.index_document(
                 knowledge_base_id=knowledge_base.id,
                 document_id=document.id,
-                filename=document.filename,
-                markdown=markdown,
                 chunks=chunks,
-                knowledge_base_metadata=knowledge_base.metadata_ or {},
+                knowledge_base_metadata=knowledge_base.runtime_metadata(),
             )
             logger.info(
-                "Knowledge document indexed: document_id=%s chunks=%s backend=%s",
+                "Knowledge document indexed: document_id=%s chunks=%s",
                 document.id,
                 len(chunks),
-                kb_type,
             )
             document = await self.document_repo.update_status(
                 document,
@@ -447,7 +441,7 @@ class KnowledgeService:
     @staticmethod
     def _knowledge_base_to_dict(knowledge_base) -> dict:
         item = knowledge_base.to_dict()
-        metadata = item.get("metadata") or {}
+        metadata = knowledge_base.runtime_metadata()
         chunk_params = resolve_chunk_processing_params(
             metadata.get("chunk_preset_id"),
             metadata.get("chunk_parser_config"),
@@ -460,9 +454,7 @@ class KnowledgeService:
             **metadata,
             **chunk_params,
             **parser_params,
-            "kb_type": normalize_knowledge_backend_type(metadata.get("kb_type")),
         }
-        item["kb_type"] = item["metadata"]["kb_type"]
         item["chunk_preset_id"] = normalize_chunk_preset_id(chunk_params["chunk_preset_id"])
         item["chunk_parser_config"] = chunk_params["chunk_parser_config"]
         item["parser_id"] = parser_params["parser_id"]
@@ -472,27 +464,16 @@ class KnowledgeService:
     @staticmethod
     def _validate_knowledge_base_models(
         *,
-        kb_type: str,
         embedding_model_spec: str | None,
-        extraction_model_spec: str | None,
     ) -> dict:
         embedding_model_spec = str(embedding_model_spec or "").strip()
-        extraction_model_spec = str(extraction_model_spec or "").strip()
         if not embedding_model_spec:
             raise ValueError("Embedding model is required.")
         embedding_info = model_cache.get_model_info(embedding_model_spec)
         if embedding_info is None or embedding_info.model_type != "embedding":
             raise ValueError("Embedding model is unavailable. Please enable it on the model config page and refresh cache.")
 
-        metadata: dict[str, str] = {"embedding_model_spec": embedding_model_spec}
-        if kb_type == "lightrag":
-            if not extraction_model_spec:
-                raise ValueError("LightRAG extraction model is required.")
-            extraction_info = model_cache.get_model_info(extraction_model_spec)
-            if extraction_info is None or extraction_info.model_type != "chat":
-                raise ValueError("LightRAG extraction model is unavailable. Please select an enabled chat model.")
-            metadata["extraction_model_spec"] = extraction_model_spec
-        return metadata
+        return {"embedding_model_spec": embedding_model_spec}
 
     def _original_object_key(self, knowledge_base_id: int, file_hash: str, filename: str) -> str:
         safe_filename = self._safe_filename(filename)

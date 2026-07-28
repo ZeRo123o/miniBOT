@@ -21,7 +21,7 @@ _CLIENT_CONFIG_KEYS = {"transport", "command", "args", "url", "env", "headers", 
 _PERSISTED_CONFIG_KEYS = _CLIENT_CONFIG_KEYS | {"disabled_tools", "tags", "icon"}
 _VALID_TRANSPORTS = {"stdio", "sse", "streamable_http"}
 
-# Matches Yuxi's bundled chart MCP definition. It remains disabled until an
+# 内置图表 MCP 默认保持关闭，等待管理员显式启用。
 # administrator verifies that the host has a usable Node.js/npm runtime.
 BUILTIN_MCP_SERVERS: tuple[dict[str, Any], ...] = (
     {

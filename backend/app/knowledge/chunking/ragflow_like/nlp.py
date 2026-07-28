@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-# Adapted from xerrors/Yuxi knowledge chunking under the MIT license.
+# Markdown 分块所需的轻量文本处理函数。
 import random
 import re
 from dataclasses import dataclass, field

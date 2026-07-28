@@ -1,4 +1,5 @@
 from datetime import datetime
+import secrets
 from typing import Any
 from urllib.parse import quote
 
@@ -252,10 +253,26 @@ class KnowledgeBase(Base, TimestampMixin):
     __tablename__ = "knowledge_bases"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    kb_id: Mapped[str] = mapped_column(
+        String(80),
+        default=lambda: f"kb_{secrets.token_hex(5)}",
+        nullable=False,
+        unique=True,
+        index=True,
+    )
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     description: Mapped[str] = mapped_column(Text, default="", nullable=False)
     user_id: Mapped[str] = mapped_column(String(128), default="default", nullable=False, index=True)
-    metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict, nullable=False)
+    embedding_model_spec: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    llm_model_spec: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    query_params: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    additional_params: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    share_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    mindmap: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    mindmap_file_ids: Mapped[list[str]] = mapped_column(JSONB, default=list, nullable=False)
+    mindmap_metadata: Mapped[dict[str, Any]] = mapped_column(JSONB, default=dict, nullable=False)
+    sample_questions: Mapped[list[Any]] = mapped_column(JSONB, default=list, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
 
     documents: Mapped[list["KnowledgeDocument"]] = relationship(
         back_populates="knowledge_base",
@@ -263,15 +280,48 @@ class KnowledgeBase(Base, TimestampMixin):
         passive_deletes=True,
     )
 
-    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_knowledge_bases_user_name"),)
+    __table_args__ = (
+        UniqueConstraint("kb_id", name="uq_knowledge_bases_kb_id"),
+        UniqueConstraint("user_id", "name", name="uq_knowledge_bases_user_name"),
+    )
+
+    def runtime_metadata(self) -> dict[str, Any]:
+        """组合索引运行时需要的配置；数据库中的权威值均来自显式列。"""
+        return {
+            **(self.additional_params or {}),
+            "embedding_model_spec": self.embedding_model_spec,
+            "extraction_model_spec": self.llm_model_spec,
+            "query_params": self.query_params or {},
+        }
+
+    def apply_runtime_metadata(self, metadata: dict[str, Any]) -> None:
+        """把运行时配置拆回显式列，避免重新引入通用 metadata 字段。"""
+        values = dict(metadata or {})
+        if "embedding_model_spec" in values:
+            self.embedding_model_spec = values.pop("embedding_model_spec") or None
+        if "extraction_model_spec" in values:
+            self.llm_model_spec = values.pop("extraction_model_spec") or None
+        if "query_params" in values:
+            self.query_params = values.pop("query_params") or {}
+        self.additional_params = values
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
+            "kb_id": self.kb_id,
             "name": self.name,
             "description": self.description,
             "user_id": self.user_id,
-            "metadata": self.metadata_ or {},
+            "embedding_model_spec": self.embedding_model_spec,
+            "llm_model_spec": self.llm_model_spec,
+            "query_params": self.query_params or {},
+            "additional_params": self.additional_params or {},
+            "share_config": self.share_config or {},
+            "mindmap": self.mindmap,
+            "mindmap_file_ids": self.mindmap_file_ids or [],
+            "mindmap_metadata": self.mindmap_metadata or {},
+            "sample_questions": self.sample_questions or [],
+            "created_by": self.created_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
@@ -346,6 +396,17 @@ class KnowledgeChunk(Base, TimestampMixin):
     start_char_pos: Mapped[int | None] = mapped_column(Integer, nullable=True)
     end_char_pos: Mapped[int | None] = mapped_column(Integer, nullable=True)
     metadata_: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default=dict, nullable=False)
+    graph_indexed: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        index=True,
+    )
+    ent_ids: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
+    extraction_result: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB,
+        nullable=True,
+    )
 
     document: Mapped[KnowledgeDocument] = relationship(back_populates="chunks")
 
@@ -361,13 +422,136 @@ class KnowledgeChunk(Base, TimestampMixin):
             "document_id": self.document_id,
             "chunk_id": self.chunk_id,
             "chunk_index": self.chunk_index,
+            "content": self.content,
             "token_count": self.token_count,
             "start_char_pos": self.start_char_pos,
             "end_char_pos": self.end_char_pos,
             "metadata": self.metadata_ or {},
+            "graph_indexed": self.graph_indexed,
+            "ent_ids": self.ent_ids,
+            "extraction_result": self.extraction_result,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class KnowledgeGraphEntity(Base, TimestampMixin):
+    """知识图谱实体的权威记录，可据此重建 Neo4j 和 Milvus 图索引。"""
+
+    __tablename__ = "knowledge_graph_entities"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    knowledge_base_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    entity_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    normalized_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    entity_type: Mapped[str] = mapped_column(String(128), default="概念", nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "knowledge_base_id",
+            "normalized_name",
+            "entity_type",
+            name="uq_knowledge_graph_entity_identity",
+        ),
+    )
+
+
+class KnowledgeGraphEntityMention(Base, TimestampMixin):
+    """实体与原始 Chunk 的证据关联。"""
+
+    __tablename__ = "knowledge_graph_entity_mentions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    knowledge_base_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    chunk_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    entity_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_graph_entities.entity_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("entity_id", "chunk_id", name="uq_knowledge_graph_entity_mention"),
+    )
+
+
+class KnowledgeGraphTriple(Base, TimestampMixin):
+    """规范化关系三元组。"""
+
+    __tablename__ = "knowledge_graph_triples"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    knowledge_base_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    triple_id: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    source_entity_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_graph_entities.entity_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    target_entity_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_graph_entities.entity_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    relation: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, default="", nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint(
+            "knowledge_base_id",
+            "source_entity_id",
+            "relation",
+            "target_entity_id",
+            name="uq_knowledge_graph_triple_identity",
+        ),
+    )
+
+
+class KnowledgeGraphTripleMention(Base, TimestampMixin):
+    """关系三元组与原始 Chunk 的证据关联。"""
+
+    __tablename__ = "knowledge_graph_triple_mentions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    knowledge_base_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_bases.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("knowledge_documents.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    chunk_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    triple_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_graph_triples.triple_id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    __table_args__ = (
+        UniqueConstraint("triple_id", "chunk_id", name="uq_knowledge_graph_triple_mention"),
+    )
 
 
 class EvaluationDataset(Base, TimestampMixin):

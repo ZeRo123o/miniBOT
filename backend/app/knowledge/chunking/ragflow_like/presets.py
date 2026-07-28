@@ -28,7 +28,7 @@ CHUNK_PRESET_DESCRIPTIONS = {
     CHUNK_PRESET_SEPARATOR: "命中分隔符即切分，仅对超长片段继续按长度切分。",
 }
 
-CHUNK_ENGINE_VERSION = "ragflow_like_v1"
+CHUNK_ENGINE_VERSION = "ragflow_like_v3_single_chunk"
 GENERAL_INTERNAL_PARSER_ID = "naive"
 
 
@@ -59,7 +59,7 @@ def normalize_chunk_preset_id(value: str | None) -> str:
 
 
 def map_to_internal_parser_id(preset_id: str) -> str:
-    """把对外的 general 名称映射为 Yuxi 兼容的内部 naive 名称。"""
+    """把对外的 general 名称映射为分块器内部的 naive 名称。"""
     normalized = normalize_chunk_preset_id(preset_id)
     return GENERAL_INTERNAL_PARSER_ID if normalized == CHUNK_PRESET_GENERAL else normalized
 
@@ -68,6 +68,8 @@ def get_default_chunk_parser_config(preset_id: str) -> dict[str, Any]:
     """返回指定策略的默认 parser 配置。"""
     normalized = normalize_chunk_preset_id(preset_id)
     config: dict[str, Any] = {
+        # 与分块解析器的默认值保持一致：目标 512 个近似 token，
+        # General 等策略最多允许保留到 1.5 倍后再执行硬切分。
         "chunk_token_num": 512,
         "delimiter": "\\n",
         "overlapped_percent": 0,
@@ -83,12 +85,22 @@ def resolve_chunk_processing_params(
 ) -> dict[str, Any]:
     """合并默认配置与用户配置，形成可持久化的标准分块参数。"""
     normalized = normalize_chunk_preset_id(preset_id)
+    merged_config = deep_merge(
+        get_default_chunk_parser_config(normalized),
+        parser_config if isinstance(parser_config, dict) else {},
+    )
+    allowed_keys = (
+        {"language"}
+        if normalized == CHUNK_PRESET_QA
+        else {"chunk_token_num", "delimiter", "overlapped_percent"}
+    )
     return {
         "chunk_preset_id": normalized,
-        "chunk_parser_config": deep_merge(
-            get_default_chunk_parser_config(normalized),
-            parser_config if isinstance(parser_config, dict) else {},
-        ),
+        "chunk_parser_config": {
+            key: value
+            for key, value in merged_config.items()
+            if key in allowed_keys
+        },
         "chunk_engine_version": CHUNK_ENGINE_VERSION,
     }
 

@@ -21,7 +21,7 @@ _MARKDOWN_IMAGE_PATTERN = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 
 
 class MinerUDocumentParser(DocumentParser):
-    """Adapter for Yuxi-compatible MinerU ``POST /file_parse`` services."""
+    """适配提供 ``POST /file_parse`` 的 MinerU 服务。"""
 
     parser_id = "mineru"
     display_name = "MinerU"
